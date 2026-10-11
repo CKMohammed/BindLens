@@ -69,7 +69,7 @@ def _misc_destroy_safe(self):
 tk.Misc.destroy = _misc_destroy_safe
 
 APP_NAME = "BindLens"
-APP_VERSION = "4.5"
+APP_VERSION = "1.0"
 APP_AUTHOR = "Mohammed Chahboune Kadi"          # 4.3.1: the copyright holder (LICENSE.txt, NOTICE.txt, About)
 APP_LICENSE = "GNU Affero General Public License v3 (AGPL-3.0)"
 os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")     # 4.0: no install hints from PyMuPDF's tables
@@ -10089,6 +10089,16 @@ def _hop_ocr(st, msg, cancelled=None, **_):
     return {"done": done, "left": left}
 
 
+def ocr_langs(tessdata):
+    """1.0: the languages OCR reads - English, and Spanish too when its data is there."""
+    try:
+        if tessdata and os.path.exists(os.path.join(tessdata, "spa.traineddata")):
+            return "eng+spa"
+    except Exception:
+        pass
+    return "eng"
+
+
 def ocr_page_words(fitz, page, tessdata, cache=None):
     """The words of a scanned page, read by OCR (kept on the disk: the second time is instant)."""
     if cache and os.path.exists(cache):
@@ -10097,7 +10107,7 @@ def ocr_page_words(fitz, page, tessdata, cache=None):
                 return [tuple(w) for w in json.load(fh)]
         except Exception:
             pass
-    tp = page.get_textpage_ocr(language="eng", dpi=220, full=True, tessdata=tessdata)
+    tp = page.get_textpage_ocr(language=ocr_langs(tessdata), dpi=220, full=True, tessdata=tessdata)
     words = [(w[0], w[1], w[2], w[3], w[4]) for w in page.get_text("words", textpage=tp, sort=True)]
     if cache:
         try:
@@ -14563,6 +14573,9 @@ FRAME_PALETTES = OrderedDict([
 FRAME_SPEEDS = {"slow": 0.5, "normal": 1.1, "fast": 2.4}
 
 
+BRAND_PINK, BRAND_GOLD = "#FF85C2", "#FFC83D"          # 1.0: the logo's pink and gold (with the violet accent)
+
+
 def hue_shift(hexcol, deg):
     import colorsys
     r, g, b = [int(hexcol[i:i + 2], 16) / 255 for i in (1, 3, 5)]
@@ -15814,10 +15827,123 @@ class OwnBar:
         return True
 
 
+_VLC = {}
+
+
+def load_vlc():
+    """4.6: the VLC engine (libVLC, LGPL) - inside the program (a 'vlc' folder next to BindLens.exe), or a VLC
+    installed on the computer. None when there is none."""
+    if "mod" in _VLC:
+        return _VLC["mod"]
+    mod = None
+    try:
+        d = os.path.join(APP_DIR, "vlc")
+        lib = os.path.join(d, "libvlc.dll")
+        if os.path.isfile(lib):
+            os.environ.setdefault("PYTHON_VLC_LIB_PATH", lib)
+            os.environ.setdefault("PYTHON_VLC_MODULE_PATH", os.path.join(d, "plugins"))
+            try:
+                os.add_dll_directory(d)
+            except Exception:
+                pass
+        import vlc as mod
+        _VLC["version"] = mod.libvlc_get_version().decode("utf-8", "replace")
+    except Exception as ex:
+        _log(f"video engine (VLC): {ex}")
+        mod = None
+    _VLC["mod"] = mod
+    return mod
+
+
+def vlc_args(test=False):
+    a = ["--quiet", "--no-video-title-show", "--no-osd", "--no-snapshot-preview", "--no-stats"]
+    if sys.platform.startswith("linux"):
+        a.append("--no-xlib")
+    if test:
+        a += ["--vout=dummy", "--aout=dummy"]
+    return a
+
+
+class VlcVideo:
+    """4.6: a video played inside a BindLens window by the VLC engine - nearly every kind of video, with sound."""
+    kind = "vlc"
+
+    def __init__(self, path, win_id):
+        vlc = load_vlc()
+        if vlc is None:
+            raise RuntimeError("no VLC engine")
+        self.vlc = vlc
+        self.inst = vlc.Instance(vlc_args())
+        if self.inst is None:
+            raise RuntimeError("the VLC engine did not start")
+        self.p = self.inst.media_player_new()
+        self.p.set_media(self.inst.media_new_path(path))
+        if os.name == "nt":
+            self.p.set_hwnd(int(win_id))
+        elif sys.platform == "darwin":
+            self.p.set_nsobject(int(win_id))
+        else:
+            self.p.set_xwindow(int(win_id))
+        try:                                   # clicks and keys go to BindLens, not to the video
+            self.p.video_set_mouse_input(False)
+            self.p.video_set_key_input(False)
+        except Exception:
+            pass
+        self._ended = False
+
+    def play(self):
+        if self.state() == "ended":
+            self.p.stop()
+        self.p.play()
+
+    def pause(self):
+        self.p.set_pause(1)
+
+    def state(self):
+        st = self.p.get_state()
+        S = self.vlc.State
+        return {S.Playing: "playing", S.Paused: "paused", S.Ended: "ended", S.Stopped: "stopped",
+                S.Opening: "opening", S.Buffering: "playing", S.Error: "error"}.get(st, "stopped")
+
+    def time(self):
+        return max(0, self.p.get_time() or 0)
+
+    def length(self):
+        return max(0, self.p.get_length() or 0)
+
+    def seek(self, ms):
+        ln = self.length()
+        ms = max(0, min(int(ms), max(0, ln - 300))) if ln else max(0, int(ms))
+        if self.state() == "ended":
+            self.p.stop()
+            self.p.play()
+        self.p.set_time(int(ms))
+
+    def set_volume(self, v):
+        self.p.audio_set_volume(max(0, min(100, int(v))))
+
+    def set_mute(self, on):
+        self.p.audio_set_mute(bool(on))
+
+    def set_rate(self, r):
+        self.p.set_rate(float(r))
+
+    def fit(self, W, H):
+        pass                                    # (VLC keeps the picture's shape by itself)
+
+    def close(self):
+        try:
+            self.p.stop()
+            self.p.release()
+            self.inst.release()
+        except Exception:
+            pass
+
+
 class MciVideo:
-    """4.4 - Windows: a video played inside a BindLens window by Windows' own media engine (MCI with DirectShow -
-    part of Windows, nothing to install). Each call says whether it worked; if the video can't be opened this way,
-    BindLens hands it to your video player instead."""
+    """4.4 - Windows: a video played inside a BindLens window by Windows' own media engine (MCI) - used when the
+    VLC engine is not there. Each call says whether it worked."""
+    kind = "mci"
 
     def __init__(self, path, hwnd):
         import ctypes
@@ -15830,7 +15956,7 @@ class MciVideo:
         self.send(f'open "{path}" type mpegvideo alias {self.alias} style child parent {int(hwnd)}')
         self.opened = True
         self.send(f"set {self.alias} time format milliseconds")
-        self.length = int(self.send(f"status {self.alias} length") or 0)
+        self._len = int(self.send(f"status {self.alias} length") or 0)
         try:
             parts = (self.send(f"where {self.alias} source") or "").split()
             self.size = (int(parts[2]), int(parts[3])) if len(parts) >= 4 else (16, 9)
@@ -15846,36 +15972,64 @@ class MciVideo:
             raise RuntimeError(msg.value or f"MCI error {err}")
         return buf.value
 
-    def put(self, x, y, w, h):
-        self.send(f"put {self.alias} window at {int(x)} {int(y)} {max(1, int(w))} {max(1, int(h))}")
-
     def play(self):
+        if self.state() == "ended":
+            self.send(f"seek {self.alias} to start")
         self.send(f"play {self.alias}")
 
     def pause(self):
         self.send(f"pause {self.alias}")
 
-    def mode(self):
+    def state(self):
         try:
-            return self.send(f"status {self.alias} mode")
+            m = self.send(f"status {self.alias} mode")
         except Exception:
-            return ""
+            return "error"
+        if m == "stopped" and self._len and self.time() >= self._len - 400:
+            return "ended"
+        return {"playing": "playing", "paused": "paused"}.get(m, "stopped")
 
-    def position(self):
+    def time(self):
         try:
             return int(self.send(f"status {self.alias} position") or 0)
         except Exception:
             return 0
 
-    def seek(self, ms, play=True):
-        ms = max(0, min(int(ms), max(0, self.length - 1)))
-        self.send(f"seek {self.alias} to {ms}")
-        if play:
-            self.play()
+    def length(self):
+        return self._len
 
-    def volume(self, v):
+    def seek(self, ms):
+        playing = self.state() == "playing"
+        ms = max(0, min(int(ms), max(0, self._len - 1)))
+        self.send(f"seek {self.alias} to {ms}")
+        if playing:
+            self.send(f"play {self.alias}")
+
+    def set_volume(self, v):
         try:
-            self.send(f"setaudio {self.alias} volume to {max(0, min(1000, int(v)))}")
+            self.send(f"setaudio {self.alias} volume to {max(0, min(1000, int(v) * 10))}")
+        except Exception:
+            pass
+
+    def set_mute(self, on):
+        try:
+            self.send(f"setaudio {self.alias} {'off' if on else 'on'}")
+        except Exception:
+            pass
+
+    def set_rate(self, r):
+        try:
+            self.send(f"set {self.alias} speed {int(float(r) * 1000)}")
+        except Exception:
+            pass
+
+    def fit(self, W, H):
+        vw, vh = self.size
+        k = min(W / float(max(1, vw)), H / float(max(1, vh)))
+        w_, h_ = vw * k, vh * k
+        try:
+            self.send(f"put {self.alias} window at {int((W - w_) / 2)} {int((H - h_) / 2)} {max(1, int(w_))} "
+                      f"{max(1, int(h_))}")
         except Exception:
             pass
 
@@ -15887,6 +16041,26 @@ class MciVideo:
             except Exception:
                 pass
 
+
+WHATS_NEW_10 = [
+    ("lock", "A ring binder guards the PIN", "Like the binder of the logo: the PIN fills the label on its spine and the "
+                                             "right code opens it. A small brass padlock, small quiet keys."),
+    ("camera", "Videos inside BindLens", "Big in the window, full screen, or small in a corner while you work - never "
+                                         "a second window. Space pauses, ← → jump, the bar has speed and volume."),
+    ("image", "Galleries", "A book that is mostly pictures opens as a gallery - polaroids, tape, pins, frames; a "
+                           "picture opens with a zoom. Right-click a book: show it as a gallery or as a book."),
+    ("home", "Home like real furniture", "A bookcase, a law library, lever-arch files, a filing cabinet, desk trays, a "
+                                         "card index, lockers, a classroom: point at a book and it comes out a little, "
+                                         "click it and it comes out to you. Personalise Home - drag it, resize it."),
+    ("book", "Each book in its own colours", "The Contents card and the map beside the page take the book's colour "
+                                             "and icon."),
+    ("textedit", "Correct a scanned page", "Ctrl+E on a scan: the line is covered with the paper's own colour and "
+                                           "your words are written on it, as a mark. OCR reads Spanish too."),
+    ("doc", "New document", "File > New document…: a new PDF in the book's folder - blank, a letter, notes, an "
+                            "invoice... - written in the page editor."),
+    ("help", "A short tour", "The first time, little notes point at each thing: add a book, mark, find, read, "
+                             "reports, Home, personalise, the PIN. Help > Show the tour again."),
+]
 
 WHATS_NEW_44 = [
     ("lock", "The PIN first, always", "Once you set a PIN, BindLens asks for it before anything shows - Home only "
@@ -17234,6 +17408,10 @@ class App:
         m.add_command(label="Add documents as books…", command=self.import_documents)
         m.add_command(label="Add files…", command=self.add_files, accelerator="Ctrl+O")
         m.add_command(label="New empty book…", command=self.new_folder)
+        ndm = tk.Menu(m, tearoff=0)                      # 1.0: write a new document into the book's folder
+        for key, (lab, _o, _b) in PAGE_TEMPLATES.items():
+            ndm.add_command(label=lab, command=lambda k=key: self.new_document(k))
+        m.add_cascade(label="New document…", menu=ndm)
         m.add_command(label="Reload folders", command=self.reload, accelerator="F5")
         m.add_separator()
         m.add_command(label="Print…", command=self.print_dialog, accelerator="Ctrl+P")
@@ -17273,6 +17451,10 @@ class App:
         for key, (lab, _o, _b) in PAGE_TEMPLATES.items():
             tm.add_command(label=lab, command=lambda k=key: self.write_page(template=k))
         pm.add_cascade(label="New page from a template", menu=tm)
+        dm = tk.Menu(pm, tearoff=0)                      # 1.0: a whole new document in the book's folder
+        for key, (lab, _o, _b) in PAGE_TEMPLATES.items():
+            dm.add_command(label=lab, command=lambda k=key: self.new_document(k))
+        pm.add_cascade(label="New document in this book", menu=dm)
         pm.add_command(label="Edit this written page…", command=lambda: self.book and self.book.total and
                        self.edit_written_page(self.current_page))
         nb = tk.Menu(pm, tearoff=0)
@@ -17314,6 +17496,7 @@ class App:
         h.add_command(label="Check my folders (a file is missing?)…", command=self.check_folders)
         h.add_command(label="What BindLens is doing…", command=self.doing_dialog)
         h.add_command(label="What BindLens changed in my folders…", command=self.changes_dialog)
+        h.add_command(label="Show the tour again", command=lambda: self.show_tour(force=True))
         h.add_command(label="What's new", command=lambda: self.whats_new(force=True))
         h.add_command(label="Update from a zip…", command=lambda: self.update_from_zip())
         h.add_command(label="Go back to the version before…", command=lambda: self.go_back_version())
@@ -17877,6 +18060,22 @@ class App:
             x += 34
             hit("ui_galmenu", x, 34, lambda: self.gallery_menu())
             draw_icon(c, "palette", x + 17, cy, self.accent, s=0.72, tag=("ui", "ui_galmenu"))
+        if gal and self.page_lefts is not None:            # 1.0: on the gallery itself, top right
+            t_ = "Personalise the gallery"
+            tw_ = self._measure(t_, self._sfont(9)) + 40
+            gx0 = c.canvasx(vw - tw_ - 22)
+            gy0 = c.canvasy(14)
+            round_rect(c, gx0 + 1, gy0 + 3, gx0 + tw_ + 1, gy0 + 34, 16, fill=T["shadow2"], outline="", tags="ui")
+            round_rect(c, gx0, gy0, gx0 + tw_, gy0 + 31, 15, fill=T["pill"], outline=T["border"],
+                       tags=("ui", "ui_galpers"))
+            if "ui_galpers" not in bound:
+                bound.add("ui_galpers")
+                c.tag_bind("ui_galpers", "<ButtonRelease-1>", lambda e: self.gallery_menu())
+                c.tag_bind("ui_galpers", "<Enter>", lambda e: c.config(cursor="hand2"))
+                c.tag_bind("ui_galpers", "<Leave>", lambda e: c.config(cursor=""))
+            draw_icon(c, "palette", gx0 + 18, gy0 + 15.5, self.accent, s=0.6, tag=("ui", "ui_galpers"))
+            c.create_text(gx0 + 32, gy0 + 15.5, text=t_, anchor="w", font=self.F(9), fill=T["text"],
+                          tags=("ui", "ui_galpers"))
         c.tag_raise("ui")
 
     def _over_ui(self, e):
@@ -17985,6 +18184,10 @@ class App:
         c.bind("<Control-c>", lambda e: self.copy_selection())
 
     def _on_escape(self, _e=None):
+        vst = getattr(self, "_video_st", None)              # 4.6: a video big or full screen: Esc is for it
+        if vst and vst.get("mode") in ("full", "panel") and vst.get("esc"):
+            vst["esc"]()
+            return
         self._close_float()
         if getattr(self, "_qb_panel", None):           # 4.0: Esc closes the quick bar's panel first
             self._qp_close()
@@ -19243,6 +19446,15 @@ class App:
             m.add_command(label="Icon and colour…", command=lambda: self.book_style_dialog(f))
             m.add_separator()
             m.add_command(label="Add files…", command=lambda: self.add_files(folder=f, prefix=""))
+            how_ = (self.lib.settings.get("book_view") or {}).get(f)
+            gv = tk.StringVar(value=how_ or "auto")
+            vm = self._menu(m)
+            for k_, lab_ in (("auto", "BindLens decides (a gallery when most files are pictures)"),
+                             ("gallery", "Show as a gallery"), ("book", "Show as a book")):
+                vm.add_radiobutton(label=lab_, variable=gv, value=k_,
+                                   command=lambda k_=k_: self.book_view_set(f, None if k_ == "auto" else k_))
+            m.add_cascade(label="Gallery or book", menu=vm)
+            self._bv_var = gv
             m.add_command(label="New sub-book…", command=lambda: self.new_subbook(f, ""))
             m.add_command(label="Add a folder from your computer as a sub-book…",
                           command=lambda: self.link_subbook(f, ""))
@@ -19688,6 +19900,8 @@ class App:
         m.add_command(label="Add documents as one book…", command=lambda: self.import_documents(one_book=True))
         m.add_separator()
         m.add_command(label="New empty book…", command=self.new_folder)
+        if self.folder:                                  # 1.0
+            m.add_command(label="Write a new document in this book…", command=lambda: self.new_document("blank"))
         if e is not None:
             self._popup(m, e)
         else:
@@ -20422,9 +20636,9 @@ class App:
         self.zoom = st.get("zoom", 1.0)
         if self.fit_mode:
             self.zoom = self._fit_zoom(self.fit_mode)
-        if not st and self._is_picture_book() and self.lib.settings.get("gallery", True):
+        if self._is_picture_book() and self.lib.settings.get("gallery", True):
             self.fit_mode = None                            # 4.2: a folder of pictures opens as a gallery
-            self.zoom = self._gallery_zoom()
+            self.zoom = self._gallery_zoom()                # (1.0: every time, at the picture you were at)
         self._layout()
         target = min(st.get("page", 0), max(0, self.book.total - 1))
         self.goto_page(target, frac=st.get("frac", 0.0))
@@ -20587,13 +20801,38 @@ class App:
     PIC_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp", ".heic", ".heif"}
 
     def _is_picture_book(self):
-        """4.2: a book (or sub-book) that holds only pictures - it opens as a gallery."""
+        """4.2: a book (or sub-book) of pictures - it opens as a gallery. 1.0: when MOST of its files are pictures
+        or videos (a PDF or a note among the photos does not stop it), or when you chose 'Show as a gallery'
+        for it (right-click the book); 'Show as a book' never makes it one."""
         try:
             fs = self.book.files if self.book else []
-            return len(fs) >= 2 and all(os.path.splitext(f["rel"])[1].lower() in self.PIC_EXTS or
-                                        is_video(f["rel"]) for f in fs)
+            how = (self.lib.settings.get("book_view") or {}).get(self.folder or "")
+            if how == "book":
+                return False
+            pic = [os.path.splitext(f["rel"])[1].lower() in self.PIC_EXTS or is_video(f["rel"]) for f in fs]
+            n = sum(pic)
+            if how == "gallery":
+                return n >= 1
+            pages = sum(max(1, int(f.get("count") or 1)) for f in fs)
+            pic_pages = sum(max(1, int(f.get("count") or 1)) for f, p_ in zip(fs, pic) if p_)
+            # most files are pictures, and the pictures are at least half of what you see (a long PDF among
+            # a few photos stays a book)
+            return len(fs) >= 2 and n >= 2 and n >= 0.6 * len(fs) and pic_pages >= 0.5 * pages
         except Exception:
             return False
+
+    def book_view_set(self, f, how):
+        """1.0: right-click a book > Show as a gallery / Show as a book (None: BindLens decides)."""
+        bv = self.lib.settings.setdefault("book_view", {})
+        if how:
+            bv[f] = how
+        else:
+            bv.pop(f, None)
+        self.lib.save_meta()
+        if f == self.folder and self.book is not None:
+            self.open_folder(f, self.prefix or "")
+            if how == "book":                            # one page after the other, as wide as the window
+                self.root.after(150, lambda: self.set_fit("width"))
 
     def _gallery_zoom(self):
         """The zoom that shows the pictures four (or so) across."""
@@ -20610,7 +20849,7 @@ class App:
             return
         if self._is_picture_book() and not getattr(self, "_reading", False) and \
                 self._stage_conf().get("pic_stage", True):
-            self.gallery_view(g)
+            self._gallery_zoom_open(g)
             return
         self.fit_mode = "page"
         self.current_page = g
@@ -20658,7 +20897,8 @@ class App:
                           joinstyle="miter")
 
     # ---- 4.3: pictures - a frame for each (gallery) and a stage to see them one at a time (reading) ---------------
-    PIC_STYLES = OrderedDict([("polaroid", "Polaroid"), ("museum", "Museum"), ("gold", "Gold"),
+    PIC_STYLES = OrderedDict([("polaroid", "Polaroid"), ("tape", "Polaroid with tape"), ("pin", "Pinned"),
+                              ("museum", "Museum"), ("gold", "Gold"),
                               ("colours", "The frame's colours"), ("none", "None")])
 
     # 4.4: how the next picture comes in on the stage
@@ -20692,9 +20932,9 @@ class App:
 
     def pic_deco_extra(self, style, w):
         """How much room a picture's frame takes: (left/right/top, bottom)."""
-        if style == "polaroid":
+        if style in ("polaroid", "tape", "pin"):
             p = max(6, w * 0.045)
-            return p, max(22, w * 0.17)
+            return p + (6 if style != "polaroid" else 0), max(22, w * 0.17)
         if style == "museum":
             m = max(10, w * 0.075) + 5
             return m, m
@@ -20708,6 +20948,33 @@ class App:
         T = self.T
         kw = {"tags": tag} if tag else {}
         sh = mix(T["canvas"], "#000000", 0.22)
+        if style in ("tape", "pin"):                     # 1.0: a Polaroid on the wall - taped or pinned
+            self._pic_deco(c, x, y, w, h, "polaroid", caption, tag)
+            p, pb = self.pic_deco_extra("polaroid", w)
+            seed = int(abs(x) * 7 + abs(y) * 3) % 997
+            rnd = random.Random(seed)
+            if style == "tape":
+                tw_, th_ = max(34, w * 0.28), max(12, w * 0.07)
+                cols_ = ("#F7D9A8", "#BFE3F2", "#F6C1D7", "#D5ECC2", "#E4D6F7")
+                ang = math.radians(rnd.uniform(-9, 9))
+                cx_, cy_ = x + w / 2 + rnd.uniform(-w * 0.12, w * 0.12), y - p
+                ca, sa = math.cos(ang), math.sin(ang)
+                pts = []
+                for px_, py_ in ((-tw_ / 2, -th_ / 2), (tw_ / 2, -th_ / 2), (tw_ / 2, th_ / 2), (-tw_ / 2, th_ / 2)):
+                    pts += [cx_ + px_ * ca - py_ * sa, cy_ + px_ * sa + py_ * ca]
+                c.create_polygon(*pts, fill=rnd.choice(cols_), outline="", **kw)
+                c.create_line(pts[0], pts[1], pts[2], pts[3], fill="#FFFFFF", **kw)
+            else:
+                cx_, cy_ = x + w / 2, y - p + 2
+                r_ = max(5, w * 0.035)
+                col_ = rnd.choice(("#E8467C", "#675EF4", "#F5A000", "#00A884", "#0A84FF"))
+                c.create_oval(cx_ - r_ + 2, cy_ - r_ + 3, cx_ + r_ + 2, cy_ + r_ + 3, fill=mix(T["canvas"], "#000000",
+                                                                                         0.25), outline="", **kw)
+                c.create_oval(cx_ - r_, cy_ - r_, cx_ + r_, cy_ + r_, fill=col_, outline=mix(col_, "#000000", 0.3),
+                              **kw)
+                c.create_oval(cx_ - r_ * 0.45, cy_ - r_ * 0.6, cx_ - r_ * 0.05, cy_ - r_ * 0.2, fill="#FFFFFF",
+                              outline="", **kw)
+            return
         if style == "polaroid":
             p, pb = self.pic_deco_extra("polaroid", w)
             for k_, t_ in ((7, 0.25), (4, 0.5), (2, 0.9)):
@@ -20849,6 +21116,77 @@ class App:
             self.current_page = max(0, min(int(g), self.book.total - 1))
         self._gal_no_slide = not slideshow
         self.reading_mode(True)
+
+    def _gal_hover(self, e):
+        """1.0: in a gallery, the picture under the mouse shows a soft ring (click it to see it big)."""
+        c = self.canvas
+        try:
+            if not self._is_picture_book():
+                return
+            g = self._grid_hit(c.canvasx(e.x), c.canvasy(e.y))
+        except Exception:
+            return
+        if g == getattr(self, "_gal_hov", None):
+            return
+        self._gal_hov = g
+        c.delete("galhov")
+        if g is None:
+            c.configure(cursor="")
+            return
+        x, y = self._page_xy(g)
+        w, h = self._page_w(g), self._page_h(g)
+        ex_s, ex_b = self.pic_deco_extra(self._gallery_style(), w)
+        A = self.accent
+        for k_, col in ((9, mix(self.T["canvas"], A, 0.25)), (5, mix(self.T["canvas"], A, 0.55)), (2, A)):
+            c.create_rectangle(x - ex_s - k_, y - ex_s - k_, x + w + ex_s + k_, y + h + ex_b + k_, outline=col,
+                               width=2, tags="galhov")
+        c.tag_raise("galhov")
+        c.tag_raise("ui")
+        c.configure(cursor="hand2")
+
+    def _gallery_zoom_open(self, g):
+        """1.0: the picture you click grows from its place in the gallery to the middle - then the viewer opens."""
+        c = self.canvas
+        try:
+            x0, y0 = self._page_xy(g)
+            w0, h0 = self._page_w(g), self._page_h(g)
+            vx, vy = c.canvasx(0), c.canvasy(0)
+            W, H = c.winfo_width(), c.winfo_height()
+            k = min(W * 0.7 / max(1.0, w0), H * 0.75 / max(1.0, h0))
+            w1, h1 = w0 * k, h0 * k
+            x1, y1 = vx + (W - w1) / 2, vy + (H - h1) / 2
+        except Exception:
+            self.gallery_view(g)
+            return
+        if self._fast():
+            self.gallery_view(g)
+            return
+        steps = 7
+
+        def frame(i=0):
+            c.delete("galzoom")
+            if i >= steps:
+                c.delete("galzoom")
+                self.gallery_view(g)
+                return
+            t = (i + 1) / float(steps)
+            e = 1 - (1 - t) ** 3
+            ax, ay = x0 + (x1 - x0) * e, y0 + (y1 - y0) * e
+            aw, ah = w0 + (w1 - w0) * e, h0 + (h1 - h0) * e
+            pad = 6 + 10 * e
+            c.create_rectangle(ax - pad + 4, ay - pad + 6, ax + aw + pad + 4, ay + ah + pad * 2.6 + 6,
+                               fill=mix(self.T["canvas"], "#000000", 0.2), outline="", tags="galzoom")
+            c.create_rectangle(ax - pad, ay - pad, ax + aw + pad, ay + ah + pad * 2.6, fill="#FBFAF7",
+                               outline="#E6E2DA", tags="galzoom")
+            img = self.cache.get((g, round(self.zoom, 4)))
+            if img is not None and i < 2:
+                c.create_image(ax, ay, anchor="nw", image=img, tags="galzoom")
+            else:
+                c.create_rectangle(ax, ay, ax + aw, ay + ah, fill=mix(self.accent, "#FFFFFF", 0.75), outline="",
+                                   tags="galzoom")
+            c.tag_raise("galzoom")
+            self.root.after(18, lambda: frame(i + 1))
+        frame()
 
     def gallery_menu(self, x=None, y=None):
         """4.4.3: Personalise the gallery - the frame round the pictures, the frame when one is big, how the next one
@@ -21018,7 +21356,7 @@ class App:
         style = self._stage_conf().get("stage_style", "colours")
         strip = 78 if H > 480 and self.book.total > 1 else 0
         cap_h = 46
-        top, bot = 26, H - strip - cap_h
+        top, bot = 26 + (10 if style in ("tape", "pin") else 0), H - strip - cap_h
         lg, rg = getattr(self, "_sides_geo", {}).get("l"), getattr(self, "_sides_geo", {}).get("r")
         xa = lg[0] + lg[2] + 8 if lg else 0                 # between the cards beside it (contents, clock)
         xb = rg[0] - 8 if rg else W
@@ -21403,7 +21741,7 @@ class App:
             if y < bottom and y + h > top:
                 self._visible.add(g)
             f = self.book.files[fi]
-            if f["first"] == g and self.page_lefts is not None and pic_grid == "polaroid":
+            if f["first"] == g and self.page_lefts is not None and pic_grid in ("polaroid", "tape", "pin"):
                 pass                                   # 4.3: the name is written under the picture, on its card
             elif f["first"] == g and self.page_lefts is not None:
                 # 4.2: the grid - the document's name over its first page, cut to fit
@@ -22587,9 +22925,8 @@ class App:
         base = T["canvas"]
         light = is_light(base)
         k = 0.30 if light else 0.38
-        return [mix(base, A, k), mix(base, hue_shift(A, 42), k * 0.8), mix(base, "#FFFFFF" if light else "#000000",
-                                                                            0.18),
-                mix(base, hue_shift(A, -36), k * 0.85)]
+        return [mix(base, A, k), mix(base, BRAND_PINK, k * 0.8), mix(base, "#FFFFFF" if light else "#000000", 0.18),
+                mix(base, BRAND_GOLD, k * 0.65)]
 
     def _read_conf(self):
         """4.2: Personalise > Reading mode - how reading looks, apart from the normal view."""
@@ -23696,6 +24033,22 @@ class App:
             return False
         return len(self._map_rows()) > getattr(self, "_map_fit", (geo[3] - 100) // 25)
 
+    def _book_accent(self, folder=None):
+        """1.0: the colour of a book (its icon's colour), made easy to read on the cards beside the page."""
+        col = self.lib.color(folder or self.folder)
+        bg = self.T["panel"]
+        try:
+            def ratio(a, b):
+                la, lb = _lum(a), _lum(b)
+                return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+            for _ in range(8):
+                if ratio(col, bg) >= 3.0:
+                    break
+                col = mix(col, "#000000" if is_light(bg) else "#FFFFFF", 0.16)
+        except Exception:
+            return self.accent
+        return col
+
     def _map_draw(self):
         if getattr(self, "_reading", False):
             return self._toc_draw()
@@ -23703,7 +24056,7 @@ class App:
         geo = self._sides_geo.get("l")
         if not geo or not self.book or not self.book.total:
             return
-        T, A = self.T, self.accent
+        T, A = self.T, self._book_accent()                  # 1.0: the book's own colour
         card = self._side_bg(cv, "l")
         w, h = geo[2], geo[3]
         b = self.book
@@ -23713,10 +24066,13 @@ class App:
         pct = (g - f["first"] + 1) / max(1, f["count"])
         name = self.lib.label(self.folder) + (" / " + self.prefix.rstrip("/").split("/")[-1] if self.prefix else "")
         col = self.lib.color(self.folder)
-        # the book: name, how far you are
-        cv.create_oval(16, 15, 26, 25, fill=col, outline="")
+        # the book: its icon in its colour, its name, how far you are
+        try:
+            cv.create_image(21, 20, image=self._book_icon_small(self.folder))     # 1.0: the book's own tile
+        except Exception:
+            cv.create_oval(16, 15, 26, 25, fill=col, outline="")
         t_ = self._fit_text(name, self._sfont(10, "bold"), w - 50)
-        cv.create_text(34, 20, text=t_, anchor="w", font=self.F(10, "bold"), fill=T["text"])
+        cv.create_text(36, 20, text=t_, anchor="w", font=self.F(10, "bold"), fill=T["text"])
         allp = (g + 1) / b.total
         self._map_btns = []
         sy = self._shelf(cv, 16, 34, w - 16, card, T["text"], cur_fi, g)       # 1.9.9: a little bookshelf
@@ -25865,9 +26221,10 @@ class App:
         geo = self._sides_geo.get("l")
         if not geo or not self.book or not self.book.total:
             return
-        T, A = self.T, self.accent
+        T, A = self.T, self._book_accent()                  # 1.0: the book's own colour
         light = is_light(T["canvas"])
         paper = mix(T["panel"], "#FFF4E2", 0.55) if light else mix(T["panel"], T["canvas"], 0.25)
+        paper = mix(paper, A, 0.05)
         card = self._side_bg(cv, "l", fill=paper)
         w, h = geo[2], geo[3]
         b = self.book
@@ -25880,6 +26237,10 @@ class App:
         rx = w - 44
         cv.create_polygon(rx, 0, rx + 16, 0, rx + 16, 46, rx + 8, 39, rx, 46, fill=A, outline="")
         cv.create_line(rx + 3, 0, rx + 3, 40, fill=mix(A, "#FFFFFF", 0.35))
+        try:                                                # the book's own tile, small, by the ribbon
+            cv.create_image(rx - 24, 24, image=self._book_icon_small(self.folder))
+        except Exception:
+            pass
         # Contents
         im = self._text_img("Contents", 26, ink, style="serif_i")
         cv.create_image(22, 16, image=im[0], anchor="nw")
@@ -26807,6 +27168,7 @@ class App:
             self._frame_layout()                 # the frame turns gold
         except Exception:
             pass
+        self.root.after(80, self._status_draw)   # 1.0: the plaque
         self._home_tick()
         self._home_anim_job = self.root.after(400, self._home_anim)
 
@@ -26814,7 +27176,8 @@ class App:
         ov = getattr(self, "_home", None)
         if ov is not None:
             self._home = None
-            for j in ("_home_anim_job",):
+            self._home_pull, self._home_out = None, {}
+            for j in ("_home_anim_job", "_home_fx_job"):
                 if getattr(self, j, None):
                     try:
                         self.root.after_cancel(getattr(self, j))
@@ -26830,6 +27193,7 @@ class App:
                 self._frame_layout()             # the frame's own colours again
             except Exception:
                 pass
+            self.root.after(80, self._status_draw)
             try:
                 self.canvas.focus_set()
             except Exception:
@@ -26895,6 +27259,16 @@ class App:
         if k != getattr(self, "_home_hover", None):
             old = getattr(self, "_home_hover", None)
             self._home_hover = k
+            if self._home_conf().get("books") in self.HOME_FURNITURE and ((k or "").startswith("bk") or
+                                                                           (old or "").startswith("bk")):
+                if (k or "").startswith("bk"):              # its cover, ready in case it is clicked
+                    try:
+                        self._home_book_base(self._home_books()[int(k[2:])])
+                    except Exception:
+                        pass
+                self._hf_kick()                             # it slides out a little (and the old one back)
+                if not (k or "").startswith("allbooks") and not (old or "").startswith("allbooks"):
+                    return
             if (k or "").startswith("bk") or (old or "").startswith("bk") or k is None and old is None:
                 self._home_books_draw()
             else:
@@ -26917,6 +27291,8 @@ class App:
         self._home_set_hover(key)
 
     def _home_click(self, e):
+        if getattr(self, "_home_pull", None) is not None:
+            return                                      # a book is coming out - it opens in a moment
         key, fn = self._home_hit(e)
         if fn:
             fn()
@@ -26946,9 +27322,9 @@ class App:
             return [mix(base, c_, 0.62) for c_ in hc["colors"][:4]]
         light = is_light(base)
         k = 0.34 if light else 0.42
-        return [mix(base, A, k), mix(base, hue_shift(A, 46), k * 0.85), mix(base, "#FFFFFF" if light else "#000000",
-                                                                            0.10),
-                mix(base, hue_shift(A, -40), k * 0.9)]
+        # 1.0: the app's own colours - the logo's violet, pink and gold - until you choose yours
+        return [mix(base, A, k), mix(base, BRAND_PINK, k * 0.85), mix(base, "#FFFFFF" if light else "#000000", 0.10),
+                mix(base, BRAND_GOLD, k * 0.70)]
 
     def _home_bg(self, W, H, force=False):
         """The picture behind Home (made at half size and doubled for the moving lava: smooth and cheap)."""
@@ -27179,6 +27555,8 @@ class App:
         sub = T["muted"]
         if not books:
             return
+        if lay in self.HOME_FURNITURE:                  # 1.0: a bookcase, a filing cabinet, lockers...
+            return self._home_furniture(c, lay, books, hov, hits)
         gold_d, gold, gold_l = "#9A7417", "#D9A62E", "#FFE6A0"
         slots = self._home_slots(len(books), self._home_box)
         if lay == "circle" and getattr(self, "_home_ring", None):
@@ -27258,6 +27636,855 @@ class App:
             wt = self._measure(t_, self._sfont(9, "bold"))
             hits.append((x1 - wt - 8, y1 - 14, x1, y1 + 8, "allbooks2", lambda: (self.close_home(),
                                                                                  self.show_launcher())))
+
+    # ---- 1.0: Home as real furniture - a bookcase, a law library, lever-arch files on an office shelf, a filing
+    #      cabinet, letter trays on a desk, a card index, school lockers, a classroom's cubbies. Point at a book and
+    #      it comes out a little; click it and it comes out to you, then opens.
+    HOME_FURNITURE = OrderedDict([("bookcase", "Bookcase"), ("law", "Law library"), ("lever", "Lever-arch files"),
+                                  ("cabinet", "Filing cabinet"), ("trays", "Desk trays"), ("cards", "Card index"),
+                                  ("lockers", "Lockers"), ("cubbies", "Classroom")])
+
+    @staticmethod
+    def _hf_seed(s):
+        h = 2166136261
+        for ch in str(s):
+            h = ((h ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+        return h
+
+    def _hf_out(self, i):
+        return self.__dict__.get("_home_out", {}).get(i, 0.0)
+
+    def _hf_target(self, i):
+        pull = getattr(self, "_home_pull", None)
+        if pull is not None:
+            return 1.0 if pull["i"] == i else 0.0
+        return 0.32 if getattr(self, "_home_hover", None) == f"bk{i}" else 0.0
+
+    def _hf_kick(self):
+        if getattr(self, "_home_fx_job", None) is None and getattr(self, "_home", None) is not None:
+            self._home_fx_t = time.time()
+            self._home_fx_job = self.root.after(15, self._hf_step)
+
+    def _hf_step(self):
+        """Books slide out and back smoothly; the one you clicked comes out to you, then opens."""
+        self._home_fx_job = None
+        if getattr(self, "_home", None) is None or getattr(self, "_home_c", None) is None:
+            self._home_pull = None
+            return
+        now = time.time()
+        dt = max(0.008, min(0.05, now - getattr(self, "_home_fx_t", now)))
+        self._home_fx_t = now
+        out = self.__dict__.setdefault("_home_out", {})
+        idx = set(out)
+        hv = getattr(self, "_home_hover", None) or ""
+        if hv.startswith("bk"):
+            idx.add(int(hv[2:]))
+        pull = getattr(self, "_home_pull", None)
+        if pull is not None:
+            idx.add(pull["i"])
+        busy = False
+        for i in idx:
+            t, v = self._hf_target(i), out.get(i, 0.0)
+            sp = (1.55 if pull is not None and pull["i"] == i else 2.2) * dt
+            v = t if abs(t - v) <= sp else v + (sp if t > v else -sp)
+            if v == t == 0.0:
+                out.pop(i, None)
+            else:
+                out[i] = v
+            busy = busy or v != t
+        try:
+            self._home_books_draw()
+        except Exception as ex:
+            _log(f"home furniture: {ex}")
+        if pull is not None and out.get(pull["i"], 0.0) >= 1.0 and not pull.get("done"):
+            pull["done"] = True
+            self.root.after(170, lambda f=pull["f"]: self._hf_finish(f))
+        if busy:
+            self._home_fx_job = self.root.after(16, self._hf_step)
+
+    def _hf_finish(self, f):
+        self._home_pull = None
+        self._home_out = {}
+        if getattr(self, "_home", None) is not None:
+            self._home_open_book(f)
+
+    def _hf_take(self, i, f):
+        """A click on a book in the furniture: it comes out to you, then opens (at once in Fast mode)."""
+        if getattr(self, "_home_pull", None) is not None:
+            return
+        if self._fast():
+            return self._home_open_book(f)
+        self._home_book_base(f)                         # its cover, ready for when it comes out
+        self._home_pull = {"i": i, "f": f}
+        self._hf_kick()
+
+    def _hf_pop(self, c, f, a, v, box):
+        """The book comes out to you: its cover grows from where it was to the middle of Home."""
+        q = (v - 0.45) / 0.55
+        if q <= 0:
+            return
+        q = q * q * (3 - 2 * q)
+        x0, y0, x1, y1 = box
+        tx, ty = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        cx, cy = a[0] + (tx - a[0]) * q, a[1] + (ty - a[1]) * q
+        tsc = max(0.45, min(1.0, (y1 - y0) * 0.95 / self.HB_H))
+        sc = 0.30 + (tsc - 0.30) * q
+        lvl = max(0, min(len(self.HB_SCALES) - 1, int(round((sc - 0.30) / 0.05))))
+        sc = self.HB_SCALES[lvl]
+        img = self._home_book_img(f, lvl)
+        bw, bh = (img.width(), img.height()) if img is not None else (self.HB_W * sc, self.HB_H * sc)
+        bx0, by0 = cx - bw / 2.0, cy - bh / 2.0
+        col = self.lib.color(f)
+        c.create_rectangle(bx0 + 5, by0 + 8, bx0 + bw + 5, by0 + bh + 8, fill=mix(self.T["bg"], "#000000", 0.30),
+                           outline="", tags="books")
+        if img is not None:
+            c.create_image(bx0, by0, image=img, anchor="nw", tags="books")
+        else:
+            c.create_rectangle(bx0, by0, bx0 + bw, by0 + bh, fill=mix(col, "#FFFFFF", 0.82), outline="", tags="books")
+            ts = max(18, int(bw * 0.42))
+            draw_tile(c, cx - ts / 2, by0 + bh * 0.36 - ts / 2, ts, col, icon=self.lib.icon(f),
+                      text=initials(self.lib.label(f)), font=self.F(max(7, int(ts / 3.6)), "bold"),
+                      bg=mix(col, "#FFFFFF", 0.82), style=self.lib.tstyle(f), tag="books")
+        c.create_rectangle(bx0, by0, bx0 + max(3, bw * 0.045), by0 + bh, fill=col, outline="", tags="books")
+        c.create_rectangle(bx0, by0, bx0 + bw, by0 + bh, outline="#D9A62E", width=2, tags="books")
+
+    def _home_furniture(self, c, lay, books, hov, hits):
+        """Draw the chosen piece of furniture with your books in it (the books layer of Home)."""
+        x0, y0, x1, y1 = self._home_box
+        T = self.T
+        ink, sub = T["text"], T["muted"]
+        k = {"small": 0.85, "large": 1.15}.get(self._home_conf().get("size"), 1.0)
+        box = (x0, y0 + 6, x1, y1 - 30)
+        try:
+            shown = getattr(self, "_hf_" + lay)(c, books, box, k) or []
+        except Exception as ex:
+            _log(f"home furniture {lay}: {ex}")
+            shown = []
+        for i, bb, _a in shown:
+            f = books[i]
+            hits.append((bb[0], bb[1], bb[2], bb[3], f"bk{i}", lambda i=i, f=f: self._hf_take(i, f)))
+        pull = getattr(self, "_home_pull", None)
+        if pull is not None:
+            for i, bb, a in shown:
+                if i == pull["i"]:
+                    self._hf_pop(c, books[i], a, self._hf_out(i), box)
+        show = pull["i"] if pull is not None else (int(hov[2:]) if hov and hov.startswith("bk") else None)
+        if show is not None and show < len(books):
+            f = books[show]
+            nf = len(self.lib.folders.get(f, []))
+            lost = bool(self.lib.missing.get(f))
+            t_ = self._fit_text(self.lib.label(f), self._sfont(12, "bold"), (x1 - x0) * 0.5)
+            c.create_text((x0 + x1) / 2.0 - 4, y1 - 12, text=t_, anchor="e", font=self.F(12, "bold"), fill=ink,
+                          tags="books")
+            c.create_text((x0 + x1) / 2.0 + 4, y1 - 11, anchor="w", font=self.F(9),
+                          text="folder not found" if lost else f"·  {nf} file{'s' if nf != 1 else ''}  ·  click to "
+                                                               f"take it out", fill="#D93025" if lost else sub,
+                          tags="books")
+        if len(shown) < len(books):
+            on = hov == "allbooks2"
+            A = self.accent
+            t_ = f"All {len(books)} books  →"
+            c.create_text(x1 - 4, y1 - 2, text=t_, anchor="e", font=self.F(9, "bold"),
+                          fill=mix(A, ink, 0.3) if on else A, tags="books")
+            wt = self._measure(t_, self._sfont(9, "bold"))
+            hits.append((x1 - wt - 8, y1 - 14, x1, y1 + 8, "allbooks2", lambda: (self.close_home(),
+                                                                                 self.show_launcher())))
+
+    # -- small drawing helpers
+    def _hf_wood(self, c, x0, y0, x1, y1, base, grain=True):
+        tg = "books"
+        c.create_rectangle(x0, y0, x1, y1, fill=base, outline=mix(base, "#000000", 0.45), tags=tg)
+        if grain and y1 - y0 > 5 and x1 - x0 > 10:
+            rnd = random.Random(int(x0) * 31 + int(y0) * 7 + int(x1))
+            n = int(max(1, min(36, (y1 - y0) / 6)))
+            for j in range(n):
+                yy = y0 + (j + 0.5) * (y1 - y0) / n + rnd.uniform(-1.5, 1.5)
+                xa = x0 + rnd.uniform(2, (x1 - x0) * 0.35)
+                xb = x1 - rnd.uniform(2, (x1 - x0) * 0.35)
+                c.create_line(xa, yy, xb, yy + rnd.uniform(-1.2, 1.2), tags=tg,
+                              fill=mix(base, "#000000" if rnd.random() < 0.65 else "#FFFFFF", rnd.uniform(0.05, 0.12)))
+
+    def _hf_shadow(self, c, x0, y0, x1, y1):
+        c.create_rectangle(x0 + 7, y0 + 9, x1 + 7, y1 + 5, fill=mix(self.T["bg"], "#000000", 0.20), outline="",
+                           tags="books")
+
+    def _hf_text_on(self, col):
+        return "#FFFFFF" if not is_light(col) else "#22202C"
+
+    # -- a bookcase (and the law library: dark mahogany, leather volumes, gold bands)
+    def _hf_bookcase(self, c, books, box, k, law=False):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        wood = "#5A2417" if law else "#B07A45"
+        wd, wl = mix(wood, "#000000", 0.38), mix(wood, "#FFFFFF", 0.22)
+        back = mix(wood, "#000000", 0.60 if law else 0.46)
+        gold = "#D4AF4A"
+        rows = 2 if H >= 250 else 1
+        side, top, plinth, board = 14 * k, 22 * k, 18 * k, 11 * k
+        sh = (H - top - plinth - board * (rows - 1)) / rows
+        gap = 1.5
+
+        def sw(f):
+            n = len(self.lib.folders.get(f, []))
+            return max(20.0, min(46.0, 17 + 6.5 * math.sqrt(max(1, n)))) * k
+        widths = [sw(f) for f in books]
+        maxw = W * 0.92 - 2 * side
+        per_row = max(1, math.ceil(len(books) / float(rows)))       # the books shared out over the shelves
+        need = max(sum(widths[r_ * per_row:(r_ + 1) * per_row]) + gap * per_row for r_ in range(rows)) + 90 * k
+        inner = max(min(maxw, need), min(maxw, 300 * k))
+        cw = inner + 2 * side
+        cx0 = (x0 + x1) / 2.0 - cw / 2.0
+        cx1 = cx0 + cw
+        self._hf_shadow(c, cx0, y0, cx1, y1)
+        self._hf_wood(c, cx0, y0, cx1, y1, wood)
+        rows_y = []
+        for r in range(rows):
+            ry0 = y0 + top + r * (sh + board)
+            ry1 = ry0 + sh
+            c.create_rectangle(cx0 + side, ry0, cx1 - side, ry1, fill=back, outline="", tags=tg)
+            for s_ in range(5):                                   # the shadow under the board above
+                c.create_line(cx0 + side, ry0 + s_, cx1 - side, ry0 + s_, tags=tg,
+                              fill=mix(back, "#000000", 0.55 - s_ * 0.1))
+            rows_y.append((ry0, ry1))
+            if r < rows - 1:
+                self._hf_wood(c, cx0 + side - 1, ry1, cx1 - side + 1, ry1 + board, wood, grain=False)
+                c.create_line(cx0 + side, ry1 + 1, cx1 - side, ry1 + 1, fill=wl, tags=tg)
+                if law:
+                    c.create_line(cx0 + side, ry1 + board - 3, cx1 - side, ry1 + board - 3, fill=gold, tags=tg)
+        # the cornice and the plinth
+        self._hf_wood(c, cx0 - 7, y0 - 4, cx1 + 7, y0 + top * 0.62, wl if not law else mix(wood, "#FFFFFF", 0.08),
+                      grain=False)
+        c.create_line(cx0 - 7, y0 + top * 0.62 + 1, cx1 + 7, y0 + top * 0.62 + 1, fill=wd, width=2, tags=tg)
+        self._hf_wood(c, cx0 - 4, y1 - plinth, cx1 + 4, y1, wd, grain=False)
+        c.create_line(cx0 - 4, y1 - plinth + 1, cx1 + 4, y1 - plinth + 1, fill=wl, tags=tg)
+        if law:
+            for yy in (y0 + 3, y0 + top * 0.62 - 3, y1 - plinth + 4):
+                c.create_line(cx0 - 5, yy, cx1 + 5, yy, fill=gold, tags=tg)
+            pw = 70 * k                                               # a small brass plate on the cornice
+            c.create_rectangle((cx0 + cx1) / 2 - pw / 2, y0, (cx0 + cx1) / 2 + pw / 2, y0 + top * 0.5,
+                               fill="#C9A23C", outline="#7A5A12", tags=tg)
+            c.create_line((cx0 + cx1) / 2 - pw / 2 + 4, y0 + top * 0.25, (cx0 + cx1) / 2 + pw / 2 - 4,
+                          y0 + top * 0.25, fill="#8A6A1E", dash=(2, 2), tags=tg)
+        # where each book stands
+        lay_ = []
+        r, x, on_row = 0, cx0 + side + 8 * k, 0
+        for i, f in enumerate(books):
+            w = widths[i]
+            if x + w > cx1 - side - 8 * k or (on_row >= per_row and r < rows - 1):
+                on_row = 0
+                r += 1
+                if r >= rows:
+                    break
+                x = cx0 + side + 8 * k
+            ry0, ry1 = rows_y[r]
+            h = (sh - 6 * k) * (0.74 + 0.22 * ((self._hf_seed(f) % 97) / 96.0))
+            lay_.append((i, x, ry1, w, h, r))
+            x += w + gap
+            on_row += 1
+        # what fills the end of each shelf: books lying down and a bookend
+        ends = {}
+        for (i, x, yb, w, h, r) in lay_:
+            ends[r] = x + w
+        for r in range(rows):
+            ex = ends.get(r, cx0 + side + 4 * k)
+            room = cx1 - side - 10 * k - ex
+            ry0, ry1 = rows_y[r]
+            rnd = random.Random(r * 17 + len(books))
+            if room > 44 * k:
+                lw = min(room - 14 * k, 96 * k)
+                lx = cx1 - side - 8 * k - lw
+                yy = ry1
+                for j in range(rnd.randint(2, 3)):
+                    th = rnd.uniform(9, 14) * k
+                    cl = rnd.choice(("#7B2D26", "#24476B", "#2F5D3A", "#6B5B2A", "#3C2F57")) if law else \
+                        rnd.choice(("#C8553D", "#2E86AB", "#F2A541", "#5C946E", "#8E6C8A"))
+                    sx_ = lx + rnd.uniform(-4, 4) * k
+                    c.create_rectangle(sx_, yy - th, sx_ + lw - j * 6 * k, yy, fill=cl, outline=mix(cl, "#000000", 0.4),
+                                       tags=tg)
+                    c.create_line(sx_ + 3, yy - th + 2, sx_ + lw - j * 6 * k - 3, yy - th + 2, tags=tg,
+                                  fill=gold if law else mix(cl, "#FFFFFF", 0.35))
+                    yy -= th
+            if room > 14 * k:                                       # a metal bookend
+                bx = ex + 3 * k
+                bh = min(sh * 0.45, 52 * k)
+                c.create_polygon(bx, ry1, bx + 3 * k, ry1 - bh, bx + 6 * k, ry1 - bh, bx + 6 * k, ry1,
+                                 fill="#8D939C" if not law else "#B8962E", outline="#4E535B", tags=tg)
+        shown = []
+        for (i, x, yb, w, h, r) in sorted(lay_, key=lambda t_: self._hf_out(t_[0])):
+            o = self._hf_out(i)
+            lift = min(o, 0.32) / 0.32 * 10 * k + max(0.0, o - 0.32) / 0.68 * h * 0.40
+            if o < 0.72:                                     # once it is out, its place on the shelf is empty
+                self._hf_spine(c, books[i], x, yb - lift, w, h, law, on=o > 0.04)
+            shown.append((i, (x, yb - h - lift, x + w, yb), (x + w / 2.0, yb - lift - h / 2.0)))
+        return sorted(shown)
+
+    def _hf_law(self, c, books, box, k):
+        return self._hf_bookcase(c, books, box, k, law=True)
+
+    def _hf_spine(self, c, f, x, yb, w, h, law, on=False):
+        tg = "books"
+        col = self.lib.color(f)
+        if law:
+            col = mix(col, "#3A1A0E", 0.55)
+        dk, lt = mix(col, "#000000", 0.32), mix(col, "#FFFFFF", 0.30)
+        y0 = yb - h
+        gold = "#D9B44A"
+        c.create_rectangle(x, y0, x + w, yb, fill=col, outline=mix(col, "#000000", 0.5), tags=tg)
+        c.create_rectangle(x + w * 0.70, y0 + 1, x + w - 1, yb - 1, fill=mix(col, "#000000", 0.14), outline="",
+                           tags=tg)
+        c.create_line(x + 2.5, y0 + 2, x + 2.5, yb - 2, fill=lt, width=max(1, int(w * 0.08)), tags=tg)
+        for fy in (0.06, 0.095, 0.905, 0.94):
+            yy = y0 + h * fy
+            c.create_line(x + 1, yy, x + w - 1, yy, fill=gold if law else dk, width=2 if law else 1, tags=tg)
+        name = self.lib.label(f)
+        fs = max(7, min(10, int(w * 0.36)))
+        if law:
+            ly0, ly1 = y0 + h * 0.16, y0 + h * 0.70
+            c.create_rectangle(x + w * 0.14, ly0, x + w * 0.86, ly1, fill="#1A1210", outline=gold, tags=tg)
+            c.create_rectangle(x + w * 0.14, y0 + h * 0.74, x + w * 0.86, y0 + h * 0.84, fill="#7A1C1C",
+                               outline=gold, tags=tg)
+            tc = gold
+        else:
+            ly0, ly1 = y0 + h * 0.14, y0 + h * 0.86
+            tc = self._hf_text_on(col)
+        t_ = self._fit_text(name, self._sfont(fs, "bold"), ly1 - ly0 - 8)
+        c.create_text(x + w / 2.0 + 0.5, (ly0 + ly1) / 2.0, text=t_, angle=90, font=self.F(fs, "bold"), fill=tc,
+                      tags=tg)
+        if on:
+            c.create_rectangle(x - 1, y0 - 1, x + w + 1, yb + 1, outline="#F5C842", width=2, tags=tg)
+
+    # -- lever-arch files standing on a metal office shelf (like the one in the logo)
+    def _hf_lever(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        board = 12 * k
+        rows = 2 if H >= 360 else 1
+        bh = min((H - board * rows - 10) / rows, 250 * k)
+        bw = max(38.0, min(66 * k, bh * 0.29))
+        gap = 5 * k
+        per = max(1, int((W * 0.90 - 40 * k) // (bw + gap)))
+        m = min(len(books), per * rows)
+        rows = 1 if m <= per else rows
+        per_row = max(1, math.ceil(m / rows))
+        sw_ = per_row * (bw + gap) - gap + 46 * k
+        sx0 = (x0 + x1) / 2.0 - sw_ / 2.0
+        sx1 = sx0 + sw_
+        tot = rows * (bh + board)
+        top = y1 - tot - 8 * k
+        metal, md, ml = "#A9B0BA", "#5F6670", "#DCE0E6"
+        for px in (sx0 - 8 * k, sx1):                               # the uprights, with their holes
+            c.create_rectangle(px, top - 10 * k, px + 8 * k, y1, fill=metal, outline=md, tags=tg)
+            yy = top - 4 * k
+            while yy < y1 - 6:
+                c.create_rectangle(px + 3 * k, yy, px + 5 * k, yy + 4 * k, fill="#3B4048", outline="", tags=tg)
+                yy += 11 * k
+        shown = []
+        slots = []
+        for r in range(rows):
+            yb = top + (r + 1) * (bh + board) - board
+            c.create_rectangle(sx0, yb, sx1, yb + board, fill=metal, outline=md, tags=tg)      # the shelf
+            c.create_line(sx0, yb + 1, sx1, yb + 1, fill=ml, tags=tg)
+            c.create_line(sx0, yb + board - 2, sx1, yb + board - 2, fill=md, tags=tg)
+            for j in range(per_row):
+                i = r * per_row + j
+                if i >= m:
+                    break
+                slots.append((i, sx0 + 23 * k + j * (bw + gap), yb))
+        for (i, x, yb) in sorted(slots, key=lambda t_: self._hf_out(t_[0])):
+            bb, a = self._hf_binder(c, books[i], x, yb, bw, bh, self._hf_out(i))
+            shown.append((i, bb, a))
+        return sorted(shown)
+
+    def _hf_binder(self, c, f, x, yb, w, h, o):
+        tg = "books"
+        col = self.lib.color(f)
+        tilt = -min(o, 0.32) / 0.32 * w * 0.24                     # the top comes out first, like a real file
+        lift = max(0.0, o - 0.32) / 0.68 * h * 0.38
+        yb -= lift
+        top = yb - h
+
+        def P(u, v):
+            return (x + u * w + tilt * (1 - v), top + v * h)
+
+        def poly(u0, v0, u1, v1, **kw):
+            return c.create_polygon(*(P(u0, v0) + P(u1, v0) + P(u1, v1) + P(u0, v1)), tags=tg, **kw)
+        dk = mix(col, "#000000", 0.35)
+        poly(0, 0, 1, 1, fill=col, outline=dk)
+        poly(0.0, 0.0, 0.10, 1, fill=mix(col, "#FFFFFF", 0.20), outline="")
+        poly(0.86, 0.0, 1.0, 1, fill=mix(col, "#000000", 0.18), outline="")
+        poly(0.0, 0.968, 1.0, 1.0, fill="#B9BEC6", outline="#7D828E")              # the metal edge
+        poly(0.15, 0.05, 0.85, 0.57, fill="#FAFAF6", outline=mix(col, "#000000", 0.25))   # the label pocket
+        poly(0.15, 0.05, 0.85, 0.12, fill=mix(col, "#FFFFFF", 0.62), outline="")
+        px_, py_ = P(0.5, 0.085)
+        c.create_text(px_, py_, text=initials(self.lib.label(f)), font=self.F(max(7, int(w * 0.17)), "bold"),
+                      fill=dk, tags=tg)
+        fs = max(7, min(11, int(w * 0.22)))
+        lx, ly = P(0.5, 0.345)
+        t_ = self._fit_text(self.lib.label(f), self._sfont(fs, "bold"), h * 0.40)
+        c.create_text(lx, ly, text=t_, angle=90, font=self.F(fs, "bold"), fill="#1F2A6B", tags=tg)
+        hx, hy = P(0.5, 0.78)                                                  # the finger hole and its ring
+        r = w * 0.21
+        c.create_oval(hx - r, hy - r, hx + r, hy + r, fill="#C9CDD6", outline="#6D727C", tags=tg)
+        c.create_oval(hx - r * 0.64, hy - r * 0.64, hx + r * 0.64, hy + r * 0.64, fill="#1E1B24", outline="",
+                      tags=tg)
+        c.create_arc(hx - r, hy - r, hx + r, hy + r, start=100, extent=80, style="arc", outline="#F3F5F9", width=2,
+                     tags=tg)
+        if o > 0.04:
+            c.create_polygon(*(P(0, 0) + P(1, 0) + P(1, 1) + P(0, 1)), fill="", outline="#F5C842", width=2, tags=tg)
+        xs = [P(0, 0)[0], P(1, 1)[0], P(0, 1)[0], P(1, 0)[0]]
+        return (min(xs), top, max(xs), yb), (x + w / 2.0, top + h / 2.0)
+
+    # -- a filing cabinet: one drawer for each book; it slides out and shows the hanging files inside
+    def _hf_cabinet(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        ch = min(H - 4, 430 * k)
+        nd = 5 if ch >= 390 * k else 4
+        cw = max(130.0, min(ch * 0.60, 230 * k))
+        gap = 22 * k
+        cols_max = max(1, int((W * 0.94 + gap) // (cw + gap)))
+        cols = max(1, min(cols_max, math.ceil(len(books) / nd)))
+        tot = cols * cw + (cols - 1) * gap
+        sx = (x0 + x1) / 2.0 - tot / 2.0
+        cy1 = y1
+        cy0 = cy1 - ch
+        metal, md, ml = "#BFC5CD", "#737A86", "#E9ECF1"
+        dh = (ch - 30 * k) / nd
+        draws = []
+        for col_ in range(cols):
+            bx0 = sx + col_ * (cw + gap)
+            bx1 = bx0 + cw
+            self._hf_shadow(c, bx0, cy0, bx1, cy1)
+            c.create_rectangle(bx0, cy0, bx1, cy1, fill=metal, outline=md, tags=tg)
+            c.create_rectangle(bx0 - 3, cy0 - 7 * k, bx1 + 3, cy0 + 4 * k, fill=ml, outline=md, tags=tg)
+            c.create_line(bx0 + 2, cy0 + 5 * k, bx0 + 2, cy1 - 2, fill=ml, tags=tg)
+            c.create_line(bx1 - 3, cy0 + 5 * k, bx1 - 3, cy1 - 2, fill=mix(metal, "#000000", 0.18), width=2, tags=tg)
+            c.create_rectangle(bx0 + 5, cy1 - 14 * k, bx1 - 5, cy1, fill="#3C4048", outline="", tags=tg)
+            for d in range(nd):
+                i = col_ * nd + d
+                sy0 = cy0 + 10 * k + d * dh + 3
+                sy1 = sy0 + dh - 6
+                c.create_rectangle(bx0 + 8 * k, sy0, bx1 - 8 * k, sy1, fill="#2A2D33", outline="", tags=tg)
+                if i < len(books):
+                    draws.append((i, bx0 + 8 * k, sy0, bx1 - 8 * k, sy1))
+                else:
+                    self._hf_drawer(c, None, bx0 + 8 * k, sy0, bx1 - 8 * k, sy1, 0.0)
+        shown = []
+        for (i, a0, b0, a1, b1) in sorted(draws, key=lambda t_: self._hf_out(t_[0])):
+            bb, a = self._hf_drawer(c, books[i], a0, b0, a1, b1, self._hf_out(i))
+            shown.append((i, bb, a))
+        return sorted(shown)
+
+    def _hf_drawer(self, c, f, sx0, sy0, sx1, sy1, o):
+        tg = "books"
+        dh, dw = sy1 - sy0, sx1 - sx0
+        d = o * dh * 0.95
+        g = o * dw * 0.07
+        fx0, fx1 = sx0 - g, sx1 + g
+        fy0 = sy0 + d
+        fy1 = fy0 + dh * (1 + 0.10 * o)
+        col = self.lib.color(f) if f else "#9AA0AA"
+        if o > 0.01 and f:
+            # the inside, seen from above, and the hanging files in it
+            c.create_polygon(sx0, sy0, sx1, sy0, fx1, fy0, fx0, fy0, fill="#4A4F58", outline="#23262B", tags=tg)
+            files = self.lib.folders.get(f, [])[:5]
+            vis = fy0 - sy0
+            nf = max(1, len(files))
+            for j in range(nf):
+                t = (j + 1.0) / (nf + 0.6)
+                yy = sy0 + vis * t
+                xl, xr = sx0 + (fx0 - sx0) * t, sx1 + (fx1 - sx1) * t
+                c.create_line(xl + 4, yy, xr - 4, yy, fill=mix(col, "#FFFFFF", 0.35), width=2, tags=tg)
+                tw = (xr - xl) * 0.34
+                tx = xl + 8 + (j % 3) * (xr - xl - 16 - tw) / 2.0
+                th = min(13.0, vis * 0.30)
+                if th >= 3:
+                    c.create_rectangle(tx, yy - th, tx + tw, yy, fill=mix(col, "#FFFFFF", 0.55),
+                                       outline=mix(col, "#000000", 0.30), tags=tg)
+                    if th >= 10 and j < len(files):
+                        nm = os.path.splitext(os.path.basename(str(files[j]).replace("\\", "/")))[0]
+                        c.create_text(tx + tw / 2.0, yy - th / 2.0, text=self._fit_text(nm, self._sfont(7), tw - 4),
+                                      font=self.F(7), fill="#22202C", tags=tg)
+        c.create_rectangle(fx0, fy0, fx1, fy1, fill="#CDD2DA", outline="#737A86", tags=tg)
+        c.create_line(fx0 + 1, fy0 + 1, fx1 - 1, fy0 + 1, fill="#F4F6F9", tags=tg)
+        c.create_line(fx0 + 1, fy1 - 2, fx1 - 1, fy1 - 2, fill="#9AA0AA", tags=tg)
+        fw, fh = fx1 - fx0, fy1 - fy0
+        cx = (fx0 + fx1) / 2.0
+        lw, lh = fw * 0.58, max(12.0, fh * 0.30)
+        lx0, ly0 = cx - lw / 2.0, fy0 + fh * 0.16
+        c.create_rectangle(lx0 - 2, ly0 - 2, lx0 + lw + 2, ly0 + lh + 2, fill="#A9AEB8", outline="#6D727C", tags=tg)
+        c.create_rectangle(lx0, ly0, lx0 + lw, ly0 + lh, fill="#FFFFFA" if f else "#E6E8EC", outline="", tags=tg)
+        if f:
+            c.create_rectangle(lx0, ly0, lx0 + 5, ly0 + lh, fill=col, outline="", tags=tg)
+            fs = max(7, min(10, int(lh * 0.55)))
+            c.create_text(cx + 2, ly0 + lh / 2.0, text=self._fit_text(self.lib.label(f), self._sfont(fs, "bold"),
+                                                                       lw - 14),
+                          font=self.F(fs, "bold"), fill="#24242E", tags=tg)
+        hw = fw * 0.36
+        hy = ly0 + lh + fh * 0.14
+        hh = max(6.0, fh * 0.13)
+        round_rect(c, cx - hw / 2.0, hy, cx + hw / 2.0, hy + hh, 4, fill="#8E949E", outline="#5D626C", tags=tg)
+        c.create_line(cx - hw / 2.0 + 4, hy + 2, cx + hw / 2.0 - 4, hy + 2, fill="#D5D9E0", tags=tg)
+        if f and o > 0.04:
+            c.create_rectangle(fx0 - 1, fy0 - 1, fx1 + 1, fy1 + 1, outline="#F5C842", width=2, tags=tg)
+        return (fx0, sy0, fx1, fy1), (cx, (fy0 + fy1) / 2.0)
+
+    # -- letter trays stacked on a desk (a pencil pot and a mug beside them)
+    def _hf_trays(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        dk_h = 30 * k
+        ydesk = y1 - dk_h
+        wood = "#9C6B3F"
+        dx0, dx1 = x0 + W * 0.03, x1 - W * 0.03
+        self._hf_wood(c, dx0, ydesk + 8 * k, dx1, y1, mix(wood, "#000000", 0.18))
+        self._hf_wood(c, dx0 - 6, ydesk, dx1 + 6, ydesk + 9 * k, mix(wood, "#FFFFFF", 0.12), grain=False)
+        c.create_line(dx0 - 6, ydesk, dx1 + 6, ydesk, fill=mix(wood, "#FFFFFF", 0.45), tags=tg)
+        lvs = max(3, min(5, int((ydesk - y0 - 8) // (60 * k))))
+        th = min((ydesk - y0 - 8) / float(lvs), 66 * k)
+        tw = th * 2.6
+        gap = 26 * k
+        nst = max(1, int((W * 0.86 - 150 * k + gap) // (tw + gap)))
+        nst = max(1, min(nst, math.ceil(len(books) / float(lvs))))
+        tot = nst * tw + (nst - 1) * gap
+        sx = (x0 + x1) / 2.0 - tot / 2.0
+        # a mug on the left, a pencil pot on the right
+        mx = sx - 70 * k
+        if mx > dx0 + 10:
+            mcol = self.accent
+            c.create_rectangle(mx, ydesk - 40 * k, mx + 32 * k, ydesk, fill=mcol, outline=mix(mcol, "#000000", 0.4),
+                               tags=tg)
+            c.create_oval(mx, ydesk - 44 * k, mx + 32 * k, ydesk - 36 * k, fill=mix(mcol, "#000000", 0.45),
+                          outline=mix(mcol, "#000000", 0.4), tags=tg)
+            c.create_arc(mx + 22 * k, ydesk - 34 * k, mx + 44 * k, ydesk - 12 * k, start=-90, extent=180, style="arc",
+                         outline=mcol, width=max(2, int(4 * k)), tags=tg)
+            for s_ in (8, 16, 24):
+                c.create_line(mx + s_ * k, ydesk - 50 * k, mx + (s_ + 3) * k, ydesk - 60 * k, mx + s_ * k,
+                              ydesk - 70 * k, smooth=True, fill=mix(self.T["bg"], "#FFFFFF", 0.6), width=2, tags=tg)
+        px = sx + tot + 40 * k
+        if px + 34 * k < dx1 - 6:
+            for j, (pc, ang) in enumerate((("#F2B51C", -6), ("#3A7BD5", 4), ("#E04A4A", 10))):
+                bx = px + 7 * k + j * 8 * k
+                c.create_polygon(bx, ydesk - 30 * k, bx + 5 * k, ydesk - 30 * k, bx + 5 * k + ang * k * 0.4,
+                                 ydesk - 72 * k, bx + ang * k * 0.4, ydesk - 72 * k, fill=pc,
+                                 outline=mix(pc, "#000000", 0.4), tags=tg)
+                c.create_polygon(bx + ang * k * 0.4, ydesk - 72 * k, bx + 5 * k + ang * k * 0.4, ydesk - 72 * k,
+                                 bx + 2.5 * k + ang * k * 0.45, ydesk - 80 * k, fill="#E9C99A", outline="", tags=tg)
+            c.create_rectangle(px, ydesk - 40 * k, px + 34 * k, ydesk, fill="#4A4F58", outline="#2A2D33", tags=tg)
+            c.create_oval(px, ydesk - 44 * k, px + 34 * k, ydesk - 36 * k, fill="#30343B", outline="#2A2D33", tags=tg)
+        draws = []
+        for s in range(nst):
+            for lv in range(lvs):
+                i = s * lvs + lv
+                if i >= len(books):
+                    break
+                draws.append((i, sx + s * (tw + gap), ydesk - lv * (th + 2), lv))
+        # lower trays first (the ones above stand on them), the one coming out last
+        shown = []
+        for (i, x, yb, lv) in sorted(draws, key=lambda t_: (self._hf_out(t_[0]) > 0.0, t_[3])):
+            bb, a = self._hf_tray(c, books[i], x, yb, tw, th, self._hf_out(i), k)
+            shown.append((i, bb, a))
+        return sorted(shown)
+
+    def _hf_tray(self, c, f, x, yb, tw, th, o, k):
+        tg = "books"
+        col = self.lib.color(f)
+        d = max(0.0, o - 0.32) / 0.68 * th * 0.6
+        g = o * tw * 0.05
+        X0, X1, YB = x - g, x + tw + g, yb + d
+        lift = min(o, 0.32) / 0.32 * 9 * k
+        c.create_rectangle(X0 + tw * 0.03, YB - th, X1 - tw * 0.03, YB - th * 0.40, fill=mix(col, "#FFFFFF", 0.40),
+                           outline=mix(col, "#000000", 0.30), tags=tg)                     # the back wall
+        for j in range(3):                                                         # the papers
+            off = (2 - j) * 3
+            py0 = YB - th * 0.86 + off - (lift if j == 2 else lift * 0.3)
+            c.create_rectangle(X0 + tw * 0.09 + off, py0, X1 - tw * 0.09 - off, YB - th * 0.25,
+                               fill=("#F1EEE6", "#F8F6F0", "#FFFFFF")[j], outline="#CFC9BC", tags=tg)
+        for j in range(3):
+            yy = YB - th * 0.86 - lift + 8 + j * 6
+            c.create_line(X0 + tw * 0.15, yy, X1 - tw * (0.25 + 0.1 * j), yy, fill="#B9B4C8", tags=tg)
+        lip = YB - th * 0.46                                                       # the front, with its notch
+        nw = tw * 0.16
+        cxm = (X0 + X1) / 2.0
+        c.create_polygon(X0, lip, cxm - nw, lip, cxm - nw * 0.6, lip + th * 0.14, cxm + nw * 0.6, lip + th * 0.14,
+                         cxm + nw, lip, X1, lip, X1, YB, X0, YB, fill=col, outline=mix(col, "#000000", 0.40),
+                         tags=tg)
+        c.create_line(X0 + 2, YB - 3, X1 - 2, YB - 3, fill=mix(col, "#000000", 0.25), tags=tg)
+        c.create_line(X0 + 2, lip + 2, cxm - nw - 2, lip + 2, fill=mix(col, "#FFFFFF", 0.40), tags=tg)
+        lw, lh = tw * 0.46, th * 0.22
+        ly = YB - th * 0.20
+        c.create_rectangle(cxm - lw / 2, ly - lh / 2, cxm + lw / 2, ly + lh / 2, fill="#FFFFFA",
+                           outline=mix(col, "#000000", 0.35), tags=tg)
+        fs = max(7, min(10, int(lh * 0.62)))
+        c.create_text(cxm, ly, text=self._fit_text(self.lib.label(f), self._sfont(fs, "bold"), lw - 6),
+                      font=self.F(fs, "bold"), fill="#24242E", tags=tg)
+        if o > 0.04:
+            c.create_rectangle(X0 - 1, YB - th - 1, X1 + 1, YB + 1, outline="#F5C842", width=2, tags=tg)
+        return (X0, YB - th, X1, YB), (cxm, YB - th / 2.0)
+
+    # -- a card index: wooden boxes of cards with coloured tabs
+    def _hf_cards(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        per = 5
+        bw = 210 * k
+        gap = 24 * k
+        fh = min(70 * k, H * 0.30)
+        step = max(16.0, min(30 * k, (H - fh - 60 * k) / (per + 1.5)))
+        nbox = max(1, min(int((W * 0.94 + gap) // (bw + gap)), math.ceil(len(books) / float(per))))
+        order = sorted(range(len(books)), key=lambda i_: self.lib.label(books[i_]).lower())   # A to Z
+        tot = nbox * bw + (nbox - 1) * gap
+        sx = (x0 + x1) / 2.0 - tot / 2.0
+        ftop = y1 - fh
+        wood, wd = "#A8743F", "#6E4521"
+        shown = []
+        for b in range(nbox):
+            bx0, bx1 = sx + b * (bw + gap), sx + b * (bw + gap) + bw
+            idx = order[b * per:(b + 1) * per]
+            back_top = ftop - (per + 1) * step - 16 * k
+            self._hf_shadow(c, bx0, back_top, bx1, y1)
+            self._hf_wood(c, bx0 + 8 * k, back_top, bx1 - 8 * k, ftop, mix(wood, "#000000", 0.30))      # the back
+            c.create_polygon(bx0, ftop, bx0 + 8 * k, back_top, bx0 + 14 * k, back_top, bx0 + 8 * k, ftop,
+                             fill=wd, outline="", tags=tg)
+            c.create_polygon(bx1, ftop, bx1 - 8 * k, back_top, bx1 - 14 * k, back_top, bx1 - 8 * k, ftop,
+                             fill=wd, outline="", tags=tg)
+            for n_, i in enumerate(idx):
+                o = self._hf_out(i)
+                rise = min(o, 0.32) / 0.32 * 26 * k + max(0.0, o - 0.32) / 0.68 * 70 * k
+                ctop = ftop - (per - n_) * step - 6 * k - rise
+                cx0, cx1 = bx0 + 12 * k, bx1 - 12 * k
+                col = self.lib.color(books[i])
+                c.create_rectangle(cx0, ctop, cx1, ftop + 4, fill="#FFFDF4", outline="#C9C2AE", tags=tg)
+                c.create_line(cx0 + 3, ctop + 15 * k, cx1 - 3, ctop + 15 * k, fill="#E07A7A", tags=tg)
+                yy = ctop + 24 * k
+                while yy < ftop - 2:
+                    c.create_line(cx0 + 3, yy, cx1 - 3, yy, fill="#BFD3EA", tags=tg)
+                    yy += 9 * k
+                if o > 0.04 or n_ == len(idx) - 1:          # the card in front: its name on its first line
+                    c.create_text(cx0 + 8, ctop + 8 * k, anchor="w", font=self.F(8, "bold"), fill="#2B2F4A", tags=tg,
+                                  text=self._fit_text(self.lib.label(books[i]), self._sfont(8, "bold"), cx1 - cx0 - 16))
+                tw_ = (cx1 - cx0) * 0.42
+                tx = cx0 + 6 + (n_ % 3) * ((cx1 - cx0 - 12 - tw_) / 2.0)
+                tht = 13 * k
+                c.create_rectangle(tx, ctop - tht, tx + tw_, ctop + 1, fill=col, outline=mix(col, "#000000", 0.35),
+                                   tags=tg)
+                c.create_text(tx + tw_ / 2.0, ctop - tht / 2.0 + 0.5, font=self.F(7, "bold"),
+                              fill=self._hf_text_on(col), tags=tg,
+                              text=self._fit_text(self.lib.label(books[i]), self._sfont(7, "bold"), tw_ - 6))
+                if o > 0.04:
+                    c.create_rectangle(cx0 - 1, ctop - tht - 1, cx1 + 1, ftop, outline="#F5C842", width=2, tags=tg)
+                nxt = ftop - (per - n_ - 1) * step - 6 * k if n_ < len(idx) - 1 else ftop
+                shown.append((i, (cx0, ctop - tht, cx1, max(nxt, ctop + 10)), ((cx0 + cx1) / 2.0, ctop + 30 * k)))
+            self._hf_wood(c, bx0, ftop, bx1, y1, wood)                                             # the front
+            c.create_line(bx0, ftop + 1, bx1, ftop + 1, fill=mix(wood, "#FFFFFF", 0.35), tags=tg)
+            cxm = (bx0 + bx1) / 2.0
+            c.create_rectangle(cxm - 30 * k, ftop + 10 * k, cxm + 30 * k, ftop + 28 * k, fill="#C9A23C",
+                               outline="#7A5A12", tags=tg)
+            c.create_rectangle(cxm - 26 * k, ftop + 13 * k, cxm + 26 * k, ftop + 25 * k, fill="#FFFDF4", outline="",
+                               tags=tg)
+            a_ = self.lib.label(books[idx[0]])[:1].upper() if idx else ""
+            z_ = self.lib.label(books[idx[-1]])[:1].upper() if idx else ""
+            c.create_text(cxm, ftop + 19 * k, text=f"{a_} – {z_}" if a_ != z_ else a_, font=self.F(8, "bold"),
+                          fill="#3A2A10", tags=tg)
+            c.create_oval(cxm - 16 * k, ftop + 36 * k, cxm + 16 * k, ftop + 48 * k, fill=mix(wood, "#000000", 0.55),
+                          outline=wd, tags=tg)
+        return sorted(shown)
+
+    # -- school lockers: the door swings open on its hinge and the book is inside
+    def _hf_lockers(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        full = min(H - 18 * k, 330 * k)
+        lw = max(56.0, min(84 * k, full * 0.27))
+        per = max(1, int((W * 0.92) // lw))
+        tiers = 1 if len(books) <= per else 2
+        lh = full / tiers
+        cols = max(1, min(per, math.ceil(len(books) / float(tiers))))
+        tot = cols * lw
+        sx = (x0 + x1) / 2.0 - tot / 2.0
+        top = y1 - full - 12 * k
+        self._hf_shadow(c, sx - 8, top - 12 * k, sx + tot + 8, y1)
+        c.create_rectangle(sx - 8, top - 12 * k, sx + tot + 8, y1, fill="#4F5862", outline="#2C3137", tags=tg)
+        c.create_rectangle(sx - 10, top - 16 * k, sx + tot + 10, top - 8 * k, fill="#6B7580", outline="#2C3137",
+                           tags=tg)
+        c.create_rectangle(sx - 8, y1 - 12 * k, sx + tot + 8, y1, fill="#2C3137", outline="", tags=tg)
+        draws = []
+        for t in range(tiers):
+            for j in range(cols):
+                i = t * cols + j
+                lx0, ly0 = sx + j * lw + 2, top + t * lh + 2
+                if i < len(books):
+                    draws.append((i, lx0, ly0, lw - 4, lh - 4))
+                else:
+                    self._hf_locker(c, None, i, lx0, ly0, lw - 4, lh - 4, 0.0, k)
+        shown = []
+        for (i, lx0, ly0, w, h) in sorted(draws, key=lambda t_: self._hf_out(t_[0])):
+            bb, a = self._hf_locker(c, books[i], i, lx0, ly0, w, h, self._hf_out(i), k)
+            shown.append((i, bb, a))
+        return sorted(shown)
+
+    def _hf_locker(self, c, f, i, x, y, w, h, o, k):
+        tg = "books"
+        col = mix(self.lib.color(f), "#7A8594", 0.30) if f else "#8A949F"
+        ang = math.radians(108 * o)
+        ca, sa = math.cos(ang), math.sin(ang)
+        if o > 0.01 and f:
+            c.create_rectangle(x, y, x + w, y + h, fill="#23262C", outline="#15171B", tags=tg)
+            c.create_line(x + 3, y + h * 0.18, x + w - 3, y + h * 0.18, fill="#5A606B", width=2, tags=tg)
+            c.create_line(x + w / 2 - 6, y + h * 0.26, x + w / 2, y + h * 0.30, x + w / 2 + 6, y + h * 0.26,
+                          fill="#8A909B", width=2, tags=tg)
+            sc = max(0.30, min(1.0, (w * 0.82) / self.HB_W, (h * 0.55) / self.HB_H))
+            lvl = max(0, min(len(self.HB_SCALES) - 1, int((sc - 0.30) / 0.05)))
+            img = self._home_book_img(f, lvl)
+            if img is not None:
+                c.create_image(x + w / 2.0, y + h - 6, image=img, anchor="s", tags=tg)
+            else:
+                cc = self.lib.color(f)
+                c.create_rectangle(x + w * 0.15, y + h * 0.40, x + w * 0.85, y + h - 6, fill=mix(cc, "#FFFFFF", 0.7),
+                                   outline=cc, tags=tg)
+        e = sa * w * 0.10
+
+        def P(u, v):
+            return (x + u * w * ca, y - e * u + v * (h + 2 * e * u))
+
+        def poly(u0, v0, u1, v1, **kw):
+            return c.create_polygon(*(P(u0, v0) + P(u1, v0) + P(u1, v1) + P(u0, v1)), tags=tg, **kw)
+        face = col if ca >= 0 else mix(col, "#000000", 0.30)
+        poly(0, 0, 1, 1, fill=face, outline=mix(col, "#000000", 0.45))
+        if ca > 0.25:
+            for j in range(5):
+                v = 0.05 + j * 0.028
+                c.create_line(*(P(0.22, v) + P(0.78, v)), fill=mix(col, "#000000", 0.55), width=2, tags=tg)
+                c.create_line(*(P(0.22, v + 0.008) + P(0.78, v + 0.008)), fill=mix(col, "#FFFFFF", 0.30), tags=tg)
+            for j in range(3):
+                v = 0.88 + j * 0.028
+                c.create_line(*(P(0.22, v) + P(0.78, v)), fill=mix(col, "#000000", 0.55), width=2, tags=tg)
+            poly(0.30, 0.20, 0.70, 0.245, fill="#C9A23C", outline="#7A5A12")                  # the number
+            poly(0.10, 0.30, 0.90, 0.44 if f else 0.36, fill="#FFFFFA" if f else mix(col, "#FFFFFF", 0.3),
+                 outline=mix(col, "#000000", 0.35))
+            poly(0.74, 0.50, 0.86, 0.64, fill="#AEB4BE", outline="#5D626C")                   # the handle
+            hx, hy = P(0.80, 0.475)
+            c.create_oval(hx - 3, hy - 3, hx + 3, hy + 3, fill="#3A3F47", outline="", tags=tg)
+            if ca > 0.80:
+                nx, ny = P(0.5, 0.2225)
+                c.create_text(nx, ny, text=f"{i + 1:02d}", font=self.F(7, "bold"), fill="#3A2A10", tags=tg)
+                if f:
+                    tx, ty = P(0.5, 0.37)
+                    nm = self.lib.label(f)
+                    fs = 8 if w >= 64 else 7
+                    words = nm.split()
+                    if len(words) > 1 and self._measure(nm, self._sfont(fs, "bold")) > w * 0.74:
+                        half = max(1, len(words) // 2)
+                        nm = " ".join(words[:half]) + "\n" + " ".join(words[half:])
+                    lines = [self._fit_text(s_, self._sfont(fs, "bold"), w * 0.74) for s_ in nm.split("\n")[:2]]
+                    c.create_text(tx, ty, text="\n".join(lines), font=self.F(fs, "bold"), fill="#24242E",
+                                  justify="center", tags=tg)
+        if f and o > 0.04:
+            c.create_polygon(*(P(0, 0) + P(1, 0) + P(1, 1) + P(0, 1)), fill="", outline="#F5C842", width=2, tags=tg)
+        return (x, y, x + w, y + h), (x + w / 2.0, y + h * 0.6)
+
+    # -- a classroom: a cubby shelf with coloured bins (a globe, an apple and building blocks on top)
+    def _hf_cubbies(self, c, books, box, k):
+        x0, y0, x1, y1 = box
+        W, H = x1 - x0, y1 - y0
+        tg = "books"
+        deco = 46 * k
+        rows = 3 if H - deco >= 270 * k else 2
+        fr = 10 * k
+        chh = (H - deco - fr * (rows + 1)) / rows
+        cwd = max(78.0, min(chh * 1.3, 132 * k))
+        per = max(1, int((W * 0.90 - fr) // (cwd + fr)))
+        cols = max(2, min(per, math.ceil(len(books) / float(rows))))
+        tot = cols * (cwd + fr) + fr
+        sx = (x0 + x1) / 2.0 - tot / 2.0
+        top = y0 + deco
+        birch = "#E2C392"
+        self._hf_shadow(c, sx, top, sx + tot, y1)
+        self._hf_wood(c, sx, top, sx + tot, y1, birch)
+        c.create_line(sx, top + 1, sx + tot, top + 1, fill=mix(birch, "#FFFFFF", 0.5), tags=tg)
+        draws = []
+        for r in range(rows):
+            for j in range(cols):
+                i = r * cols + j
+                ax0 = sx + fr + j * (cwd + fr)
+                ay0 = top + fr + r * (chh + fr)
+                inside = mix(birch, "#000000", 0.42)
+                c.create_rectangle(ax0, ay0, ax0 + cwd, ay0 + chh, fill=inside, outline=mix(birch, "#000000", 0.25),
+                                   tags=tg)
+                for s_ in range(4):
+                    c.create_line(ax0, ay0 + s_, ax0 + cwd, ay0 + s_, fill=mix(inside, "#000000", 0.45 - s_ * 0.1),
+                                  tags=tg)
+                if i < len(books):
+                    draws.append((i, ax0 + 5, ay0 + 6, ax0 + cwd - 5, ay0 + chh - 2))
+        # on top: a globe, an apple, building blocks
+        gx, gy = sx + 34 * k, top - 22 * k
+        c.create_line(gx, top, gx, gy + 14 * k, fill="#6B4A2A", width=max(2, int(3 * k)), tags=tg)
+        c.create_oval(gx - 14 * k, top - 4 * k, gx + 14 * k, top + 1, fill="#6B4A2A", outline="", tags=tg)
+        c.create_oval(gx - 16 * k, gy - 16 * k, gx + 16 * k, gy + 16 * k, fill="#3E8ED0", outline="#245C8A", tags=tg)
+        c.create_polygon(gx - 9 * k, gy - 8 * k, gx + 2 * k, gy - 12 * k, gx + 6 * k, gy - 2 * k, gx - 2 * k,
+                         gy + 6 * k, gx - 10 * k, gy + 2 * k, fill="#5DB36A", outline="", smooth=True, tags=tg)
+        c.create_arc(gx - 19 * k, gy - 19 * k, gx + 19 * k, gy + 19 * k, start=200, extent=140, style="arc",
+                     outline="#B08A3C", width=2, tags=tg)
+        ax_, ay_ = sx + 78 * k, top - 13 * k
+        c.create_oval(ax_ - 12 * k, ay_ - 11 * k, ax_ + 12 * k, ay_ + 12 * k, fill="#E0403A", outline="#9A2420",
+                      tags=tg)
+        c.create_line(ax_, ay_ - 10 * k, ax_ + 2 * k, ay_ - 17 * k, fill="#5A3A1A", width=2, tags=tg)
+        c.create_oval(ax_ + 2 * k, ay_ - 19 * k, ax_ + 11 * k, ay_ - 13 * k, fill="#5DB36A", outline="", tags=tg)
+        bx_ = sx + tot - 40 * k
+        for j, (bc, ch_) in enumerate((("#F2B51C", "A"), ("#3A7BD5", "B"), ("#E04A4A", "C"))):
+            bxx = bx_ - (1 - j) * 26 * k if j < 2 else bx_ - 13 * k
+            byy = top if j < 2 else top - 24 * k
+            c.create_rectangle(bxx - 12 * k, byy - 24 * k, bxx + 12 * k, byy, fill=bc, outline=mix(bc, "#000000", 0.4),
+                               tags=tg)
+            c.create_text(bxx, byy - 12 * k, text=ch_, font=self.F(max(8, int(11 * k)), "bold"), fill="#FFFFFF",
+                          tags=tg)
+        shown = []
+        for (i, a0, b0, a1, b1) in sorted(draws, key=lambda t_: self._hf_out(t_[0])):
+            bb, a = self._hf_bin(c, books[i], a0, b0, a1, b1, self._hf_out(i))
+            shown.append((i, bb, a))
+        return sorted(shown)
+
+    def _hf_bin(self, c, f, x0, y0, x1, y1, o):
+        tg = "books"
+        col = self.lib.color(f)
+        hh, ww = y1 - y0, x1 - x0
+        d = o * hh * 0.62
+        g = o * ww * 0.08
+        X0, X1 = x0 - g, x1 + g
+        FY0 = y0 + hh * 0.30 + d
+        FY1 = y1 + d
+        rim = y0 + hh * 0.22
+        inner = mix(col, "#000000", 0.38)
+        c.create_polygon(x0 + 3, rim, x1 - 3, rim, X1, FY0, X0, FY0, fill=inner, outline=mix(col, "#000000", 0.5),
+                         tags=tg)
+        for j in range(2):                                                 # papers in the bin
+            py = y0 + hh * (0.10 + 0.06 * j) + d * 0.6
+            c.create_rectangle(x0 + ww * (0.16 + 0.05 * j), py, x1 - ww * (0.20 - 0.05 * j), FY0 + 2,
+                               fill=("#F4F1E8", "#FFFFFF")[j], outline="#CFC9BC", tags=tg)
+        c.create_line(x0 + ww * 0.24, y0 + hh * 0.22 + d * 0.6, x1 - ww * 0.3, y0 + hh * 0.22 + d * 0.6,
+                      fill="#B9B4C8", tags=tg)
+        round_rect(c, X0, FY0, X1, FY1, 6, fill=col, outline=mix(col, "#000000", 0.40), tags=tg)
+        c.create_line(X0 + 5, FY0 + 2, X1 - 5, FY0 + 2, fill=mix(col, "#FFFFFF", 0.40), tags=tg)
+        cxm = (X0 + X1) / 2.0
+        fh = FY1 - FY0
+        round_rect(c, cxm - ww * 0.16, FY0 + fh * 0.12, cxm + ww * 0.16, FY0 + fh * 0.12 + max(5.0, fh * 0.13), 3,
+                   fill=mix(col, "#000000", 0.55), outline="", tags=tg)
+        lw, lh = ww * 0.74, max(12.0, fh * 0.30)
+        ly = FY0 + fh * 0.62
+        c.create_rectangle(cxm - lw / 2, ly - lh / 2, cxm + lw / 2, ly + lh / 2, fill="#FFFFFA",
+                           outline=mix(col, "#000000", 0.30), tags=tg)
+        fs = max(7, min(10, int(lh * 0.55)))
+        c.create_text(cxm, ly, text=self._fit_text(self.lib.label(f), self._sfont(fs, "bold"), lw - 6),
+                      font=self.F(fs, "bold"), fill="#24242E", tags=tg)
+        if o > 0.04:
+            c.create_rectangle(X0 - 1, FY0 - 1, X1 + 1, FY1 + 1, outline="#F5C842", width=2, tags=tg)
+        return (x0, y0, x1, FY1), (cxm, (FY0 + FY1) / 2.0)
 
     def _home_draw(self):
         c = getattr(self, "_home_c", None)
@@ -27462,18 +28689,66 @@ class App:
             self._center(d)
             return
         dr = tk.Frame(ov, bg=T["panel"], highlightthickness=1, highlightbackground=T["border"])
-        dr.place(relx=1.0, x=-16, y=16, anchor="ne", width=330, relheight=1.0, height=-32)
+        hc_ = self._home_conf()
+
+        def place_dr():
+            # 1.0: where you left it, as big as you made it (inside Home)
+            W, H = max(300, ov.winfo_width()), max(300, ov.winfo_height())
+            g_ = hc_.get("panel_geo")
+            if g_ and len(g_) == 4:
+                x_, y_, w_, h_ = [int(v) for v in g_]
+                w_, h_ = max(260, min(w_, W - 8)), max(240, min(h_, H - 8))
+                x_, y_ = max(0, min(x_, W - w_)), max(0, min(y_, H - h_))
+                dr.place(x=x_, y=y_, width=w_, height=h_, relx=0, rely=0, anchor="nw", relheight=0)
+            else:
+                dr.place(relx=1.0, x=-16, y=16, anchor="ne", width=330, relheight=1.0, height=-32)
+        place_dr()
         self._home_drawer = dr
         dr.bind("<Destroy>", lambda e: setattr(self, "_home_drawer", None) if e.widget is dr else None)
-        head = tk.Frame(dr, bg=T["panel"])
+        head = tk.Frame(dr, bg=T["panel"], cursor="fleur")
         head.pack(fill="x", padx=(18, 10), pady=(12, 2))
-        tk.Label(head, text="Personalise Home", font=self.F(12, "bold"), bg=T["panel"], fg=T["text"]).pack(
-            side="left")
+        tl_ = tk.Label(head, text="Personalise Home", font=self.F(12, "bold"), bg=T["panel"], fg=T["text"],
+                       cursor="fleur")
+        tl_.pack(side="left")
+        dg = {}
+
+        def grab(e, kind):
+            ov.update_idletasks()
+            dg.update(kind=kind, x=e.x_root, y=e.y_root, gx=dr.winfo_x(), gy=dr.winfo_y(), w=dr.winfo_width(),
+                      h=dr.winfo_height())
+
+        def drag(e):
+            if not dg:
+                return
+            dx, dy = e.x_root - dg["x"], e.y_root - dg["y"]
+            if dg["kind"] == "move":
+                hc_["panel_geo"] = [dg["gx"] + dx, dg["gy"] + dy, dg["w"], dg["h"]]
+            else:
+                hc_["panel_geo"] = [dg["gx"], dg["gy"], dg["w"] + dx, dg["h"] + dy]
+            place_dr()
+
+        def drop(_e=None):
+            if dg:
+                dg.clear()
+                self.lib.save_meta()
+        for w_ in (head, tl_):
+            w_.bind("<ButtonPress-1>", lambda e: grab(e, "move"))
+            w_.bind("<B1-Motion>", drag)
+            w_.bind("<ButtonRelease-1>", drop)
+        grip = tk.Canvas(dr, width=16, height=16, bg=T["panel"], highlightthickness=0, cursor="bottom_right_corner")
+        for k_ in (4, 8, 12):
+            grip.create_line(15, 15 - k_, 15 - k_, 15, fill=T["muted"])
+        grip.place(relx=1.0, rely=1.0, anchor="se")
+        grip.bind("<ButtonPress-1>", lambda e: grab(e, "size"))
+        grip.bind("<B1-Motion>", drag)
+        grip.bind("<ButtonRelease-1>", drop)
+        ov.bind("<Configure>", lambda e: place_dr() if self._home_drawer is dr else None, add="+")
         x_ = tk.Label(head, text="\u2715", font=self.F(11), bg=T["panel"], fg=T["muted"], cursor="hand2", padx=6)
         x_.pack(side="right")
         x_.bind("<Button-1>", lambda e: self.home_personalise())
-        tk.Label(dr, text="Home changes at once, behind this panel.", font=self.F(8), bg=T["panel"],
-                 fg=T["muted"]).pack(anchor="w", padx=18)
+        tk.Label(dr, text="Home changes at once, behind this panel. Drag its title to move it, its corner to "
+                          "make it bigger or smaller.", font=self.F(8), bg=T["panel"], fg=T["muted"], wraplength=280,
+                 justify="left").pack(anchor="w", padx=18)
         foot = tk.Frame(dr, bg=T["panel"])
         foot.pack(side="bottom", fill="x", padx=18, pady=(4, 12))
         more = tk.Label(foot, text="More: the frame, reading, the logo\u2026", font=self.F(9), bg=T["panel"],
@@ -27518,6 +28793,10 @@ class App:
             refresh()
         self._qp_section(body, "Home - your books")
         self._qp_chips(body, list(self.HOME_LAYOUTS.items()), hc.get("books"), lambda v: setv("books", v))
+        fur = list(self.HOME_FURNITURE.items())          # 1.0: real furniture
+        self._qp_section(body, "Home - like real furniture")
+        self._qp_chips(body, fur[:4], hc.get("books"), lambda v: setv("books", v))
+        self._qp_chips(body, fur[4:], hc.get("books"), lambda v: setv("books", v))
         self._qp_section(body, "Home - how big")
         self._qp_chips(body, [("small", "Small"), ("medium", "Medium"), ("large", "Large")],
                        hc.get("size", "medium"), lambda v: setv("size", v))
@@ -30446,6 +31725,8 @@ class App:
     def _on_motion(self, e):
         if self.drag:
             return
+        if getattr(self, "page_lefts", None) is not None and not getattr(self, "_reading", False):
+            self._gal_hover(e)
         if getattr(self, "_reading", False) and e.y < 64 and \
                 time.time() > getattr(self, "_read_peek_until", 0) - 1.5:
             self._read_peek(2.5)
@@ -30890,27 +32171,40 @@ class App:
         return None
 
     def _get_tessdata(self):
+        """The OCR's reading data - English and (1.0) Spanish - downloaded once into BindLens's own folder."""
         td = self._tessdata()
-        if td:
+        own = os.path.join(self.lib.meta_dir, "tessdata")
+        if td and (os.path.exists(os.path.join(td, "spa.traineddata")) or
+                   os.path.normcase(os.path.abspath(td)) != os.path.normcase(os.path.abspath(own)) or
+                   self.lib.settings.get("ocr_spa_failed")):
             return td
-        if not messagebox.askyesno(APP_NAME, "To read scanned pages BindLens needs its English reading data "
-                                             "(about 4 MB, downloaded once).\n\nDownload it now?"):
+        need = [] if td else ["eng"]
+        need.append("spa")
+        if not td and not messagebox.askyesno(APP_NAME, "To read scanned pages BindLens needs its reading data for "
+                                                        "English and Spanish (about 6 MB, downloaded once).\n\n"
+                                                        "Download it now?"):
             return None
-        dst = os.path.join(self.lib.meta_dir, "tessdata")
+        dst = own
         os.makedirs(dst, exist_ok=True)
-        url = "https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata"
         try:
             import urllib.request
             self.root.config(cursor="watch")
             self.set_status("Downloading the OCR data…")
             self.root.update()
-            with urllib.request.urlopen(url, timeout=60) as r, open(os.path.join(dst, "eng.traineddata.part"),
-                                                                   "wb") as fh:
-                shutil.copyfileobj(r, fh)
-            os.replace(os.path.join(dst, "eng.traineddata.part"), os.path.join(dst, "eng.traineddata"))
+            for lang in need:
+                url = f"https://github.com/tesseract-ocr/tessdata_fast/raw/main/{lang}.traineddata"
+                part = os.path.join(dst, f"{lang}.traineddata.part")
+                try:
+                    with urllib.request.urlopen(url, timeout=60) as r, open(part, "wb") as fh:
+                        shutil.copyfileobj(r, fh)
+                    os.replace(part, os.path.join(dst, f"{lang}.traineddata"))
+                except Exception:
+                    if lang == "eng":
+                        raise
+                    self.lib.settings["ocr_spa_failed"] = True     # English only - not asked again and again
         except Exception as ex:
             messagebox.showerror(APP_NAME, f"Could not download it (are you online?)\n\n{ex}")
-            return None
+            return td
         finally:
             self.root.config(cursor="")
         return dst
@@ -31419,7 +32713,7 @@ class App:
                         break
                     job["n"] = k + 1
                     pg = doc.load_page(i)
-                    tp = pg.get_textpage_ocr(language="eng", dpi=300, full=True, tessdata=td)
+                    tp = pg.get_textpage_ocr(language=ocr_langs(td), dpi=300, full=True, tessdata=td)
                     for x0, y0, x1, y1, word, *_ in pg.get_text("words", textpage=tp):
                         h = y1 - y0
                         if h <= 0:
@@ -31803,6 +33097,59 @@ class App:
             return
         self.page_editor(fi, pi, mode="new", where=where, template=template or "blank")
 
+    def new_document(self, template="blank"):
+        """1.0: File > New document…: a new PDF in the book's folder, written in the page editor - blank, or from a
+        template (a letter, notes, an invoice, meeting notes...). Cancel: nothing is left behind."""
+        folder = self._target_folder()
+        if not folder:
+            return
+        target = self.lib.dir_for(folder, self.prefix if folder == self.folder else None)
+        if target is None or not os.path.isdir(target):
+            messagebox.showinfo(APP_NAME, "This book has no folder of its own to write into yet - add a file to it "
+                                          "first (or make a book from a folder).")
+            return
+        lab = PAGE_TEMPLATES.get(template, PAGE_TEMPLATES["blank"])[0]
+        first = "Document" if template == "blank" else lab
+        name = clean_name(self._ask_string("New document", "The new document's name:",
+                                           f"{first} {time.strftime('%Y-%m-%d')}") or "")
+        if not name:
+            return
+        dst = unique_path(target, name + ".pdf")
+        try:
+            d = self.fitz.open()
+            d.new_page(width=595.28, height=841.89)          # A4 - the page editor writes over it
+            d.save(dst)
+            d.close()
+            note_change("New document (written in BindLens)", dst)
+        except Exception as ex:
+            messagebox.showerror(APP_NAME, f"Could not make the document:\n{ex}")
+            return
+        self.lib.save_meta()
+        self.lib.scan()
+
+        def done(saved):
+            if saved:
+                return
+            def go():                                     # nothing was written: the empty file goes again
+                try:
+                    os.remove(dst)
+                except Exception as ex_:
+                    _log(f"new document: {ex_}")
+            self._with_book_closed(go)
+
+        def there():
+            nd = self.lib.norm(dst)
+            fi = next((k for k, f in enumerate(self.book.files) if self.lib.norm(f["path"]) == nd), None) \
+                if self.book else None
+            if fi is None:
+                return
+            try:
+                self.goto_page(self.book.files[fi]["first"])
+            except Exception:
+                pass
+            self.page_editor(fi, 0, mode="new", where="replace", template=template, on_done=done)
+        self.open_folder(folder, self.prefix if folder == self.folder else "", then=there)
+
     def edit_written_page(self, g):
         grp = self.written_page(g)
         if not grp:
@@ -31810,7 +33157,7 @@ class App:
         fi, pi = self.book.pages[g][0], self.book.pages[g][1]
         self.page_editor(fi, pi, mode="edit")
 
-    def page_editor(self, fi, pi, mode="new", where="after", template="blank"):
+    def page_editor(self, fi, pi, mode="new", where="after", template="blank", on_done=None):
         """Write a page like in a simple Word: tabs HOME · INSERT · PAGE, and TABLE / PICTURE when you are in a
         table or click a picture. Preview shows the real page; Save puts it in the PDF (and closes)."""
         T = self.T
@@ -32690,6 +34037,9 @@ class App:
             return s_
 
         def close_window():
+            if on_done is not None and not state.get("told"):
+                state["told"] = True
+                self.root.after(50, lambda: on_done(bool(state.get("saved"))))
             state["closed"] = True
             self._page_win = None
             try:
@@ -32715,11 +34065,17 @@ class App:
             # closes only when the page is really in the file (your text was lost when saving failed)
             fi_ = next((k for k, f_ in enumerate(self.book.files) if f_["path"] == ed_path), None) \
                 if self.book else None
+            if fi_ is None and os.path.exists(ed_path) and state.get("tries", 0) < 4:
+                state["tries"] = state.get("tries", 0) + 1     # 1.0: the book is being read again - a moment
+                self.root.after(700, save)
+                return "break"
             if fi_ is None:
                 messagebox.showinfo(APP_NAME, f"Open the book of “{os.path.basename(ed_path)}” again, then press "
                                               f"Save - your page is still here.", parent=w)
                 return "break"
+            state["tries"] = 0
             if self._save_written_pages(fi_, pi, mode, where, s_, out):
+                state["saved"] = True
                 close_window()
             return "break"
 
@@ -32812,6 +34168,8 @@ class App:
                 gid = uuid.uuid4().hex[:10]
                 at = pi + 1 if where == "after" else pi
                 doc.insert_pdf(out, start_at=at)
+                if where == "replace" and at + n_new < doc.page_count:
+                    doc.delete_page(at + n_new)          # 1.0: a new document - its empty page goes
             try:
                 day = (page_source(doc, doc.load_page(at)) or {}).get("d") if mode == "edit" else None
             except Exception:
@@ -34898,6 +36256,8 @@ class App:
         """Make BindLens yours: theme, accent, app icon and what is behind the pages."""
         T = self.T
         s = self.lib.settings
+        if not s.get("pers_opened"):
+            s["pers_opened"] = True                     # 1.0: no 'Make BindLens yours?' note any more
         d = self._dialog("Personalise")
         outer = tk.Frame(self._scroll_body(d), bg=T["panel"])
         outer.pack(fill="both", padx=22, pady=(16, 4))
@@ -44254,7 +45614,7 @@ class App:
                             "shapes (colours, effects), stamps and ticks ✓ ✗, a white box or brush to hide the PDF's "
                             "own text. Saved inside the original PDF - you can always take any of it off again."),
         ("Write pages", "#E08E00", "The page + button: a new page like in Word - text, tables, pictures, "
-                                   "templates."),
+                                   "templates. File > New document…: a whole new PDF in the book's folder."),
         ("Find", "#E8467C", "The search box: a document by its name (week 38, wk38…) or a word. Ctrl+K "
                             "searches everything."),
         ("Reports", "#7B61FF", "Essentials first: contacts, deadlines, invoices, tables to Excel, one person, "
@@ -44262,7 +45622,8 @@ class App:
         ("Share", "#0A84FF", "The printer at the top (Ctrl+P): pages, copies, size (fit, 100%, any %), sides, "
                              "colour - straight to your printer. File menu: email, read-only copy, the book as one PDF."),
         ("Make it yours", "#00A884", "Click the logo: theme, backgrounds, clock and calendar (click a day to add a "
-                                     "note), icons - and the logo itself (classic or new)."),
+                                     "note), icons, the logo's colour. Home's corner: Personalise - your books on a "
+                                     "circle, a bookcase, a filing cabinet, lockers…"),
         ("Quick bar", "#E8772E", "The icons on the right: Study (summary sheet, cards), Read aloud, Edit the "
                                  "PDF's text, Scan and add… Right-click it to choose; drag an icon to move it. With "
                                  "the menus on top and the tips below it makes the frame (Personalise > Frame)."),
@@ -45711,6 +47072,24 @@ class App:
         room = (bb[0] if bb and self.where_lbl.text else W) - 40
         st.create_text(14, self.ST_H / 2, text=self._fit_text(self.status_lbl.text, self._sfont(9), max(60, room)),
                        anchor="w", font=f, fill=sub)
+        if getattr(self, "_home", None) is not None:
+            self._plaque(st, W / 2.0, self.ST_H / 2.0)
+
+    def _plaque(self, cv, cx, cy):
+        """1.0: the author's mark - a tiny engraved plaque on Home's frame, like the brass plate of a framed
+        picture. Always there (there is no setting to hide it; the licence asks to keep it - NOTICE.txt)."""
+        txt = "M O H A   C   K A D I"
+        fnt = self.F(7, "bold")
+        tw = self._measure(txt, self._sfont(7, "bold")) + 22
+        th = 13
+        gold = self._home_conf().get("gold", True)
+        base = "#C9A23C" if gold else mix(self.T["panel"], self.T["text"], 0.10)
+        round_rect(cv, cx - tw / 2, cy - th / 2, cx + tw / 2, cy + th / 2, 3, fill=base,
+                   outline=mix(base, "#000000", 0.35))
+        cv.create_line(cx - tw / 2 + 3, cy - th / 2 + 1, cx + tw / 2 - 3, cy - th / 2 + 1,
+                       fill=mix(base, "#FFFFFF", 0.45))
+        cv.create_text(cx, cy + 1, text=txt, font=fnt, fill=mix(base, "#FFFFFF", 0.4))      # the engraving's edge
+        cv.create_text(cx, cy, text=txt, font=fnt, fill=mix(base, "#000000", 0.55))
 
     def _sideband_draw(self):
         for side, cv in (("lb", getattr(self, "lband", None)), ("rb", getattr(self, "rband", None))):
@@ -46004,7 +47383,12 @@ class App:
             return
         ln, page = self._et_line_at(g, px, py)
         if not ln:
-            self.set_status("No text there - click a line of the document's own text (a scanned page has none).")
+            try:
+                if page is not None and is_scanned_page(page):
+                    return self._et_scan_at(g, px, py)          # 1.0: a scan - corrected on the paper's colour
+            except Exception as ex:
+                _log(f"scan fix: {ex}")
+            self.set_status("No text there - click a line of the document's own text.")
             return
         spans = [s for s in ln["spans"] if s.get("text", "").strip()]
         old = "".join(s["text"] for s in ln["spans"]).strip()
@@ -46184,17 +47568,18 @@ class App:
         rgb = tuple(meta.get("rgb") or (0, 0, 0))
         size = float(meta.get("size", 11))
         fn = meta.get("fn", "Helv")
+        paper = tuple(meta.get("paper") or (1, 1, 1))         # 1.0: on a scan, the paper's own colour
         # (a mark keeps to the PDF's standard fonts - MuPDF draws every letter of them; bold / italic chosen in the
         # small bar are kept when the change is made for good)
         try:
             a = page.add_freetext_annot(r, meta["text"], fontsize=size, fontname=fn, text_color=rgb,
-                                        fill_color=(1, 1, 1), align=0, rotate=page.rotation)
+                                        fill_color=paper, align=0, rotate=page.rotation)
         except TypeError:
             a = page.add_freetext_annot(r, meta["text"], fontsize=size, fontname=fn, text_color=rgb,
-                                        fill_color=(1, 1, 1))
+                                        fill_color=paper)
         try:
             a.set_border(width=0)
-            a.update(fontsize=size, fontname=fn, text_color=rgb, fill_color=(1, 1, 1))
+            a.update(fontsize=size, fontname=fn, text_color=rgb, fill_color=paper)
         except Exception:
             pass
         lock_annot(fz, a, meta)
@@ -46203,6 +47588,129 @@ class App:
         except Exception:
             pass
         return a
+
+    def _et_scan_at(self, g, px, py):
+        """1.0: Ctrl+E on a scanned page (a picture of a page - there is no text in it to change): the line is
+        covered with the paper's own colour and your correction is written on it, as a mark (Delete brings the scan
+        back as it was; right-click > Make it final keeps it for good)."""
+        fi = self._require_pdf(g)
+        if fi is None:
+            return
+        fz = self.fitz
+        page = self.book.page(g)
+        f = self.book.files[fi]
+        pt = fz.Point(px, py) * page.derotation_matrix
+        words = ocr_cached_words(f["path"], page) or []
+        old, size, rect = "", 11.0, None
+        near = [w for w in words if w[1] - 3 <= pt.y <= w[3] + 3]
+        if near:
+            ref = min(near, key=lambda w: 0 if w[0] <= pt.x <= w[2] else min(abs(w[0] - pt.x), abs(w[2] - pt.x)))
+            cy, hh = (ref[1] + ref[3]) / 2.0, max(4.0, ref[3] - ref[1])
+            same = sorted([w for w in words if abs((w[1] + w[3]) / 2.0 - cy) < hh * 0.6], key=lambda w: w[0])
+            k = same.index(ref)
+            a_, b_ = k, k
+            while a_ > 0 and same[a_][0] - same[a_ - 1][2] < hh * 2.2:
+                a_ -= 1
+            while b_ < len(same) - 1 and same[b_ + 1][0] - same[b_][2] < hh * 2.2:
+                b_ += 1
+            run = same[a_:b_ + 1]
+            rect = fz.Rect(min(w[0] for w in run), min(w[1] for w in run), max(w[2] for w in run),
+                           max(w[3] for w in run))
+            old = " ".join(w[4] for w in run)
+            size = max(6.0, min(40.0, hh * 1.22))          # (OCR boxes are the letters' height)
+        if rect is None:                                 # not read yet (or nothing there): a line where you clicked
+            rect = fz.Rect(pt.x - 3, pt.y - 8, pt.x + 220, pt.y + 6)
+        rd = rect * page.rotation_matrix                 # as the page is shown
+        rd.normalize()
+        # the paper's colour (and the ink's), from around the line
+        paper, ink = (1.0, 1.0, 1.0), (0.10, 0.10, 0.12)
+        try:
+            z = 1.0
+            pix = page.get_pixmap(matrix=fz.Matrix(z, z), alpha=False)
+            W_, H_, n_ = pix.width, pix.height, pix.n
+            sm = pix.samples
+            ring, inside, pc = [], [], (255, 255, 255)
+            x0, y0 = int(max(0, (rd.x0 - 4) * z)), int(max(0, (rd.y0 - 4) * z))
+            x1, y1 = int(min(W_ - 1, (rd.x1 + 4) * z)), int(min(H_ - 1, (rd.y1 + 4) * z))
+            for xx in range(x0, x1 + 1, max(1, (x1 - x0) // 40)):
+                for yy in (y0, y1):
+                    o = (yy * W_ + xx) * n_
+                    ring.append(tuple(sm[o:o + 3]))
+            for yy in range(y0, y1 + 1, max(1, (y1 - y0) // 8)):
+                for xx in (x0, x1):
+                    o = (yy * W_ + xx) * n_
+                    ring.append(tuple(sm[o:o + 3]))
+                for xx in range(x0 + 2, x1 - 1):
+                    o = (yy * W_ + xx) * n_
+                    inside.append(tuple(sm[o:o + 3]))
+            if ring:
+                ring.sort(key=sum)
+                pc = ring[int(len(ring) * 0.7)]
+                paper = tuple(v / 255.0 for v in pc)
+            if inside:
+                inside.sort(key=sum)
+                ic = inside[0]
+                if sum(ic) < sum(pc) - 150:
+                    ink = tuple(v / 255.0 * 0.8 for v in ic)
+        except Exception as ex:
+            _log(f"scan fix colours: {ex}")
+        hx = "#%02X%02X%02X" % tuple(int(v * 255) for v in paper)
+        ix = "#%02X%02X%02X" % tuple(int(v * 255) for v in ink)
+        c = self.canvas
+        cx0, cy0, cx1, cy1 = self._to_canvas(g, (rd.x0, rd.y0, rd.x1, rd.y1))
+        var = tk.StringVar(value=old)
+        en = tk.Entry(c, textvariable=var, fg=ix, bg=hx, relief="flat", bd=0, insertbackground=ix,
+                      highlightthickness=2, highlightcolor=self.accent, highlightbackground=self.accent,
+                      font=("Arial", -max(7, int(round(size * self.zoom)))))
+        wid = c.create_window(cx0 - 3, cy0 - 3, window=en, anchor="nw", width=max(120, (cx1 - cx0) + 60),
+                              height=(cy1 - cy0) + 8, tags="et_edit")
+        en.focus_set()
+        en.select_range(0, "end")
+        self.set_status("A scanned page: type the right words - Enter covers the line with the paper's colour and "
+                        "writes them on it, as a mark (Delete brings the scan back).  Esc: leave it."
+                        + ("" if old else "  (Tip: Edit > Make scanned pages searchable finds the lines for you.)"))
+        done = {"v": False}
+
+        def close(apply):
+            if done["v"]:
+                return
+            done["v"] = True
+            new = var.get()
+            try:
+                c.delete(wid)
+                en.destroy()
+            except Exception:
+                pass
+            self.canvas.focus_set()
+            if not apply or not new.strip() or new.strip() == old.strip():
+                return
+            meta = {"cover": "edit", "text": new, "was": old, "fn": "Helv", "size": round(size, 1),
+                    "rgb": list(ink), "paper": list(paper), "scan": True}
+            try:
+                tw = fz.get_text_length(new, fontname="helv", fontsize=size)
+            except Exception:
+                tw = rd.width
+            top_ = rd.y0 - max(1.5, (size * 1.3 - rd.height) / 2.0)        # room for the letters
+            r2 = fz.Rect(rd.x0 - 2, top_, max(rd.x1, rd.x0 + tw + 4) + 2, max(rd.y1 + 1.5, top_ + size * 1.3))
+            self._begin_edit(fi)
+            try:
+                a = self._et_freetext(self.book.page(g), r2, meta)
+                xref = a.xref
+            except Exception as ex:
+                if self.undo_stack:
+                    self.undo_stack.pop()
+                messagebox.showerror(APP_NAME, f"Could not write the correction:\n{ex}")
+                return
+            self._commit_edit(fi, g)
+            self.sel_annot = (g, xref)
+            self.set_status("Corrected on the scan, as a mark: Delete brings the scan back · right-click > Make it "
+                            "final.")
+        en.bind("<Return>", lambda e: (close(True), "break")[1])
+        en.bind("<KP_Enter>", lambda e: (close(True), "break")[1])
+        en.bind("<Escape>", lambda e: (close(False), "break")[1])
+        en.bind("<FocusOut>", lambda e: self.root.after(200, lambda: close(False) if self.root.focus_get() is not en
+                                                         else None))
+        self._et_close = lambda: close(False)
 
     def _et_mark(self, g, ln, s0, new, old, style=None):
         fi = self._require_pdf(g)
@@ -47151,10 +48659,11 @@ class App:
         d.configure(padx=24, pady=18)
         tk.Label(d, text=f"New in BindLens {APP_VERSION}", font=self.F(16, "bold"), bg=T["panel"],
                  fg=T["text"]).pack(anchor="w")
-        tk.Label(d, text="The PIN before anything else, pictures with effects, videos - and Home you personalise "
-                         "right there.", font=self.F(9), bg=T["panel"], fg=T["muted"]).pack(anchor="w", pady=(2, 10))
+        tk.Label(d, text="The first full release: videos inside, real galleries, Home like real furniture, a ring "
+                         "binder for the PIN, scans you can correct.", font=self.F(9), bg=T["panel"],
+                 fg=T["muted"]).pack(anchor="w", pady=(2, 10))
         wb = self._scroll_body(d)
-        for icon, title, text in WHATS_NEW_44 + WHATS_NEW_43:
+        for icon, title, text in WHATS_NEW_10 + WHATS_NEW_44:
             row = tk.Frame(wb, bg=T["panel"])
             row.pack(fill="x", pady=4)
             cv = tk.Canvas(row, width=34, height=34, bg=T["panel"], highlightthickness=0)
@@ -47382,8 +48891,8 @@ class App:
             c.create_image(0, 0, anchor="nw", tags=("bg",))
             for i in range(len(st["pages"])):
                 c.create_polygon(0, 0, 0, 0, 0, 0, fill="", outline="#FFFFFF", width=1, tags=("page", f"pg{i}"))
-            FW, FH = S(380), S(256)
-            kr, kg = S(31), S(16)
+            FW, FH = S(300), S(340)
+            kr, kg = S(25), S(12)
             KW, KH = 6 * kr + 2 * kg, 8 * kr + 3 * kg
             wide = W >= FW + S(90) + KW + 60
             if wide:
@@ -47410,133 +48919,134 @@ class App:
             pages_frame()
 
         def draw_file(fx, fy, FW, FH):
-            ink, edge = "#4A3517", "#7E5E2C"
+            """1.0: a ring binder like the one in the logo - a white spine with its rings, a label and the finger
+            hole, a hard cover, the pages showing at the edge, the pink ribbon - closed by a small brass padlock
+            on a strap. The PIN fills the boxes of the spine's label."""
             tg = ("file",)
-            # a soft shadow under the file
+            SPW = S(66)                                       # the spine
+            cov0 = fx + SPW - S(4)
+            # a soft shadow
             for k_, col in ((12, "#0B0920"), (8, "#120F2E"), (4, "#1A1640")):
-                self._round_rect(c, fx + S(k_) * 0.6, fy + S(k_) * 0.5, fx + FW + S(k_) * 0.6, fy + FH + S(k_),
-                                 S(12), fill=col, outline="", tags=tg + ("shadow",))
-            # the back of the file and its tab - with the logo on it
-            tab = (fx + S(20), fx + S(132))
-            c.create_polygon(tab[0], fy + S(2), tab[0] + S(14), fy - S(34), tab[1] - S(14), fy - S(34), tab[1],
-                             fy + S(2), fill="#C99A55", outline=edge, tags=tg + ("back",))
-            self._round_rect(c, fx, fy, fx + FW, fy + FH, S(10), fill="#C99A55", outline=edge, tags=tg + ("back",))
-            grad(fx + 2, fy + 2, fx + FW - 2, fy + S(40), "#D3A862", "#C99A55", 6, tg + ("back",))
-            ls = max(16, int(S(28)))
+                self._round_rect(c, fx + S(k_) * 0.6, fy + S(k_) * 0.5, fx + FW + S(14) + S(k_) * 0.6,
+                                 fy + FH + S(k_), S(12), fill=col, outline="", tags=tg + ("shadow",))
+            # the pages inside, their edges showing on the right (like the logo's stacked pages)
+            for k_ in range(6, -1, -1):
+                d_ = S(2.2) * k_
+                c.create_rectangle(cov0 + S(10) + d_, fy + S(8) + d_ * 0.3, fx + FW + S(8) + d_ * 0.6,
+                                   fy + FH - S(8) + d_ * 0.3, fill=mix("#FFFDF7", "#D9D2C2", k_ / 8.0),
+                                   outline="#D2CAB8", tags=tg + ("papers",))
+            c.create_rectangle(cov0 + S(10), fy + S(8), fx + FW + S(8), fy + FH - S(8), fill="#FFFDF7",
+                               outline="#D2CAB8", tags=tg + ("papers", "sheet"))
+            c.create_line(cov0 + S(34), fy + S(30), cov0 + S(150), fy + S(30), fill="#6C63FF",
+                          width=max(2, int(S(4))), tags=tg + ("papers",))
+            j, y_ = 0, fy + S(46)
+            while y_ < fy + FH - S(30):
+                c.create_line(cov0 + S(34), y_, fx + FW - S((40, 10, 30, 20, 60)[j % 5]), y_, fill="#B9B4C8",
+                              width=max(1, int(S(2))), tags=tg + ("papers",))
+                j += 1
+                y_ += S(12) if j % 6 else S(22)
+            # the pink ribbon of the logo
+            rx = fx + FW - S(44)
+            c.create_polygon(rx, fy - S(14), rx + S(16), fy - S(14), rx + S(16), fy + S(40), rx + S(8), fy + S(32),
+                             rx, fy + S(40), fill="#FF85C2", outline="#E0559E", tags=tg + ("papers",))
+            # the hard cover (it opens), in the logo's colours - the logo on it
+            st["cover0"] = [cov0, fy, fx + FW, fy, fx + FW, fy + FH, cov0, fy + FH]
+            c.create_polygon(*st["cover0"], fill="#3D2F9E", outline="#21185E", tags=tg + ("cover",))
+            n_b = 14
+            for k_ in range(n_b):
+                y0_ = fy + 2 + (FH - 4) * k_ / n_b
+                c.create_rectangle(cov0 + 2, y0_, fx + FW - 2, y0_ + (FH - 4) / n_b + 1, outline="",
+                                   fill=mix("#5A4BD6", "#2E2380", k_ / float(n_b - 1)), tags=tg + ("covers",))
+            c.create_line(cov0 + S(10), fy + S(6), fx + FW - S(10), fy + S(6), fill="#8C82F0",
+                          tags=tg + ("covers",))
+            ls = max(20, int(S(46)))
             try:
                 key = ("logo", logo_name, ls)
                 if key not in imgs:
                     imgs[key] = tk.PhotoImage(data=logo_icon_data(logo_name, ls))
-                c.create_image((tab[0] + tab[1]) / 2.0, fy - S(15), image=imgs[key], tags=tg)
+                c.create_image((cov0 + fx + FW) / 2.0, fy + S(64), image=imgs[key], tags=tg + ("covers",))
             except Exception as ex:
                 _log(f"lock logo: {ex}")
-            # the papers inside, and the pink ribbon of the logo
-            c.create_polygon(fx + S(22), fy + S(16), fx + FW - S(12), fy + S(8), fx + FW - S(8), fy + FH - S(14),
-                             fx + S(26), fy + FH - S(6), fill="#F1ECE1", outline="#CFC6B3", tags=tg + ("papers",))
-            c.create_rectangle(fx + S(14), fy + S(14), fx + FW - S(16), fy + FH - S(8), fill="#FFFDF7",
-                               outline="#D8D0BE", tags=tg + ("papers",))
-            c.create_line(fx + S(34), fy + S(27), fx + S(150), fy + S(27), fill="#6C63FF", width=max(2, int(S(4))),
-                          tags=tg + ("papers",))
-            j, y_ = 0, fy + S(40)
-            while y_ < fy + FH - S(26):
-                c.create_line(fx + S(34), y_, fx + FW - S((110, 60, 80, 70, 130)[j % 5]), y_, fill="#B9B4C8",
-                              width=max(1, int(S(2))), tags=tg + ("papers",))
-                j += 1
-                y_ += S(11) if j % 6 else S(20)
-            c.create_polygon(fx + FW - S(66), fy - S(12), fx + FW - S(46), fy - S(12), fx + FW - S(46),
-                             fy + S(46), fx + FW - S(56), fy + S(38), fx + FW - S(66), fy + S(46), fill="#FF85C2",
-                             outline="#E0559E", tags=tg + ("papers",))
-            # the front cover: manila card, lighter at the top, a fold near the bottom, a little paper grain
-            top = fy + S(50)
-            st["cover0"] = [fx, top, fx + FW, top, fx + FW, fy + FH, fx, fy + FH]
-            c.create_polygon(*st["cover0"], fill="#E6BF7A", outline=edge, tags=tg + ("cover",))
-            grad(fx + 1, top + 1, fx + FW - 1, fy + FH - 1, "#EFCF92", "#DDB067", 12, tg + ("covers",))
-            c.create_line(fx, top, fx + FW, top, fill="#F7E3B8", width=max(1, int(S(2))), tags=tg + ("covers",))
-            c.create_line(fx, top, fx + FW, top, fill=edge, tags=tg + ("covers",))
-            c.create_line(fx, top, fx, fy + FH, fx + FW, fy + FH, fx + FW, top, fill=edge, tags=tg + ("covers",))
-            for yy in (fy + FH - S(18), fy + FH - S(13)):
-                c.create_line(fx + S(8), yy, fx + FW - S(8), yy, fill="#CFA25C", tags=tg + ("covers",))
-            gr = random.Random(7)
-            for _ in range(70):
-                x_, y_ = fx + gr.uniform(6, FW - 6), gr.uniform(top + 4, fy + FH - 6)
-                c.create_line(x_, y_, x_ + S(gr.uniform(2, 5)), y_, fill="#D9AE69", tags=tg + ("covers",))
-            # the leather strap over the file, stitched, ending in a steel hasp
-            sx = fx + FW / 2.0
-            sw = S(40)
-            s0, s1 = fy - S(6), top + S(70)
-            c.create_rectangle(sx - sw / 2, s0, sx + sw / 2, s1, fill="#6B4222", outline="#3E2410",
-                               tags=tg + ("covers", "strap"))
-            c.create_rectangle(sx - sw / 2 + S(3), s0, sx - sw / 2 + S(9), s1, fill="#7D5130", outline="",
-                               tags=tg + ("covers", "strap"))
-            for dx_ in (-sw / 2 + S(5), sw / 2 - S(5)):
-                c.create_line(sx + dx_, s0 + S(4), sx + dx_, s1 - S(4), fill="#E8CFA0", dash=(4, 3),
-                              tags=tg + ("covers", "strap"))
-            hy = s1 - S(6)
-            self._round_rect(c, sx - S(26), hy - S(8), sx + S(26), hy + S(20), S(5), fill="#A9AEB8",
-                             outline="#5D626C", tags=tg + ("covers", "hasp"))
-            c.create_line(sx - S(22), hy - S(5), sx + S(22), hy - S(5), fill="#E9ECF2", tags=tg + ("covers", "hasp"))
-            for dx_ in (-S(18), S(18)):
-                c.create_oval(sx + dx_ - S(3), hy + S(6) - S(3), sx + dx_ + S(3), hy + S(6) + S(3), fill="#7D828E",
-                              outline="#4D525C", tags=tg + ("covers", "hasp"))
-            # the padlock: a steel shackle through the hasp, a brass body with the wheels
+            for ey in (fy + FH * 0.36, fy + FH * 0.64):         # two metal eyelets, like a real binder
+                ex_ = cov0 + S(26)
+                c.create_oval(ex_ - S(7), ey - S(4), ex_ + S(7), ey + S(4), fill="#C9CDD6", outline="#6D727C",
+                              tags=tg + ("covers",))
+                c.create_oval(ex_ - S(4), ey - S(2), ex_ + S(4), ey + S(2), fill="#2A2238", outline="",
+                              tags=tg + ("covers",))
+            # the spine: white, its rings (the three of the logo), the label with the PIN boxes, the finger hole
+            self._round_rect(c, fx, fy, fx + SPW, fy + FH, S(8), fill="#F4F3F8", outline="#B9B6C8",
+                             tags=tg + ("spine",))
+            c.create_rectangle(fx + S(4), fy + S(4), fx + S(10), fy + FH - S(4), fill="#FFFFFF", outline="",
+                               tags=tg + ("spine",))
+            c.create_rectangle(fx + SPW - S(12), fy + S(4), fx + SPW - S(4), fy + FH - S(4), fill="#E3E1EC",
+                               outline="", tags=tg + ("spine",))
             n = n_wheels()
-            ww, wg = S(26), S(6)
-            BW = n * ww + (n - 1) * wg + S(40)
-            BH = S(104)
-            bx0, by0 = sx - BW / 2.0, hy + S(26)
-            R = S(30)
-            scy = by0 - S(4)
-            for wdt, col, dr in ((S(13), "#5D626C", 0), (S(9), "#B7BCC6", 0), (S(3), "#EEF1F6", -S(2))):
-                c.create_arc(sx - R + dr, scy - R - S(40) + dr, sx + R - dr, scy + R - S(40) - dr, start=0,
-                             extent=180, style="arc", width=wdt, outline=col, tags=tg + ("covers", "shackle"))
-                for lx in (sx - R + dr, sx + R - dr):
-                    c.create_line(lx, scy - S(40), lx, scy + S(4), width=wdt, fill=col,
-                                  tags=tg + ("covers", "shackle"))
-            c.create_rectangle(sx - R - S(8), hy + S(4), sx - R + S(8), hy + S(14), fill="#A9AEB8",
-                               outline="#5D626C", tags=tg + ("covers", "hasp"))        # the staple in front
-            self._round_rect(c, bx0 + S(3), by0 + S(5), bx0 + BW + S(3), by0 + BH + S(5), S(14), fill="#5A3F0B",
-                             outline="", tags=tg + ("covers", "padlock"))
-            self._round_rect(c, bx0, by0, bx0 + BW, by0 + BH, S(14), fill="#D9A632", outline="#8A6410",
-                             tags=tg + ("covers", "padlock"))
-            grad(bx0 + S(6), by0 + S(4), bx0 + BW - S(6), by0 + BH - S(6), "#F6D57A", "#B88418", 14,
-                 tg + ("covers", "padlock"))
-            c.create_line(bx0 + S(10), by0 + S(5), bx0 + BW - S(10), by0 + S(5), fill="#FFF0BF",
-                          width=max(1, int(S(2))), tags=tg + ("covers", "padlock"))
-            c.create_line(bx0 + S(4), by0 + S(14), bx0 + S(4), by0 + BH - S(14), fill="#F1CF73",
-                          tags=tg + ("covers", "padlock"))
+            lb0, lb1 = fy + S(22), fy + S(22) + S(26) * n + S(20)
+            c.create_rectangle(fx + S(12), lb0, fx + SPW - S(12), lb1, fill="#FFFFFF", outline="#CFCADB",
+                               tags=tg + ("spine",))
+            c.create_line(fx + S(16), lb0 + S(8), fx + SPW - S(16), lb0 + S(8), fill="#6C63FF",
+                          width=max(1, int(S(2))), tags=tg + ("spine",))
             st["wheels"] = []
-            wy = by0 + S(22)
+            bw_ = SPW - S(34)
             for i in range(n):
-                x_ = bx0 + S(20) + i * (ww + wg)
-                c.create_rectangle(x_ - 1, wy - 1, x_ + ww + 1, wy + S(48) + 1, fill="#7A5609", outline="",
-                                   tags=tg + ("covers", "padlock"))
-                c.create_rectangle(x_, wy, x_ + ww, wy + S(48), fill="#2A2238", outline="#120E1C",
-                                   tags=tg + ("covers", "padlock", "slot", f"slot{i}"))
-                for k_ in range(5):                               # the ridges of a wheel
-                    yy = wy + S(3) + k_ * S(2)
-                    c.create_line(x_ + 2, yy, x_ + ww - 2, yy, fill="#3E3452", tags=tg + ("covers", "padlock",
-                                                                                           "slotsh"))
-                    yy = wy + S(45) - k_ * S(2)
-                    c.create_line(x_ + 2, yy, x_ + ww - 2, yy, fill="#3E3452", tags=tg + ("covers", "padlock",
-                                                                                           "slotsh"))
-                t_ = c.create_text(x_ + ww / 2.0, wy + S(24), text="", font=font(17, "bold", serif),
-                                   fill="#FFE6A0", tags=tg + ("covers", "padlock", "wheel"))
-                r_ = S(5.5)                                       # a set wheel: a gold dot (any font)
-                c.create_oval(x_ + ww / 2.0 - r_, wy + S(24) - r_, x_ + ww / 2.0 + r_, wy + S(24) + r_,
-                              fill="#FFD36B", outline="#FFF0BF", state="hidden",
-                              tags=tg + ("covers", "padlock", f"dot{i}"))
+                by_ = lb0 + S(18) + i * S(26)
+                bx_ = fx + (SPW - bw_) / 2.0
+                c.create_rectangle(bx_, by_, bx_ + bw_, by_ + S(20), fill="#F7F5FC", outline="#B8B2CC",
+                                   tags=tg + ("spine", "slot", f"slot{i}"))
+                t_ = c.create_text(bx_ + bw_ / 2.0, by_ + S(10), text="", font=font(11, "bold", serif),
+                                   fill="#8C84B8", tags=tg + ("spine", "wheel"))
+                r_ = S(4.5)
+                c.create_oval(bx_ + bw_ / 2.0 - r_, by_ + S(10) - r_, bx_ + bw_ / 2.0 + r_, by_ + S(10) + r_,
+                              fill="#6C63FF", outline="#4B43C9", state="hidden",
+                              tags=tg + ("spine", f"dot{i}"))
                 st["wheels"].append(t_)
-            c.create_polygon(bx0 + BW / 2.0 - S(6), wy + S(54), bx0 + BW / 2.0 + S(6), wy + S(54), bx0 + BW / 2.0,
-                             wy + S(62), fill="#7A5609", outline="", tags=tg + ("covers", "padlock"))
-            st["padlock_y"] = by0 + BH
-            # under the file: what to do, and what happened
-            c.create_text(fx + FW / 2.0, fy + FH + S(28), text="Type your PIN", font=font(11, "bold"),
+            ry0 = max(lb1 + S(26), fy + FH * 0.42)
+            for i in range(3):                                # the three rings
+                ry = ry0 + i * S(30)
+                if ry > fy + FH - S(60):
+                    break
+                cx_ = fx + SPW - S(2)
+                c.create_arc(cx_ - S(16), ry - S(9), cx_ + S(16), ry + S(9), start=90, extent=180, style="arc",
+                             width=max(2, int(S(4))), outline="#8A8F9A", tags=tg + ("ring", "ringL"))
+                c.create_arc(cx_ - S(16), ry - S(9), cx_ + S(16), ry + S(9), start=-90, extent=180, style="arc",
+                             width=max(2, int(S(4))), outline="#C9CDD6", tags=tg + ("ring", "ringR"))
+                c.create_oval(fx + S(22), ry - S(4), fx + S(30), ry + S(4), fill="#3A3550", outline="#9A96AA",
+                              tags=tg + ("spine",))
+            hy_ = fy + FH - S(34)                             # the finger hole
+            c.create_oval(fx + SPW / 2.0 - S(12), hy_ - S(12), fx + SPW / 2.0 + S(12), hy_ + S(12),
+                          fill="#B7B9C2", outline="#7D828E", tags=tg + ("spine",))
+            c.create_oval(fx + SPW / 2.0 - S(8), hy_ - S(8), fx + SPW / 2.0 + S(8), hy_ + S(8),
+                          fill="#1E1A30", outline="", tags=tg + ("spine",))
+            # a strap over the cover's edge and a SMALL brass padlock
+            sy = fy + FH / 2.0
+            c.create_rectangle(fx + FW - S(30), sy - S(9), fx + FW + S(16), sy + S(9), fill="#6B4222",
+                               outline="#3E2410", tags=tg + ("covers", "strap"))
+            c.create_line(fx + FW - S(28), sy - S(5), fx + FW + S(14), sy - S(5), fill="#E8CFA0", dash=(3, 3),
+                          tags=tg + ("covers", "strap"))
+            px_, py_ = fx + FW + S(16), sy
+            R = S(10)
+            for wdt, col in ((S(6), "#5D626C"), (S(4), "#B7BCC6"), (S(1.5), "#EEF1F6")):
+                c.create_arc(px_ - R, py_ - R - S(4), px_ + R, py_ + R - S(4), start=0, extent=180, style="arc",
+                             width=wdt, outline=col, tags=tg + ("covers", "shackle"))
+                for lx in (px_ - R, px_ + R):
+                    c.create_line(lx, py_ - S(4), lx, py_ + S(6), width=wdt, fill=col,
+                                  tags=tg + ("covers", "shackle"))
+            self._round_rect(c, px_ - S(15), py_ + S(4), px_ + S(15), py_ + S(30), S(5), fill="#D9A632",
+                             outline="#8A6410", tags=tg + ("covers", "padlock"))
+            c.create_line(px_ - S(11), py_ + S(7), px_ + S(11), py_ + S(7), fill="#FFF0BF",
+                          tags=tg + ("covers", "padlock"))
+            c.create_oval(px_ - S(3), py_ + S(13), px_ + S(3), py_ + S(19), fill="#5A3F0B", outline="",
+                          tags=tg + ("covers", "padlock"))
+            c.create_line(px_, py_ + S(18), px_, py_ + S(24), fill="#5A3F0B", width=max(1, int(S(2))),
+                          tags=tg + ("covers", "padlock"))
+            # under the binder: what to do, and what happened
+            c.create_text(fx + FW / 2.0, fy + FH + S(30), text="Type your PIN", font=font(11, "bold"),
                           fill="#FFFFFF", tags=("hint",))
-            c.create_text(fx + FW / 2.0, fy + FH + S(50), text="", font=font(10, "bold"), fill="#FFD1E0",
+            c.create_text(fx + FW / 2.0, fy + FH + S(52), text="", font=font(10, "bold"), fill="#FFD1E0",
                           tags=("msg",))
 
         def draw_keys(kx, ky, kr, kg):
-            """Keys like an old typewriter's: a brass ring, a cream face, the digit in ink."""
+            """Quiet keys: dark glass, a thin light ring, the digit in soft white."""
             st["keys"] = []
             rows = (("1", "2", "3"), ("4", "5", "6"), ("7", "8", "9"), ("back", "0", "ok"))
             for r_, row in enumerate(rows):
@@ -47544,32 +49054,19 @@ class App:
                     cx = kx + kr + c_ * (2 * kr + kg)
                     cy = ky + kr + r_ * (2 * kr + kg)
                     tg = ("key", f"key_{k_}")
-                    c.create_oval(cx - kr + 2, cy - kr + 5, cx + kr + 2, cy + kr + 5, fill="#0B0920", outline="",
-                                  tags=tg)
-                    c.create_oval(cx - kr, cy - kr, cx + kr, cy + kr, fill="#B8862A", outline="#6E4F12", width=1,
-                                  tags=tg + ("ring", f"ring_{k_}"))
-                    c.create_oval(cx - kr + 3, cy - kr + 2, cx + kr - 3, cy + kr - 5, fill="#F2CE6E", outline="",
-                                  tags=tg)
-                    fi_ = kr * 0.72
-                    c.create_oval(cx - fi_, cy - fi_, cx + fi_, cy + fi_, fill="#F7F1E3", outline="#D9CFB8",
-                                  width=2, tags=tg + ("face", f"face_{k_}"))
-                    lab = {"back": "⌫", "ok": "OK"}.get(k_, k_)
-                    if k_ == "back":
-                        lab = "Del"
-                    c.create_text(cx, cy, text=lab, fill="#2A2233",
-                                  font=font(19 if len(lab) == 1 else 11, "bold", serif if len(lab) == 1 else None),
-                                  tags=tg + (f"lab_{k_}",))
+                    c.create_oval(cx - kr, cy - kr, cx + kr, cy + kr, fill="#17133A", outline="#5E58A8", width=1,
+                                  tags=tg + ("ring", f"ring_{k_}", "face", f"face_{k_}"))
+                    lab = {"back": "Del", "ok": "OK"}.get(k_, k_)
+                    c.create_text(cx, cy, text=lab, fill="#E9E4FF",
+                                  font=font(15 if len(lab) == 1 else 10, "normal"), tags=tg + (f"lab_{k_}",))
                     st["keys"].append((cx, cy, kr, k_))
-            c.create_text(kx + (6 * kr + 2 * kg) / 2.0, ky + 8 * kr + 3 * kg + S(28),
-                          text="Forgot it? Use the code you wrote down", fill="#FFE6A0", font=font(9),
+            c.create_text(kx + (6 * kr + 2 * kg) / 2.0, ky + 8 * kr + 3 * kg + S(24),
+                          text="Forgot it? Use the code you wrote down", fill="#CFC8F2", font=font(9),
                           tags=("forgot",))
 
         def press_key(k_, down):
             try:
-                d_ = 2 if down else -2
-                c.move(f"face_{k_}", 0, d_)
-                c.move(f"lab_{k_}", 0, d_)
-                c.itemconfigure(f"face_{k_}", fill="#E9DFC6" if down else "#F7F1E3")
+                c.itemconfigure(f"face_{k_}", fill="#2E2870" if down else "#17133A")
             except Exception:
                 pass
 
@@ -47710,36 +49207,40 @@ class App:
                     st["shake"] = None
                 else:
                     move_to("file", "shake", S(16) * math.sin(q * 26) * (1 - q), 0)
-            # the right PIN: the shackle springs, the padlock drops, the file opens and comes to you
+            # the right PIN: the padlock springs and drops, the rings open, the cover swings open, the file comes to you
             if st["open"] is not None:
-                p = (now - st["open"]) / 1.0
+                p = (now - st["open"]) / 1.05
                 fx, fy, FW, FH = st["geo"][:4]
 
                 def ph(a, b):
                     return max(0.0, min(1.0, (p - a) / (b - a)))
-                e1 = ph(0.08, 0.28)
-                move_to("shackle", "sh", 0, -S(18) * (e1 * (2 - e1)))
-                e2 = ph(0.30, 0.55)
+                e1 = ph(0.05, 0.22)
+                move_to("shackle", "sh", 0, -S(9) * (e1 * (2 - e1)))
+                e2 = ph(0.22, 0.44)
                 if e2 > 0:
-                    move_to("padlock", "pl", 0, S(160) * e2 * e2)
-                    move_to("shackle", "sh2", 0, S(160) * e2 * e2)
-                if e2 >= 1:
-                    c.itemconfigure("covers", state="hidden")
-                e3 = ph(0.55, 0.82)
+                    move_to("padlock", "pl", 0, S(150) * e2 * e2)
+                    move_to("shackle", "sh2", 0, S(150) * e2 * e2)
+                    if e2 > 0.3:
+                        c.itemconfigure("strap", state="hidden")
+                er = ph(0.30, 0.48)
+                move_to("ringL", "rl", -S(7) * er, 0)
+                move_to("ringR", "rr", S(7) * er, 0)
+                e3 = ph(0.46, 0.80)
                 if e3 > 0:
+                    c.itemconfigure("covers", state="hidden")
                     e3 = e3 * e3 * (3 - 2 * e3)
                     x0, t0_, x1, _t, _x, b0, _x2, _b = st["cover0"]
-                    lift = S(36)
-                    c.coords("cover", x0 - lift * e3, t0_ + (b0 - t0_ + S(30)) * e3, x1 + lift * e3,
-                             t0_ + (b0 - t0_ + S(30)) * e3, x1, b0, x0, b0)
-                    move_to("papers", "pp", 0, -S(24) * e3)
-                e4 = ph(0.78, 1.0)
+                    xr = x1 + (2 * x0 - 2 * x1) * e3
+                    k_ = S(26) * math.sin(math.pi * e3)
+                    c.coords("cover", x0, t0_, xr, t0_ - k_, xr, b0 + k_, x0, b0)
+                    c.itemconfigure("cover", fill=mix("#3D2F9E", "#1C1650", abs(0.5 - e3) < 0.25 and 0.5 or 0.0))
+                e4 = ph(0.80, 1.0)
                 if e4 > 0:
                     c.itemconfigure("key", state="hidden")
                     c.itemconfigure("forgot", state="hidden")
-                    k_ = (1.0 + 0.5 * e4) / st.get("zoomed", 1.0)
-                    st["zoomed"] = 1.0 + 0.5 * e4
-                    c.scale("file", fx + FW / 2.0, fy + FH / 2.0, k_, k_)
+                    kz = (1.0 + 0.45 * e4) / st.get("zoomed", 1.0)
+                    st["zoomed"] = 1.0 + 0.45 * e4
+                    c.scale("file", fx + FW / 2.0, fy + FH / 2.0, kz, kz)
                 if p >= 1.0:
                     finish_open()
                     return False
@@ -47874,10 +49375,10 @@ class App:
             if k_ == st["hover"]:
                 return
             if st["hover"]:
-                c.itemconfigure(f"ring_{st['hover']}", fill="#B8862A")
+                c.itemconfigure(f"ring_{st['hover']}", fill="#17133A", outline="#5E58A8")
             st["hover"] = k_
             if k_:
-                c.itemconfigure(f"ring_{k_}", fill="#FFC83D")
+                c.itemconfigure(f"ring_{k_}", fill="#28225E", outline="#B9B2F2")
 
         def on_motion(e):
             k_ = None if st["code"] else hit_key(e.x, e.y)
@@ -47987,210 +49488,426 @@ class App:
             lst.append(fn)
         return True
 
-    # ---- 4.4: videos, played here -------------------------------------------------------------------------------
+    # ---- 4.6: videos, played inside BindLens (the VLC engine; Windows' own engine when VLC is not there) ----------
+    VIDEO_RATES = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
+
     def play_video(self, path):
-        """Play a video inside BindLens, over the pages (the frame stays round it). Space: play / pause; ← →: ten
-        seconds back / on; M: sound off / on; Esc: close. On Windows it uses Windows' own media engine; when that
-        can't play the video (or not on Windows), it opens in your video player."""
+        """A video, inside BindLens - never a second window. Three sizes: big inside the window, full screen, or a
+        small player in a corner of BindLens while you keep working (drag it anywhere). Click the picture: pause /
+        play; double-click: full screen. Keys: Space play / pause, ← → 10 seconds, ↑ ↓ volume, M sound, F full
+        screen, Esc smaller / close. When no engine can play it, it opens in your video player."""
         if not path or not os.path.isfile(path):
             self._toast("The video is not there any more.")
             return
         self.close_video()
-        if os.name != "nt":
-            open_in_os(path)
-            self._toast("The video opens in your video player.")
-            return
-        T, A = self.T, self.accent
-        ov = tk.Frame(self.root, bg="#07060F")
-        try:
-            top = self.topband.winfo_height() if self.topband.winfo_ismapped() else 0
-        except Exception:
-            top = 0
-        ov.place(x=0, y=top, relwidth=1, relheight=1, height=-top)
-        ov.lift()
+        BG, BAR, INK, SUB, PINK, GOLD = "#07060F", "#0E0C1F", "#FFFFFF", "#CFC8F2", "#E8467C", "#FFC83D"
+        ov = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground="#2A2550")
         self._video = ov
-        st = {"p": path, "mci": None, "job": None, "mute": False, "drag": False, "ended": False, "hov": None}
+        st = {"p": path, "eng": None, "job": None, "mode": "panel", "hov": None, "drag": None, "mpos": None,
+              "vol": int(self.lib.settings.get("video_volume", 80)), "mute": False, "rate": 1.0,
+              "full_by_us": False, "click_job": None, "started": time.time(), "tried": []}
         self._video_st = st
-        head = tk.Frame(ov, bg="#0E0C1F", height=42)
-        head.pack(fill="x")
+        head = tk.Frame(ov, bg=BAR, height=38)
         head.pack_propagate(False)
-        tk.Label(head, text=os.path.basename(path), font=self.F(10, "bold"), bg="#0E0C1F", fg="#FFFFFF").pack(
-            side="left", padx=16)
-        for lab, fn in (("✕  Close (Esc)", self.close_video),
-                        ("Open in my video player", lambda: (self.close_video(), open_in_os(path)))):
-            b_ = tk.Label(head, text=lab, font=self.F(9), bg="#0E0C1F", fg="#CFC8F2", cursor="hand2", padx=10)
-            b_.pack(side="right", padx=4)
-            b_.bind("<Button-1>", lambda e, fn=fn: fn())
-            b_.bind("<Enter>", lambda e, w=b_: w.configure(fg="#FFC83D"))
-            b_.bind("<Leave>", lambda e, w=b_: w.configure(fg="#CFC8F2"))
-        bar = tk.Canvas(ov, bg="#0E0C1F", height=58, highlightthickness=0, bd=0)
-        bar.pack(side="bottom", fill="x")
+        tk.Label(head, text=os.path.basename(path), font=self.F(10, "bold"), bg=BAR, fg=INK).pack(side="left",
+                                                                                                padx=14)
+        lk = tk.Label(head, text="Open in my video player", font=self.F(9), bg=BAR, fg=SUB, cursor="hand2", padx=10)
+        lk.pack(side="right", padx=6)
+        lk.bind("<Button-1>", lambda e: (self.close_video(), open_in_os(path)))
+        lk.bind("<Enter>", lambda e: lk.configure(fg=GOLD))
+        lk.bind("<Leave>", lambda e: lk.configure(fg=SUB))
+        bar = tk.Canvas(ov, bg=BAR, height=56, highlightthickness=0, bd=0)
         screen = tk.Frame(ov, bg="#000000")
-        screen.pack(fill="both", expand=True)
+
+        def layout_parts():
+            for w_ in (head, bar, screen):
+                w_.pack_forget()
+            if st["mode"] == "panel":
+                head.pack(side="top", fill="x")
+            bar.configure(height=34 if st["mode"] == "mini" else 56)
+            bar.pack(side="bottom", fill="x")
+            screen.pack(fill="both", expand=True)
+
+        def place():
+            m = st["mode"]
+            if m == "mini":
+                W, H = max(400, self.root.winfo_width()), max(300, self.root.winfo_height())
+                mw = max(300, min(480, int(W * 0.3)))
+                mh = int(mw * 9 / 16) + 34
+                if st["mpos"] is None:
+                    st["mpos"] = (W - mw - 28, H - mh - 44)
+                x_, y_ = st["mpos"]
+                x_, y_ = max(0, min(W - mw, x_)), max(0, min(H - mh, y_))
+                st["mpos"] = (x_, y_)
+                ov.place(x=x_, y=y_, width=mw, height=mh, relwidth=0, relheight=0)
+            else:
+                top = 0
+                try:
+                    if m == "panel" and not self.fullscreen and self.topband.winfo_ismapped():
+                        top = self.topband.winfo_height()
+                except Exception:
+                    top = 0
+                ov.place(x=0, y=top, relwidth=1, relheight=1, width=0, height=-top)
+            ov.lift()
+            self.root.after(60, fit)
+
+        def set_mode(m):
+            if m == st["mode"]:
+                return
+            if st["mode"] == "full" and st["full_by_us"] and self.fullscreen:
+                st["full_by_us"] = False
+                self.toggle_fullscreen()
+            if m == "full" and not self.fullscreen:
+                self.toggle_fullscreen()
+                st["full_by_us"] = True
+            st["mode"] = m
+            layout_parts()
+            place()
+            draw()
+            if m != "mini":
+                ov.focus_set()
+                self.root.after(160, lambda: ov.focus_set() if getattr(self, "_video", None) is ov else None)
+
+        def fit():
+            eng = st["eng"]
+            if eng is not None:
+                try:
+                    eng.fit(max(2, screen.winfo_width()), max(2, screen.winfo_height()))
+                except Exception:
+                    pass
 
         def fmt(ms):
             s_ = int(ms // 1000)
             return f"{s_ // 3600}:{s_ // 60 % 60:02d}:{s_ % 60:02d}" if s_ >= 3600 else f"{s_ // 60}:{s_ % 60:02d}"
 
-        def fit():
-            m = st["mci"]
-            if m is None:
-                return
-            W, H = max(2, screen.winfo_width()), max(2, screen.winfo_height())
-            vw, vh = m.size
-            k = min(W / float(max(1, vw)), H / float(max(1, vh)))
-            w_, h_ = vw * k, vh * k
-            try:
-                m.put((W - w_) / 2, (H - h_) / 2, w_, h_)
-            except Exception as ex:
-                _log(f"video (size): {ex}")
+        # ---- the bar: drawn, so it looks the same everywhere
+        def ic_play(cx, cy, r, playing, ended, on):
+            bar.create_oval(cx - r, cy - r, cx + r, cy + r, fill="#FF5C93" if on else PINK, outline="")
+            if ended:
+                bar.create_arc(cx - r * 0.5, cy - r * 0.5, cx + r * 0.5, cy + r * 0.5, start=40, extent=290,
+                               style="arc", outline=INK, width=2)
+                bar.create_polygon(cx + r * 0.42, cy - r * 0.42, cx + r * 0.62, cy - r * 0.05, cx + r * 0.2,
+                                   cy - r * 0.12, fill=INK, outline="")
+            elif playing:
+                w_ = r * 0.28
+                bar.create_rectangle(cx - w_ * 1.5, cy - r * 0.45, cx - w_ * 0.4, cy + r * 0.45, fill=INK, outline="")
+                bar.create_rectangle(cx + w_ * 0.4, cy - r * 0.45, cx + w_ * 1.5, cy + r * 0.45, fill=INK, outline="")
+            else:
+                bar.create_polygon(cx - r * 0.3, cy - r * 0.5, cx + r * 0.55, cy, cx - r * 0.3, cy + r * 0.5,
+                                   fill=INK, outline="")
+
+        def ic_box(cx, cy, key, on):
+            if on:
+                bar.create_oval(cx - 14, cy - 14, cx + 14, cy + 14, fill="#2A2550", outline="")
+            col = GOLD if on else SUB
+            if key == "mini":                            # a small picture in a corner
+                bar.create_rectangle(cx - 9, cy - 7, cx + 9, cy + 7, outline=col, width=1)
+                bar.create_rectangle(cx + 1, cy + 1, cx + 7, cy + 5, fill=col, outline="")
+            elif key == "big":                           # back to big
+                bar.create_rectangle(cx - 9, cy - 7, cx + 9, cy + 7, outline=col, width=2)
+            elif key == "full":                          # full screen: four corners out
+                for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                    x_, y_ = cx + sx * 9, cy + sy * 7
+                    bar.create_line(x_, y_, x_ - sx * 5, y_, fill=col, width=2)
+                    bar.create_line(x_, y_, x_, y_ - sy * 4, fill=col, width=2)
+            elif key == "unfull":                        # leave full screen: four corners in
+                for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                    x_, y_ = cx + sx * 4, cy + sy * 3
+                    bar.create_line(x_, y_, x_ + sx * 5, y_, fill=col, width=2)
+                    bar.create_line(x_, y_, x_, y_ + sy * 4, fill=col, width=2)
+            elif key == "close":
+                bar.create_line(cx - 6, cy - 6, cx + 6, cy + 6, fill="#FF8FA8" if on else col, width=2)
+                bar.create_line(cx - 6, cy + 6, cx + 6, cy - 6, fill="#FF8FA8" if on else col, width=2)
+            elif key in ("back", "fwd"):
+                d = -1 if key == "back" else 1
+                bar.create_arc(cx - 9, cy - 9, cx + 9, cy + 9, start=60 if d > 0 else 200, extent=280 * d,
+                               style="arc", outline=col, width=2)
+                bar.create_text(cx, cy + 1, text="10", font=self.F(7, "bold"), fill=col)
+            elif key == "snd":
+                bar.create_polygon(cx - 9, cy - 3, cx - 5, cy - 3, cx, cy - 8, cx, cy + 8, cx - 5, cy + 3, cx - 9,
+                                   cy + 3, fill=col, outline="")
+                if st["mute"]:
+                    bar.create_line(cx + 3, cy - 5, cx + 11, cy + 5, fill="#FF8FA8", width=2)
+                    bar.create_line(cx + 3, cy + 5, cx + 11, cy - 5, fill="#FF8FA8", width=2)
+                else:
+                    bar.create_arc(cx - 4, cy - 6, cx + 8, cy + 6, start=-50, extent=100, style="arc", outline=col,
+                                   width=2)
 
         def draw():
+            if getattr(self, "_video", None) is not ov or not bar.winfo_exists():
+                return
             bar.delete("all")
             W = max(200, bar.winfo_width())
-            m = st["mci"]
-            playing = m is not None and m.mode() == "playing"
-            pos = m.position() if m else 0
-            ln = m.length if m else 0
-            # play / pause
-            cx, cy = 34, 29
-            on = st["hov"] == "pp"
-            bar.create_oval(cx - 18, cy - 18, cx + 18, cy + 18, fill="#E8467C" if not on else "#FF5C93", outline="")
-            if playing:
-                bar.create_rectangle(cx - 7, cy - 8, cx - 2, cy + 8, fill="#FFFFFF", outline="")
-                bar.create_rectangle(cx + 2, cy - 8, cx + 7, cy + 8, fill="#FFFFFF", outline="")
-            else:
-                bar.create_polygon(cx - 5, cy - 9, cx + 9, cy, cx - 5, cy + 9, fill="#FFFFFF", outline="")
-            # time and the line to go anywhere
-            bar.create_text(66, cy, text=fmt(pos), anchor="w", font=self.F(9), fill="#FFFFFF")
-            x0, x1 = 120, W - 150
+            eng = st["eng"]
+            state = eng.state() if eng is not None else "opening"
+            pos = eng.time() if eng is not None else 0
+            ln = eng.length() if eng is not None else 0
+            hov = st["hov"]
+            hits = st["hits"] = []
+            if st["mode"] == "mini":
+                cy = 17
+                for gx in (6, 11):                          # the grip: drag the small player from here
+                    for gy in (cy - 6, cy, cy + 6):
+                        bar.create_oval(gx - 1.5, gy - 1.5, gx + 1.5, gy + 1.5, fill=SUB if hov == "grip" else
+                                        "#6E66A8", outline="")
+                hits.append((0, 16, "grip"))
+                ic_play(32, cy, 12, state == "playing", state == "ended", hov == "pp")
+                hits.append((18, 46, "pp"))
+                x0, x1 = 54, W - 78
+                st["line"] = (x0, x1)
+                bar.create_line(x0, cy, x1, cy, fill="#3A3470", width=4, capstyle="round")
+                if ln:
+                    xx = x0 + (x1 - x0) * min(1.0, pos / float(ln))
+                    bar.create_line(x0, cy, xx, cy, fill=GOLD, width=4, capstyle="round")
+                hits.append((x0 - 6, x1 + 6, "line"))
+                for k, (key, xx) in enumerate((("big", W - 50), ("close", W - 20))):
+                    ic_box(xx, cy, key, hov == key)
+                    hits.append((xx - 14, xx + 14, key))
+                return
+            cy = 28
+            ic_play(32, cy, 18, state == "playing", state == "ended", hov == "pp")
+            hits.append((12, 52, "pp"))
+            for key, xx in (("back", 74), ("fwd", 104)):
+                ic_box(xx, cy, key, hov == key)
+                hits.append((xx - 14, xx + 14, key))
+            bar.create_text(126, cy, text=fmt(pos), anchor="w", font=self.F(9), fill=INK)
+            x0, x1 = 184, max(260, W - 330)
             st["line"] = (x0, x1)
-            bar.create_line(x0, cy, x1, cy, fill="#3A3470", width=4, capstyle="round")
+            bar.create_line(x0, cy, x1, cy, fill="#3A3470", width=5, capstyle="round")
             if ln:
                 xx = x0 + (x1 - x0) * min(1.0, pos / float(ln))
-                bar.create_line(x0, cy, xx, cy, fill="#FFC83D", width=4, capstyle="round")
-                bar.create_oval(xx - 7, cy - 7, xx + 7, cy + 7, fill="#FFFFFF", outline="")
-            bar.create_text(x1 + 12, cy, text=fmt(ln), anchor="w", font=self.F(9), fill="#CFC8F2")
-            on = st["hov"] == "snd"
-            bar.create_text(W - 24, cy, text="Sound off" if st["mute"] else "Sound on", anchor="e", font=self.F(9),
-                            fill="#FFC83D" if on else "#CFC8F2")
-            st["snd"] = (W - 100, W - 10)
+                bar.create_line(x0, cy, xx, cy, fill=GOLD, width=5, capstyle="round")
+                bar.create_oval(xx - 7, cy - 7, xx + 7, cy + 7, fill=INK, outline="")
+            hits.append((x0 - 8, x1 + 8, "line"))
+            bar.create_text(x1 + 12, cy, text=fmt(ln), anchor="w", font=self.F(9), fill=SUB)
+            sx = x1 + 70
+            ic_box(sx, cy, "snd", hov == "snd")
+            hits.append((sx - 14, sx + 14, "snd"))
+            v0, v1 = sx + 18, sx + 88
+            st["vline"] = (v0, v1)
+            bar.create_line(v0, cy, v1, cy, fill="#3A3470", width=4, capstyle="round")
+            vv = 0 if st["mute"] else st["vol"]
+            bar.create_line(v0, cy, v0 + (v1 - v0) * vv / 100.0, cy, fill=SUB, width=4, capstyle="round")
+            hits.append((v0 - 6, v1 + 6, "vol"))
+            rx = v1 + 30
+            on = hov == "rate"
+            rt = (f"{st['rate']:g}" + "×").replace("x", "")
+            bar.create_text(rx, cy, text=f"{st['rate']:g}x", font=self.F(9, "bold"), fill=GOLD if on else SUB)
+            hits.append((rx - 18, rx + 18, "rate"))
+            keys = (("mini", W - 104), ("unfull" if st["mode"] == "full" else "full", W - 70), ("close", W - 30))
+            for key, xx in keys:
+                ic_box(xx, cy, key, hov == key)
+                hits.append((xx - 15, xx + 15, key))
+
+        def hit(e):
+            for a_, b_, k in st.get("hits", []):
+                if a_ <= e.x <= b_:
+                    return k
+            return None
+
+        # ---- what the buttons do
+        def toggle():
+            eng = st["eng"]
+            if eng is None:
+                return
+            try:
+                if eng.state() == "playing":
+                    eng.pause()
+                else:
+                    eng.play()
+            except Exception as ex:
+                _log(f"video (play): {ex}")
+            self.root.after(80, draw)
+
+        def jump(ms):
+            eng = st["eng"]
+            if eng is not None:
+                try:
+                    eng.seek(eng.time() + ms)
+                except Exception:
+                    pass
+                self.root.after(80, draw)
+
+        def set_vol(v):
+            st["vol"] = max(0, min(100, int(v)))
+            st["mute"] = False
+            if st["eng"] is not None:
+                st["eng"].set_mute(False)
+                st["eng"].set_volume(st["vol"])
+            draw()
+
+        def mute():
+            st["mute"] = not st["mute"]
+            if st["eng"] is not None:
+                st["eng"].set_mute(st["mute"])
+            draw()
+
+        def next_rate():
+            r = self.VIDEO_RATES
+            i = r.index(st["rate"]) if st["rate"] in r else 2
+            st["rate"] = r[(i + 1) % len(r)]
+            if st["eng"] is not None:
+                st["eng"].set_rate(st["rate"])
+            draw()
+
+        def seek_to(x):
+            eng = st["eng"]
+            x0, x1 = st.get("line", (0, 1))
+            if eng is not None and eng.length():
+                f_ = min(1.0, max(0.0, (x - x0) / float(max(1, x1 - x0))))
+                try:
+                    eng.seek(eng.length() * f_)
+                except Exception:
+                    pass
+                draw()
+
+        def vol_to(x):
+            v0, v1 = st.get("vline", (0, 1))
+            set_vol(100.0 * (x - v0) / float(max(1, v1 - v0)))
+
+        def press(e):
+            k = hit(e)
+            if k == "pp":
+                toggle()
+            elif k == "line":
+                st["drag"] = "line"
+                seek_to(e.x)
+            elif k == "vol":
+                st["drag"] = "vol"
+                vol_to(e.x)
+            elif k == "snd":
+                mute()
+            elif k == "rate":
+                next_rate()
+            elif k in ("back", "fwd"):
+                jump(-10000 if k == "back" else 10000)
+            elif k == "mini":
+                set_mode("mini")
+            elif k == "big":
+                set_mode("panel")
+            elif k == "full":
+                set_mode("full")
+            elif k == "unfull":
+                set_mode("panel")
+            elif k == "close":
+                self.close_video()
+            elif st["mode"] == "mini" and k in ("grip", None):     # the grip of the small player: drag it
+                st["drag"] = ("move", e.x_root, e.y_root, st["mpos"])
+
+        def motion(e):
+            d = st["drag"]
+            if d == "line":
+                seek_to(e.x)
+                return
+            if d == "vol":
+                vol_to(e.x)
+                return
+            if isinstance(d, tuple) and d[0] == "move":
+                _m, x0r, y0r, (px, py) = d
+                st["mpos"] = (px + e.x_root - x0r, py + e.y_root - y0r)
+                place()
+                return
+            k = hit(e)
+            bar.configure(cursor="fleur" if k == "grip" else ("hand2" if k else ""))
+            if k != st["hov"]:
+                st["hov"] = k
+                draw()
+
+        bar.bind("<ButtonPress-1>", press)
+        bar.bind("<B1-Motion>", motion)
+        bar.bind("<Motion>", motion)
+        bar.bind("<ButtonRelease-1>", lambda e: st.update(drag=None))
+        bar.bind("<Leave>", lambda e: (st.update(hov=None), draw()) if st["drag"] is None else None)
+        bar.bind("<Configure>", lambda e: draw())
+        screen.bind("<Configure>", lambda e: fit())
+
+        def screen_click(e):                             # one click: pause / play; two: full screen
+            if st["click_job"]:
+                self.root.after_cancel(st["click_job"])
+                st["click_job"] = None
+                set_mode("panel" if st["mode"] == "full" else "full")
+                return
+            st["click_job"] = self.root.after(260, lambda: (st.update(click_job=None), toggle()))
+        screen.bind("<Button-1>", screen_click)
+
+        def esc():
+            if st["mode"] == "full":
+                set_mode("panel")
+            elif st["mode"] == "panel":
+                self.close_video()
+        for w_ in (ov, bar, screen, head):
+            w_.bind("<Escape>", lambda e: (esc(), "break")[1])
+            w_.bind("<space>", lambda e: (toggle(), "break")[1])
+            w_.bind("<Left>", lambda e: (jump(-10000), "break")[1])
+            w_.bind("<Right>", lambda e: (jump(10000), "break")[1])
+            w_.bind("<Up>", lambda e: (set_vol(st["vol"] + 10), "break")[1])
+            w_.bind("<Down>", lambda e: (set_vol(st["vol"] - 10), "break")[1])
+            w_.bind("<m>", lambda e: (mute(), "break")[1])
+            w_.bind("<f>", lambda e: (set_mode("panel" if st["mode"] == "full" else "full"), "break")[1])
+        st["toggle"], st["set_mode"], st["draw"], st["esc"] = toggle, set_mode, draw, esc
+
+        # ---- the engine: VLC (inside the program), Windows' own, then your video player
+        def engines():
+            out = [VlcVideo]
+            if os.name == "nt":
+                out.append(MciVideo)
+            return [k for k in out if k.__name__ not in st["tried"]]
+
+        def start():
+            if getattr(self, "_video", None) is not ov:
+                return
+            self.root.update_idletasks()
+            errs = []
+            for maker in engines():
+                st["tried"].append(maker.__name__)
+                try:
+                    eng = maker(path, screen.winfo_id())
+                    eng.set_volume(st["vol"])
+                    eng.play()
+                    st["eng"] = eng
+                    st["started"] = time.time()
+                    fit()
+                    break
+                except Exception as ex:
+                    errs.append(f"{maker.__name__}: {ex}")
+            if st["eng"] is None:
+                _log("video: " + "; ".join(errs))
+                self.close_video()
+                open_in_os(path)
+                self._toast("BindLens could not play this video here - it opens in your video player.", ms=6000)
+                return
+            draw()
+            ov.focus_set()
+            if st["job"] is None:
+                st["job"] = self.root.after(250, tick)
 
         def tick():
             st["job"] = None
             if getattr(self, "_video", None) is not ov:
                 return
-            m = st["mci"]
-            if m is not None and not st["drag"]:
-                if m.mode() == "stopped" and m.length and m.position() >= m.length - 400:
-                    st["ended"] = True
-                draw()
-            st["job"] = self.root.after(250, tick)
-
-        def toggle():
-            m = st["mci"]
-            if m is None:
-                return
+            eng = st["eng"]
             try:
-                if m.mode() == "playing":
-                    m.pause()
-                elif st["ended"]:
-                    st["ended"] = False
-                    m.seek(0)
+                if eng is not None and eng.state() == "error":   # this engine cannot play it: the next one
+                    _log(f"video: the {eng.kind} engine could not play {os.path.basename(path)}")
+                    eng.close()
+                    st["eng"] = None
+                    start()
+                    return
+                if getattr(self, "_lock", None) is not None:     # the PIN screen: the video waits under it
+                    if eng is not None and eng.state() == "playing":
+                        eng.pause()
                 else:
-                    m.play()
-            except Exception as ex:
-                _log(f"video (play): {ex}")
-            draw()
-
-        def jump(ms):
-            m = st["mci"]
-            if m is not None:
-                try:
-                    m.seek(m.position() + ms, play=m.mode() == "playing")
-                except Exception:
-                    pass
-                draw()
-
-        def mute():
-            m = st["mci"]
-            st["mute"] = not st["mute"]
-            if m is not None:
-                m.volume(0 if st["mute"] else 1000)
-            draw()
-
-        def where(e):
-            if 10 <= e.x <= 58:
-                return "pp"
-            x0, x1 = st.get("line", (0, 0))
-            if x0 - 8 <= e.x <= x1 + 8:
-                return "line"
-            a_, b_ = st.get("snd", (0, 0))
-            if a_ <= e.x <= b_:
-                return "snd"
-            return None
-
-        def seek_to(e):
-            m = st["mci"]
-            x0, x1 = st.get("line", (0, 1))
-            if m is not None and m.length:
-                f_ = min(1.0, max(0.0, (e.x - x0) / float(max(1, x1 - x0))))
-                try:
-                    m.seek(m.length * f_, play=m.mode() == "playing" or st["ended"])
-                    st["ended"] = False
-                except Exception:
-                    pass
-                draw()
-
-        def press(e):
-            k = where(e)
-            if k == "pp":
-                toggle()
-            elif k == "line":
-                st["drag"] = True
-                seek_to(e)
-            elif k == "snd":
-                mute()
-
-        def motion(e):
-            k = where(e)
-            bar.configure(cursor="hand2" if k else "")
-            if k != st["hov"]:
-                st["hov"] = k
-                draw()
-        bar.bind("<ButtonPress-1>", press)
-        bar.bind("<B1-Motion>", lambda e: seek_to(e) if st["drag"] else None)
-        bar.bind("<ButtonRelease-1>", lambda e: st.update(drag=False))
-        bar.bind("<Motion>", motion)
-        bar.bind("<Configure>", lambda e: draw())
-        screen.bind("<Configure>", lambda e: fit())
-        screen.bind("<Button-1>", lambda e: (ov.focus_set(), toggle()))
-        for w_ in (ov, bar, screen, head):
-            w_.bind("<Escape>", lambda e: (self.close_video(), "break")[1])
-            w_.bind("<space>", lambda e: (toggle(), "break")[1])
-            w_.bind("<Left>", lambda e: (jump(-10000), "break")[1])
-            w_.bind("<Right>", lambda e: (jump(10000), "break")[1])
-            w_.bind("<m>", lambda e: (mute(), "break")[1])
-        st["toggle"], st["fit"] = toggle, fit
-
-        def start():
-            if getattr(self, "_video", None) is not ov:
-                return
-            try:
-                self.root.update_idletasks()
-                st["mci"] = MciVideo(path, screen.winfo_id())
-                fit()
-                st["mci"].play()
+                    if st["mode"] == "mini":
+                        ov.lift()
+                    if st["drag"] is None:
+                        draw()
             except Exception as ex:
                 _log(f"video: {ex}")
-                self.close_video()
-                open_in_os(path)
-                self._toast("Windows can't play this video inside BindLens - it opens in your video player.",
-                            ms=6000)
-                return
-            draw()
-            ov.focus_set()
             st["job"] = self.root.after(250, tick)
+
+        layout_parts()
+        place()
+        draw()
         self.root.after(60, start)
 
     def close_video(self):
@@ -48198,13 +49915,28 @@ class App:
         st = getattr(self, "_video_st", None) or {}
         self._video = None
         self._video_st = None
-        if st.get("job"):
+        for j in ("job", "click_job"):
+            if st.get(j):
+                try:
+                    self.root.after_cancel(st[j])
+                except Exception:
+                    pass
+        if st.get("eng") is not None:
             try:
-                self.root.after_cancel(st["job"])
+                st["eng"].close()
             except Exception:
                 pass
-        if st.get("mci") is not None:
-            st["mci"].close()
+        if st.get("vol") is not None and st.get("vol") != self.lib.settings.get("video_volume"):
+            self.lib.settings["video_volume"] = st["vol"]
+            try:
+                self.lib.save_meta()
+            except Exception:
+                pass
+        if st.get("full_by_us") and self.fullscreen:
+            try:
+                self.toggle_fullscreen()
+            except Exception:
+                pass
         if ov is not None:
             try:
                 ov.destroy()
@@ -48431,13 +50163,251 @@ class App:
         if getattr(self, "_fr", None):
             self._frame_draw(force=True)
 
+    # ---- 1.0: the first time - a short tour: what each thing is and where it is ------------------------------------
+    def _tour_tb_box(self, name):
+        """Where a word of the menu row is (File, Help...), in the window."""
+        h = next((x for x in getattr(self, "_tb_hits", []) if x[2] == name), None)
+        tb = getattr(self, "topband", None)
+        if h is None or tb is None or not tb.winfo_ismapped():
+            return None
+        return (tb.winfo_rootx() - self.root.winfo_rootx() + h[0], tb.winfo_rooty() - self.root.winfo_rooty(),
+                h[1] - h[0], self.TB_H)
+
+    def _tour_steps(self):
+        def add_book():
+            b = getattr(self, "btn_newfolder", None)
+            return b if b is not None and b.winfo_ismapped() else getattr(self, "btn_railadd", None)
+        return [
+            (None, "Welcome to BindLens",
+             "Your folders become books: read them, mark them, find anything in them. Here is where things are - it "
+             "takes half a minute."),
+            (add_book, "Click to add a book",
+             "Choose a folder on your computer and it becomes a book (you can also drag a folder in). Your files stay "
+             "where they are."),
+            (lambda: self.add_btn, "Click to add files",
+             "Add files to the book that is open - or drag them in from a folder, the desktop or an email."),
+            (lambda: self.tools_frame, "Click a tool to mark the page",
+             "Highlight, write, draw, add notes and stamps. Your marks are saved inside the PDF itself, so they go "
+             "wherever the file goes."),
+            (lambda: self.search_canvas, "Click to find",
+             "A word in all your books, a document or an action - type, then Enter. Ctrl+K from anywhere."),
+            (lambda: self.btn_read, "Click to read",
+             "A calm view for reading, with the book's contents beside the page. Esc brings you back."),
+            (lambda: self.btn_report, "Click for reports",
+             "What is done, what is due, what you marked - ready to print or to send."),
+            (lambda: self.btn_home, "Click for Home",
+             "Continue where you were, what needs you, all your books - on a circle, a bookcase, a filing cabinet... "
+             "\"Personalise\" is in Home's corner."),
+            (lambda: self.btn_settings, "Click to personalise",
+             "Colours, the frame round the window, the logo, reading, Home: make BindLens yours. (Also File > "
+             "Personalise.)"),
+            (lambda: self._tour_tb_box("File"), "Click to set a PIN",
+             "File > Lock with a PIN: BindLens asks for it each time it opens. You can also lock single books."),
+            (lambda: self.btn_guide, "Click for help",
+             "The short guide, any time (F1). Help > Show the tour again brings this back. Enjoy BindLens!"),
+        ]
+
+    def show_tour(self, force=False):
+        """The first time BindLens opens (and Help > Show the tour again): a bubble points at each thing in turn."""
+        if not force and self._when_unlocked(lambda: self.show_tour(force)):
+            return
+        if getattr(self, "_tour", None) is not None:
+            return
+        if not force and self.lib.settings.get("tour_done"):
+            return
+        try:
+            if getattr(self, "_home", None) is not None:
+                self.close_home()                        # the tour shows the window itself
+            if getattr(self, "_reading", False):
+                self.reading_mode(False)
+        except Exception:
+            pass
+        self._tour = {"i": 0, "w": [], "job": None, "blink": 0}
+        if not getattr(self, "_tour_bound", False):
+            self._tour_bound = True
+            self.root.bind("<Configure>", lambda e: self._tour_later() if e.widget is self.root else None, add="+")
+        self._tour_show()
+
+    def _tour_later(self):
+        t = getattr(self, "_tour", None)
+        if t is not None and not t.get("re"):
+            t["re"] = self.root.after(120, self._tour_show)
+
+    def _tour_clear(self):
+        t = self._tour
+        for w in t["w"]:
+            try:
+                w.destroy()
+            except Exception:
+                pass
+        t["w"] = []
+        for j in ("job", "re"):
+            if t.get(j):
+                try:
+                    self.root.after_cancel(t[j])
+                except Exception:
+                    pass
+                t[j] = None
+
+    def _tour_end(self, done=True):
+        t = getattr(self, "_tour", None)
+        if t is None:
+            return
+        self._tour_clear()
+        self._tour = None
+        self.lib.settings["tour_done"] = True
+        self.lib.save_meta()
+        try:
+            self.canvas.focus_set()
+        except Exception:
+            pass
+        self.root.after(400, self.whats_new)
+        self.root.after(25000, self._offer_personalise)
+
+    def _tour_go(self, d):
+        t = getattr(self, "_tour", None)
+        if t is None:
+            return
+        n = len(self._tour_steps())
+        if t["i"] + d >= n:
+            return self._tour_end(True)
+        t["i"] = max(0, t["i"] + d)
+        self._tour_show()
+
+    def _tour_show(self):
+        t = getattr(self, "_tour", None)
+        if t is None:
+            return
+        self._tour_clear()
+        T, A = self.T, self.accent
+        steps = self._tour_steps()
+        i = t["i"]
+        get, title, text = steps[i]
+        self.root.update_idletasks()
+        RW, RH = max(400, self.root.winfo_width()), max(300, self.root.winfo_height())
+        box = None
+        try:
+            tg = get() if get else None
+            if isinstance(tg, tuple):
+                box = tg
+            elif tg is not None and tg.winfo_ismapped() and tg.winfo_width() > 2:
+                box = (tg.winfo_rootx() - self.root.winfo_rootx(), tg.winfo_rooty() - self.root.winfo_rooty(),
+                       tg.winfo_width(), tg.winfo_height())
+        except Exception:
+            box = None
+        if box is not None and (box[0] > RW - 4 or box[1] > RH - 4 or box[0] + box[2] < 4 or box[1] + box[3] < 4):
+            box = None
+        gold = "#F5C842"
+        # the bubble
+        bub = tk.Frame(self.root, bg=T["panel"], highlightthickness=2, highlightbackground=A, highlightcolor=A,
+                       takefocus=1)
+        t["w"].append(bub)
+        top = tk.Frame(bub, bg=T["panel"])
+        top.pack(fill="x", padx=16, pady=(12, 0))
+        dots = tk.Canvas(top, width=len(steps) * 12, height=10, bg=T["panel"], highlightthickness=0)
+        dots.pack(side="left")
+        for k_ in range(len(steps)):
+            r_ = 3.5 if k_ == i else 2.5
+            dots.create_oval(6 + k_ * 12 - r_, 5 - r_, 6 + k_ * 12 + r_, 5 + r_, outline="",
+                             fill=A if k_ == i else mix(T["panel"], T["muted"], 0.55))
+        tk.Label(top, text=f"{i + 1} of {len(steps)}", font=self.F(8), bg=T["panel"], fg=T["muted"]).pack(
+            side="right")
+        tk.Label(bub, text=title, font=self.F(13, "bold"), bg=T["panel"], fg=T["text"], anchor="w").pack(
+            fill="x", padx=16, pady=(8, 2))
+        tk.Label(bub, text=text, font=self.F(10), bg=T["panel"], fg=T["muted"], wraplength=320, justify="left",
+                 anchor="w").pack(fill="x", padx=16)
+        bb = tk.Frame(bub, bg=T["panel"])
+        bb.pack(fill="x", padx=16, pady=(12, 12))
+        last = i == len(steps) - 1
+        PillButton(bb, self, "Start using BindLens" if last else ("Show me" if i == 0 else "Next"),
+                   lambda: self._tour_go(1), kind="accent", bg_key="panel").pack(side="right")
+        if i > 0:
+            PillButton(bb, self, "Back", lambda: self._tour_go(-1), bg_key="panel").pack(side="right", padx=(0, 6))
+        if not last:
+            sk = tk.Label(bb, text="Skip the tour", font=self.F(9), bg=T["panel"], fg=T["muted"], cursor="hand2")
+            sk.pack(side="left")
+            sk.bind("<Button-1>", lambda e: self._tour_end(False))
+        bub.update_idletasks()
+        bw, bh = bub.winfo_reqwidth(), bub.winfo_reqheight()
+        if box is None:
+            bx, by = (RW - bw) / 2.0, (RH - bh) / 2.0
+            side = None
+        else:
+            x, y, w, h = box
+            cx = x + w / 2.0
+            bx = max(12, min(RW - bw - 12, cx - bw / 2.0))
+            if y + h + 14 + bh < RH - 8:
+                by, side = y + h + 14, "below"
+            else:
+                by, side = max(8, y - 14 - bh), "above"
+        bub.place(x=int(bx), y=int(by))
+        tk.Misc.tkraise(bub)
+        if box is not None:
+            x, y, w, h = box
+            pad = 5
+            ring = []
+            for (rx, ry, rw, rh) in ((x - pad, y - pad, w + 2 * pad, 3), (x - pad, y + h + pad - 3, w + 2 * pad, 3),
+                                     (x - pad, y - pad, 3, h + 2 * pad), (x + w + pad - 3, y - pad, 3, h + 2 * pad)):
+                fr = tk.Frame(self.root, bg=gold, width=max(3, int(rw)), height=max(3, int(rh)))
+                fr.place(x=int(rx), y=int(ry))
+                tk.Misc.tkraise(fr)
+                ring.append(fr)
+                t["w"].append(fr)
+            # the little arrow from the bubble to the thing
+            ar = tk.Canvas(self.root, width=20, height=11, highlightthickness=0, bd=0, bg=self.T["bg"])
+            ax = max(bx + 14, min(bx + bw - 34, x + w / 2.0 - 10))
+            if side == "below":
+                ar.create_polygon(0, 11, 10, 0, 20, 11, fill=A, outline="")
+                ar.place(x=int(ax), y=int(by - 10))
+            else:
+                ar.create_polygon(0, 0, 10, 11, 20, 0, fill=A, outline="")
+                ar.place(x=int(ax), y=int(by + bh - 1))
+            tk.Misc.tkraise(ar)
+            t["w"].append(ar)
+
+            def blink():
+                tt = getattr(self, "_tour", None)
+                if tt is None:
+                    return
+                tt["blink"] ^= 1
+                for fr in ring:
+                    try:
+                        fr.configure(bg=gold if tt["blink"] else A)
+                    except Exception:
+                        return
+                tt["job"] = self.root.after(550, blink)
+            t["job"] = self.root.after(550, blink)
+        for seq, fn in (("<Return>", lambda e: self._tour_go(1)), ("<Right>", lambda e: self._tour_go(1)),
+                        ("<Left>", lambda e: self._tour_go(-1)), ("<Escape>", lambda e: self._tour_end(False))):
+            bub.bind(seq, lambda e, fn=fn: (fn(e), "break")[1])
+        try:
+            bub.focus_set()
+        except Exception:
+            pass
+        t["re"] = None
+
+    def _offer_personalise(self):
+        """Once, quietly: 'Make BindLens yours?' (a small note at the bottom; it goes away by itself)."""
+        s = self.lib.settings
+        if s.get("pers_offered") or s.get("pers_opened"):
+            return
+        if getattr(self, "_lock", None) is not None or getattr(self, "_tour", None) is not None or \
+                self.root.grab_current() is not None:
+            self.root.after(20000, self._offer_personalise)
+            return
+        s["pers_offered"] = True
+        self.lib.save_meta()
+        self._toast("Make BindLens yours? Colours, Home, the frame, the logo", ms=9000,
+                    action=("Personalise", lambda: self.personalise_dialog()))
+
     # ---- start-up of the 4.0 things --------------------------------------------------------------------------------
     def _pin_ask_once(self):
         """4.1: once - 'Protect BindLens with a 4-digit PIN?' (never again after the answer)."""
         s = self.lib.settings
         if s.get("pin_asked") or pin_load() or not self.lib.folders:
             return
-        if any(isinstance(w, tk.Toplevel) and w.winfo_viewable() for w in self.root.winfo_children()):
+        if any(isinstance(w, tk.Toplevel) and w.winfo_viewable() for w in self.root.winfo_children()) or \
+                getattr(self, "_tour", None) is not None:
             self.root.after(4000, self._pin_ask_once)             # after the What's new window
             return
         s["pin_asked"] = True
@@ -48461,9 +50431,19 @@ class App:
         except Exception as ex:
             _log(f"frame: {ex}")
         try:
-            self.root.after(900, self.whats_new)
+            self.root.after(900, self._first_things)
         except Exception:
             pass
+
+    def _first_things(self):
+        """1.0: the first time, the tour (then What's new); later, once, the quiet 'Make BindLens yours?'."""
+        s = self.lib.settings
+        if not s.get("tour_done"):
+            self.show_tour()
+            return
+        self.whats_new()
+        if not s.get("pers_offered") and not s.get("pers_opened"):
+            self.root.after(30000, self._offer_personalise)
 
     def _save_window(self):
         st = self.lib.settings
@@ -48850,6 +50830,30 @@ def _selftest(out):
     except Exception as ex:
         ok = False
         lines.append(f"helper FAILED: {ex!r}")
+    try:                                            # 4.6: the VLC engine plays a real video (no picture, no sound)
+        vlc = load_vlc()
+        if vlc is None:
+            raise RuntimeError("no VLC engine")
+        lines.append(f"VLC engine {_VLC.get('version')}")
+        sample = next((a for a in sys.argv if a.lower().endswith(".mp4")), None)
+        if sample:
+            inst = vlc.Instance(vlc_args(test=True))
+            pl = inst.media_player_new()
+            pl.set_media(inst.media_new_path(os.path.abspath(sample)))
+            pl.play()
+            t_end = time.time() + 20
+            while time.time() < t_end and pl.get_time() < 800:
+                time.sleep(0.1)
+            got, ln = pl.get_time(), pl.get_length()
+            pl.stop()
+            pl.release()
+            inst.release()
+            if got < 800:
+                raise RuntimeError(f"the sample video did not play (time {got} ms)")
+            lines.append(f"VLC played the sample video: {got} ms of {ln} ms")
+    except Exception as ex:
+        ok = False
+        lines.append(f"VLC FAILED: {ex!r}")
     lines.append(f"app dir {APP_DIR}; frozen {FROZEN}; version {APP_VERSION}")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(("OK" if ok else "FAILED") + "\n" + "\n".join(lines) + "\n")

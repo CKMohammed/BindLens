@@ -1,8 +1,8 @@
-BINDLENS 4.5
+BINDLENS 1.0
 ============
 Your documents, bound into books.
 
-INSTALL / UPDATE (Windows) - 4.5: THE WINDOWS PROGRAM
+INSTALL / UPDATE (Windows) - THE WINDOWS PROGRAM
   Download "BindLens Setup.exe" (github.com/CKMohammed/BindLens > Releases) and run it: no Python and no
   administrator rights needed. It installs BindLens in %LOCALAPPDATA%\Programs\BindLens, with its icon on the
   desktop and in the Start menu. To update: run the new "BindLens Setup.exe". If Windows says "Windows protected
@@ -32,6 +32,33 @@ LICENCE, PRIVACY AND LEGAL
   In BindLens: Help > Licence, privacy and legal… (and Help > About).
   4.3.1: PDFs that BindLens creates (reports, new pages…) say in their properties that they were made with
   BindLens and PyMuPDF under the AGPL. Your own PDFs are not changed.
+
+NEW IN 1.0 - the first full release (the versions before were called 1.x to 4.5 while BindLens was tested)
+  - The PIN screen: a ring binder like the one in the logo - a white spine with its rings, the label where the
+    PIN fills in, the finger hole, a small brass padlock on a strap. The right code opens it. The number keys are
+    small and quiet; the keyboard and the number pad work as always.
+  - Videos play INSIDE BindLens - never a second window: big in the window, full screen, or small in a corner
+    while you keep working (drag it anywhere). Pause, jump, speed, volume. (BindLens brings its own video engine,
+    VLC's - no need to install anything.)
+  - Galleries: a book that is mostly pictures opens as a gallery (polaroids, tape, pins, frames); a picture opens
+    with a zoom; "Personalise" is in the gallery. Right-click a book > Show as a gallery / Show as a book.
+  - Home like real furniture: a bookcase, a law library (leather and gold), lever-arch files on an office shelf,
+    a filing cabinet, letter trays on a desk, a card index (A to Z), school lockers, a classroom's cubbies. Point
+    at a book and it comes out a little; click it and it comes out to you, then opens. The "Personalise Home"
+    panel can be dragged by its title and made bigger or smaller from its corner (it remembers).
+  - Each book's Contents card and map take the book's own colour and icon.
+  - A small engraved plaque with the author's name on Home's gold frame (it is part of the licence's terms -
+    NOTICE.txt).
+  - Scanned pages: Ctrl+E then click a line - it is covered with the paper's own colour and your correction is
+    written on it, as a mark (Delete brings the scan back). OCR reads Spanish too (accents, ñ): its data
+    (about 2 MB) is downloaded once, with the English one.
+  - File > New document… (also the + button): a new PDF in the book's folder - blank, a letter, notes, an
+    invoice, meeting notes... - written in the page editor. Cancel leaves nothing behind.
+  - The first time BindLens opens, a short tour points at each thing (add a book, add files, mark, find, read,
+    reports, Home, personalise, the PIN, help). Help > Show the tour again.
+  - Until you personalise BindLens, its moving backgrounds (Home, reading) use the logo's colours - violet,
+    pink and gold; once, a small note asks "Make BindLens yours?".
+  - The program's folder has a "licenses" folder: the licence texts of Python, Tcl/Tk and VLC.
 
 NEW IN 4.5
   - BindLens is a Windows program: "BindLens Setup.exe" (built on GitHub - the source code stays free, in the

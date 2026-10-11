@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BindLens</title>
+<meta name="description" content="BindLens turns your folders into books you can read, mark and search - on your own computer, with nothing sent anywhere. Free for Windows.">
+<style>
+/* the fonts are on this site (no font service is asked for anything) - SIL Open Font License, see fonts/ */
+@font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage-grotesque-latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+/* Layout: a binder - the app drawn in the hero inside its flowing frame; sections open like index tabs; one column of reading, wide where the app is shown */
+:root{
+  --paper:#F5F4F8;      /* page, a cool paper with a violet bias */
+  --sheet:#FFFFFF;      /* cards, the drawn page */
+  --ink:#17161F;        /* text */
+  --muted:#5D5B6E;      /* quieter text */
+  --line:#DDDAE8;       /* hairlines */
+  --violet:#5B52E8;     /* BindLens's own accent: links, buttons */
+  --violet-ink:#FFFFFF; /* text on violet */
+  --gold:#C9952A;       /* the lens and the Home frame */
+  --gold-soft:#F7E7BF;
+  --tab:#ECEAF6;        /* index tabs */
+  --hl:#FFE680;         /* a highlighter mark */
+  --ok:#1E8E3E; --warn:#C25E12; --bad:#C62828;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111118; --sheet:#1B1A24; --ink:#ECEAF4; --muted:#A6A3B8; --line:#2E2C3C; --violet:#9C95FF; --violet-ink:#15141C;
+  --gold:#F2C45A; --gold-soft:#3A3020; --tab:#211F2D; --hl:#7A6A1A; --ok:#5BC07A; --warn:#F0A060; --bad:#F07070; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111118; --sheet:#1B1A24; --ink:#ECEAF4; --muted:#A6A3B8; --line:#2E2C3C; --violet:#9C95FF; --violet-ink:#15141C;
+  --gold:#F2C45A; --gold-soft:#3A3020; --tab:#211F2D; --hl:#7A6A1A; --ok:#5BC07A; --warn:#F0A060; --bad:#F07070; color-scheme:dark}
+
+@property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding-inline:clamp(16px,4vw,48px)}
+a{color:var(--violet);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.08}
+p{margin:0}
+kbd{font:500 .82em var(--f-mono);background:var(--tab);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:.05em .4em;white-space:nowrap}
+.wrap{max-width:1160px;margin-inline:auto}
+.read{max-width:66ch}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font:800 1.45rem var(--f-display);letter-spacing:-.02em}
+.brand b{font-weight:800}.brand span{color:var(--violet);font-weight:500}
+.nav{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+.nav a{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
+.nav a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:.6em;background:var(--violet);color:var(--violet-ink);text-decoration:none;font-weight:700;border-radius:999px;padding:.8em 1.4em;border:0;font-size:1rem}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;padding-block:clamp(24px,5vw,64px) 40px}
+.hero h1{font-size:clamp(2.5rem,5.6vw,4.4rem);letter-spacing:-.035em;font-weight:800}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--hl) 62%,var(--hl) 92%,transparent 92%)}
+.hero .lede{color:var(--muted);font-size:1.18rem;margin-top:20px;max-width:46ch}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;color:var(--muted);font-size:.92rem}
+.facts span{display:inline-flex;align-items:center;gap:6px}
+.facts svg{width:16px;height:16px;stroke:var(--ok)}
+
+/* the app, drawn */
+.frame{--c1:#675EF4;--c2:#C45BE0;--c3:#3E8EF7;--c4:#E2B13C;border-radius:18px;padding:9px;
+  background:conic-gradient(from var(--spin),var(--c1),var(--c2),var(--c3),var(--c4),var(--c1));
+  animation:spin 26s linear infinite;box-shadow:0 30px 60px -28px rgba(30,20,80,.45);max-width:100%}
+@keyframes spin{to{--spin:360deg}}
+@media (prefers-reduced-motion:reduce){.frame{animation:none}}
+.app{background:#F2F1F7;border-radius:11px;overflow:hidden;color:#17161F;font:400 12px/1.3 var(--f-body)}
+.app .bar{display:flex;align-items:center;gap:14px;padding:7px 12px;background:rgba(255,255,255,.55);border-bottom:1px solid #E1DEEC}
+.app .bar i{font-style:normal;color:#3B3A48}
+.app .bar .doc{margin-inline:auto;color:#6B6880}
+.app .bar .win{display:flex;gap:14px;color:#3B3A48}
+.app .body{display:grid;grid-template-columns:46px minmax(0,1fr) 150px;gap:12px;padding:12px;min-height:340px}
+.rail{display:flex;flex-direction:column;gap:8px}
+.rail div{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font:700 11px var(--f-body)}
+.sheet{background:#fff;border-radius:4px;box-shadow:0 2px 0 rgba(0,0,0,.05),0 8px 24px -12px rgba(0,0,0,.25);padding:20px 22px;position:relative}
+.sheet h4{margin:0 0 10px;font:700 13px var(--f-body)}
+.ln{height:6px;border-radius:3px;background:#E9E7F0;margin:9px 0}
+.ln.hl{background:linear-gradient(90deg,#FFE680 0 72%,#E9E7F0 72%)}
+.ln.u{box-shadow:0 3px 0 -1px #5B52E8}
+.note{position:absolute;right:14px;top:58px;width:92px;background:#FFF3A8;border-radius:3px;padding:8px;font-size:10px;line-height:1.3;transform:rotate(2deg);box-shadow:0 6px 14px -8px rgba(0,0,0,.4)}
+.tick{position:absolute;left:18px;bottom:16px;color:#1E8E3E;font:700 22px var(--f-body)}
+.side{display:flex;flex-direction:column;gap:10px}
+.card{background:#fff;border-radius:10px;padding:10px;box-shadow:0 4px 14px -10px rgba(0,0,0,.3)}
+.clock{width:74px;height:74px;border-radius:50%;margin:4px auto 6px;border:2px solid #5B52E8;position:relative}
+.clock::before,.clock::after{content:"";position:absolute;left:50%;bottom:50%;width:2px;background:#17161F;transform-origin:bottom;border-radius:2px}
+.clock::before{height:22px;transform:translateX(-50%) rotate(-50deg)}
+.clock::after{height:30px;transform:translateX(-50%) rotate(110deg);background:#5B52E8}
+.card small{display:block;color:#6B6880;text-align:center}
+.next{font-size:10.5px}.next b{color:#C25E12}
+.pill{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:#fff;border:1px solid #E1DEEC;border-radius:999px;padding:4px 12px;font-size:10.5px;white-space:nowrap;box-shadow:0 4px 12px -8px rgba(0,0,0,.4)}
+
+/* sections as index tabs */
+section{padding-block:56px}
+.tabhead{display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--line);margin-bottom:28px;flex-wrap:wrap}
+.tabhead .tab{background:var(--tab);border:2px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;margin-bottom:-2px;
+  font:700 .78rem var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tabhead h2{font-size:clamp(1.7rem,3.2vw,2.5rem);letter-spacing:-.025em;padding-bottom:10px}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;counter-reset:s}
+.step{counter-increment:s}
+.step h3{font-size:1.3rem;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
+.step h3::before{content:counter(s);font:700 .9rem var(--f-mono);color:var(--violet);border:1.5px solid var(--violet);border-radius:999px;width:1.8em;height:1.8em;display:inline-grid;place-items:center;flex:none}
+.step p{color:var(--muted)}
+
+/* features */
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px}
+.f h3{font-size:1.12rem;margin:10px 0 6px;font-family:var(--f-body);font-weight:700}
+.f p{color:var(--muted);font-size:.98rem}
+.f svg{width:28px;height:28px;stroke:var(--violet);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* report sample */
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(24px,4vw,56px);align-items:center}
+.report{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.report header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+.report header b{font-family:var(--f-display);font-size:1.1rem}
+.report header small{color:var(--muted)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:10px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+tr:last-child td{border-bottom:0}
+.chip{display:inline-block;border-radius:999px;padding:.12em .7em;font-size:.82rem;font-weight:700}
+.chip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.chip.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.chip.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.examples{font-size:.82rem;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
+
+/* privacy */
+.vault{background:var(--sheet);border:1px solid var(--line);border-radius:22px;padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+.vault h2{font-size:clamp(1.8rem,3.4vw,2.7rem);letter-spacing:-.03em}
+.vault h2 span{color:var(--gold)}
+.vault ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.vault li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
+.vault li svg{width:22px;height:22px;stroke:var(--gold);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+.vault p.small{color:var(--muted);font-size:.95rem;margin-top:16px}
+
+/* who */
+.who{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.who div{border-top:3px solid var(--gold);padding-top:14px}
+.who h3{font-size:1.08rem;font-family:var(--f-body);font-weight:700;margin-bottom:6px}
+.who p{color:var(--muted);font-size:.96rem}
+
+/* faq */
+details{border-bottom:1px solid var(--line);padding-block:16px}
+summary{cursor:pointer;font-weight:700;font-size:1.06rem;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font:700 1.3rem var(--f-mono);color:var(--violet);line-height:1}
+details[open] summary::after{content:"\2212"}
+details p{color:var(--muted);margin-top:10px;max-width:70ch}
+
+/* download */
+.dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:var(--tab);border-radius:22px;padding:clamp(24px,4vw,44px)}
+.dl h2{font-size:clamp(1.7rem,3vw,2.4rem);letter-spacing:-.025em}
+.dl p{color:var(--muted);margin-top:8px}
+.soon{display:inline-block;margin-top:10px;font:500 .82rem var(--f-mono);color:var(--gold)}
+/* real screenshots */
+.shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 30px}
+.shots figure{margin:0}
+.shots img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 14px 34px -18px rgba(30,20,80,.45);background:var(--sheet)}
+.shots figcaption{margin-top:10px;color:var(--muted);font-size:.95rem}
+.shots figcaption b{color:var(--ink)}
+.shots .wide{grid-column:1 / -1}
+.homes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.homes img{border-radius:9px}
+
+footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.9rem;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer nav{display:flex;gap:18px;flex-wrap:wrap}
+
+@media (max-width:900px){
+  .hero,.split,.vault,.dl{grid-template-columns:minmax(0,1fr)}
+  .steps,.feat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .who{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shots{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:600px){
+  .steps,.feat,.who,.homes{grid-template-columns:minmax(0,1fr)}
+  .app .body{grid-template-columns:minmax(0,1fr);min-height:0}
+  .rail,.side{display:none}
+  .nav a:not(.btn){display:none}
+  .app .bar i:nth-child(n+3){display:none}
+}
+</style>
+<link rel="icon" href="img/icon.png">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="BindLens home">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="3" y="4" width="20" height="26" rx="3" fill="#675EF4"/>
+        <rect x="7" y="4" width="16" height="26" rx="2" fill="#FFFFFF" stroke="#675EF4" stroke-width="1.5"/>
+        <line x1="10" y1="11" x2="19" y2="11" stroke="#C9C5F5" stroke-width="2"/><line x1="10" y1="16" x2="17" y2="16" stroke="#C9C5F5" stroke-width="2"/>
+        <circle cx="22" cy="21" r="7" fill="none" stroke="#E2B13C" stroke-width="3"/>
+        <line x1="27" y1="26" x2="31" y2="30" stroke="#E2B13C" stroke-width="3.2" stroke-linecap="round"/>
+      </svg>
+      <span style="color:var(--ink);font-weight:800">Bind</span><span>Lens</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">Questions</a>
+      <a href="#see">See it</a>
+      <a class="btn" href="#download">Download</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div>
+        <h1>Your documents, <em>bound into books.</em></h1>
+        <p class="lede">Choose a folder. Every PDF, Word file, spreadsheet and photo in it becomes one book you can read, mark and search. Your files stay where they are, and nothing leaves your computer.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            Download for Windows
+          </a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <div class="facts">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>No account</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>No cloud</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>Windows 10 and 11</span>
+        </div>
+      </div>
+
+      <div class="frame" role="img" aria-label="The BindLens window: a book of documents with a highlighted line, a sticky note, a tick, a clock and the next deadline, inside a frame of slowly flowing colours.">
+        <div class="app">
+          <div class="bar"><i>File</i><i>Edit</i><i>Pages</i><i>View</i><i>Help</i><span class="doc">Staff files · Training certificates</span><span class="win">&#8211; &#9633; &#10005;</span></div>
+          <div class="body">
+            <div class="rail">
+              <div style="background:#F08A4B">14</div>
+              <div style="background:#5BB9C9">ST</div>
+              <div style="background:#6C8CF5">IN</div>
+              <div style="background:#E06C9F">PO</div>
+              <div style="background:#9A93A8">MI</div>
+              <div style="background:#E9A13B">RO</div>
+            </div>
+            <div class="sheet">
+              <h4>Training record - First Aid</h4>
+              <div class="ln" style="width:92%"></div>
+              <div class="ln hl" style="width:88%"></div>
+              <div class="ln" style="width:64%"></div>
+              <div class="ln u" style="width:78%"></div>
+              <div class="ln" style="width:90%"></div>
+              <div class="ln" style="width:52%"></div>
+              <div class="ln" style="width:84%"></div>
+              <div class="ln" style="width:70%"></div>
+              <div class="note">Renew before 3 November</div>
+              <div class="tick" aria-hidden="true">&#10003;</div>
+              <div class="pill">&#8249; &nbsp;7 / 24&nbsp; &#8250; &nbsp; 103%</div>
+            </div>
+            <div class="side">
+              <div class="card"><div class="clock"></div><small>Sunday 11 October</small></div>
+              <div class="card next"><b>Next:</b> First Aid renewal - in 23 days</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="how">
+      <div class="tabhead"><span class="tab">How it works</span><h2>Three steps, no setup</h2></div>
+      <div class="steps">
+        <div class="step"><h3>Add a folder</h3><p>It becomes a book: all its documents one after another, in order. Folders inside it become chapters. Nothing is copied or moved.</p></div>
+        <div class="step"><h3>Read and mark</h3><p>Highlight, underline, write, draw, stamp or tick. Your marks are saved inside the original PDF, and every one of them can be taken off again.</p></div>
+        <div class="step"><h3>Pull out what you need</h3><p>Contacts, expiry dates, invoices and tables come out as a report in seconds. Save it as PDF, Word or Excel, or print it.</p></div>
+      </div>
+    </section>
+
+    <section id="see">
+      <div class="tabhead"><span class="tab">See it</span><h2>BindLens, as it is</h2></div>
+      <div class="shots">
+        <figure class="wide"><img src="img/home_bookcase.webp" width="1400" height="900" loading="lazy" alt="Home in BindLens: the books of the library standing in a wooden bookcase, one of them pulled out a little."><figcaption><b>Home.</b> Continue where you were, see what needs you, and find your books - on a turning circle, in a bookcase, a filing cabinet, lockers or a classroom's cubbies.</figcaption>
+          <div class="homes">
+            <img src="img/home_cabinet.webp" width="1400" height="900" loading="lazy" alt="Home as a filing cabinet: one drawer for each book, one drawer open.">
+            <img src="img/home_lockers.webp" width="1400" height="900" loading="lazy" alt="Home as a row of school lockers, one door open.">
+            <img src="img/home_circle.webp" width="1400" height="900" loading="lazy" alt="Home with the books on a slowly turning circle and soft moving colours behind.">
+          </div>
+        </figure>
+        <figure><img src="img/book.webp" width="1400" height="900" loading="lazy" alt="A book open in BindLens: a training record with a highlighted date, an underlined line and a sticky note."><figcaption><b>Mark your PDFs.</b> Highlight, underline, write, add notes and stamps - saved inside the original file.</figcaption></figure>
+        <figure><img src="img/read.webp" width="1400" height="900" loading="lazy" alt="Reading mode: the page in the middle, the book's contents on the left, a calendar and clock on the right."><figcaption><b>Read calmly.</b> The page, the book's contents in its own colours, the date and the time.</figcaption></figure>
+        <figure><img src="img/gallery.webp" width="1400" height="900" loading="lazy" alt="A folder of photos shown as a gallery of framed pictures."><figcaption><b>Photos and videos.</b> A folder of pictures opens as a gallery; videos play inside BindLens.</figcaption></figure>
+        <figure><img src="img/pin.webp" width="1400" height="900" loading="lazy" alt="The PIN screen: a ring binder with a small padlock and a number pad, over moving colours."><figcaption><b>A PIN, if you want one.</b> The binder opens with the right code.</figcaption></figure>
+      </div>
+      <p style="color:var(--muted);margin-top:18px;font-size:.9rem">Real screenshots of BindLens 1.0 with an example library (the names and dates are made up).</p>
+    </section>
+
+    <section id="features">
+      <div class="tabhead"><span class="tab">Features</span><h2>Everything in the folder, in one place</h2></div>
+      <div class="feat">
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>
+          <h3>Every kind of file</h3><p>PDF, Word, Excel, PowerPoint and photos in one book. With Microsoft Office or LibreOffice installed, Office pages show exactly as they look.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>
+          <h3>Marks inside your PDFs</h3><p>Highlighter, pen, text, sticky notes, shapes, stamps, ticks and crosses. One file, no copies. Undo anything, any time.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
+          <h3>Reports in seconds</h3><p>Contacts, expiry dates, invoices and money, tables as they are, a person across all files, charts that say what they show.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+          <h3>What needs you</h3><p>Vetting, training, certificates and deadlines found in your documents, with a reminder before they run out. Add them to Outlook or Google Calendar.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+          <h3>Find anything</h3><p><kbd>Ctrl</kbd>+<kbd>K</kbd> finds document names, words inside them and actions. Scanned pages are read too, so you can search them.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2zM21 6a2 2 0 0 0-2-2h-5a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h5a2 2 0 0 0 2-2z"/></svg>
+          <h3>Calm reading</h3><p>A quiet reading mode with the contents beside the page. A folder of photos opens as a gallery and plays as a slideshow; videos play inside, big or in a corner.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg>
+          <h3>Print and scan</h3><p>Print straight to your printer, with no PDF program needed. Scan from a scanner, the camera or phone photos, straightened and cleaned.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          <h3>A PIN if you want one</h3><p>Lock BindLens, or a single book, with a four-digit PIN on a shared computer. Correct a scanned page right on the scan, too.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg>
+          <h3>Make it yours</h3><p>Themes, colours and backgrounds, a frame of slowly flowing colour round the window, and your books at Home on a turning circle, in a bookcase or a filing cabinet.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="split">
+        <div class="read">
+          <div class="tabhead"><span class="tab">Reports</span><h2>Expiry dates, before they expire</h2></div>
+          <p style="color:var(--muted)">BindLens reads the dates in your certificates, vetting letters and training records, and lists what is about to run out. Double-click a row to open its page. Names, emails and phones are found by what each column holds, whatever its title says.</p>
+        </div>
+        <div class="report">
+          <header><b>Expiry dates</b><small>Staff files · 24 documents</small></header>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Person</th><th>What</th><th>Expires</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Aoife Byrne</td><td>Child protection training</td><td>28 Sep 2026</td><td><span class="chip bad">Expired</span></td></tr>
+                <tr><td>Mary Ryan</td><td>Garda vetting</td><td>3 Nov 2026</td><td><span class="chip warn">In 23 days</span></td></tr>
+                <tr><td>Seán Doyle</td><td>First Aid certificate</td><td>14 Nov 2026</td><td><span class="chip warn">In 34 days</span></td></tr>
+                <tr><td>Niamh Kelly</td><td>Manual handling</td><td>2 Jun 2027</td><td><span class="chip ok">OK</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="examples">Example names and dates.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="vault">
+        <div>
+          <h2>Nothing leaves your <span>computer.</span></h2>
+          <p class="small">For childcare services, clinics, offices and anyone who keeps other people's documents. BindLens has no account, no cloud and no AI. It works on your computer, with your files where they are.</p>
+        </div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Your documents, marks, notes and settings stay on your computer.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>BindLens collects nothing about you and sends nothing anywhere.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>It uses the internet only when you ask: a photo for the background, a calendar link you add, or the data to read scans.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Every change it makes to your folders is written down, so you can check it.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="tabhead"><span class="tab">Made for</span><h2>Anyone with folders of documents</h2></div>
+      <div class="who">
+        <div><h3>Childcare and schools</h3><p>Staff files, vetting, training certificates, policies and inspections, with the dates that need you.</p></div>
+        <div><h3>Small offices</h3><p>Invoices, contracts, forms and letters: read, sign, stamp and pull the numbers out.</p></div>
+        <div><h3>Students</h3><p>Notes and readings as one book, highlights on a summary sheet and cards to review.</p></div>
+        <div><h3>At home</h3><p>Bills, manuals, warranties and photos, each folder a book you can find things in.</p></div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="tabhead"><span class="tab">Questions</span><h2>Good to know</h2></div>
+      <div class="read" style="max-width:780px">
+        <details open><summary>Does BindLens change my files?</summary><p>Only when you mark a PDF: your marks are saved inside that PDF. Nothing is copied, moved or renamed unless you ask, every mark can be taken off again, and Help › What BindLens changed in my folders lists every change.</p></details>
+        <details><summary>Do I need the internet?</summary><p>No. BindLens works offline. It goes online only when you ask for a photo, add a calendar link or ask it to read scanned pages for the first time.</p></details>
+        <details><summary>Which computers does it run on?</summary><p>Windows 10 and Windows 11. On Mac and Linux it can be run from its source code with Python.</p></details>
+        <details><summary>Windows says “Windows protected your PC”. Is it safe?</summary><p>Windows shows this for new programs that are not signed yet. Click More info, then Run anyway. The message will go once BindLens is signed.</p></details>
+        <details><summary>Where are my settings kept?</summary><p>On your computer, in your user folder (%APPDATA%\BindLens). They stay when you update BindLens.</p></details>
+        <details><summary>Is BindLens open source?</summary><p>Yes. BindLens is free software under the GNU Affero General Public License v3, and its source code comes with the program. The name BindLens and its logo are not part of that licence.</p></details>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="dl">
+        <div>
+          <h2>BindLens for Windows</h2>
+          <p>Version 1.0 · Windows 10 and 11 · free · one installer, no administrator rights needed.</p>
+          <span class="soon">Windows may say “Windows protected your PC”: More info › Run anyway.</span>
+          <p style="margin-top:10px"><a href="https://github.com/CKMohammed/BindLens">Source code</a> · <a href="https://github.com/CKMohammed/BindLens/releases">All versions</a></p>
+        </div>
+        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Download BindLens 1.0
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Mohammed Chahboune Kadi · BindLens is free software under the GNU AGPL v3.</span>
+    <nav aria-label="Footer"><a href="#privacy">Privacy</a><a href="#faq">Licence</a><a href="https://github.com/CKMohammed/BindLens">Source code</a><a href="#download">Download</a></nav>
+  </footer>
+  <p style="color:var(--muted);font-size:.85rem;padding-bottom:32px">This website sets no cookies, has no analytics and loads nothing from other sites (its fonts are here, under the SIL Open Font License).</p>
+</div>
+</body>
+</html>
