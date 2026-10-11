@@ -1,6 +1,5 @@
-# Builds "BindLens Setup.exe" on a Windows computer of GitHub:
-#  - every push to main: the installer is kept as a download of that run (Actions > the run > Artifacts)
-#  - a tag like v4.5: the installer is also published as a Release (Releases > latest)
+# Builds "BindLens Setup.exe" on a Windows computer of GitHub. Every push to main publishes it as the Release of
+# its version (v4.5, v4.6...: Releases > latest) - a new push of the same version replaces the installer there.
 name: Build Windows installer
 
 on:
@@ -69,11 +68,14 @@ jobs:
           name: BindLens-Setup-${{ steps.ver.outputs.version }}
           path: Output/BindLens Setup.exe
 
-      - name: Publish a release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish the release of this version
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: BindLens ${{ steps.ver.outputs.version }}
+          make_latest: true
           files: Output/BindLens Setup.exe
           body: |
             **Download `BindLens Setup.exe` below and run it.** No administrator rights and no Python needed.
