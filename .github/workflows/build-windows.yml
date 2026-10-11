@@ -1,0 +1,87 @@
+# Builds "BindLens Setup.exe" on a Windows computer of GitHub:
+#  - every push to main: the installer is kept as a download of that run (Actions > the run > Artifacts)
+#  - a tag like v4.5: the installer is also published as a Release (Releases > latest)
+name: Build Windows installer
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller pymupdf tkinterdnd2
+
+      - name: Read the version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path BindLens.pyw -Pattern '^APP_VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Output "BindLens $v"
+
+      - name: Build BindLens.exe
+        run: >
+          python -m PyInstaller --noconfirm --windowed --name BindLens --icon BindLens.ico
+          --collect-all tkinterdnd2 --collect-all pymupdf BindLens.pyw
+
+      - name: Add the files that go with it (licence, source code, guides)
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, BindLens.ico -Destination dist\BindLens\
+          Copy-Item Welcome -Destination dist\BindLens\Welcome -Recurse
+
+      - name: Self-test (PyMuPDF, drag and drop, helper process)
+        shell: pwsh
+        run: |
+          $out = Join-Path $pwd "selftest.txt"
+          $p = Start-Process -FilePath "dist\BindLens\BindLens.exe" -ArgumentList "--selftest", "`"$out`"" -Wait -PassThru
+          Get-Content $out
+          if ($p.ExitCode -ne 0) { throw "self-test failed" }
+
+      - name: Make the installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\BindLens.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+          Get-ChildItem Output
+
+      - name: Keep the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: BindLens-Setup-${{ steps.ver.outputs.version }}
+          path: Output/BindLens Setup.exe
+
+      - name: Publish a release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BindLens ${{ steps.ver.outputs.version }}
+          files: Output/BindLens Setup.exe
+          body: |
+            **Download `BindLens Setup.exe` below and run it.** No administrator rights and no Python needed.
+
+            Windows may say "Windows protected your PC" (the installer is not signed yet): click
+            **More info** > **Run anyway**.
+
+            Your books, marks and settings stay where they are (%APPDATA%\BindLens).
+
+            BindLens is free software under the GNU AGPL v3. Its source code is in this repository and
+            inside the program's folder (BindLens.pyw).

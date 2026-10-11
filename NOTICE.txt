@@ -1,0 +1,100 @@
+BindLens - your documents, bound into books.
+Copyright (C) 2026 Mohammed Chahboune Kadi
+
+BindLens is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+General Public License as published by the Free Software Foundation, version 3 (AGPL-3.0). The full licence
+is in LICENSE.txt. BindLens comes WITHOUT ANY WARRANTY (sections 15 and 16 of the licence).
+
+SOURCE CODE
+  The complete source code of BindLens is the file BindLens.pyw, given with the program. If you received
+  BindLens without it, ask the person or company who gave it to you, or write to the author.
+
+ADDITIONAL TERM (AGPL-3.0 section 7e)
+  The licence does not grant any right to use the name "BindLens" or the BindLens logo as a trademark.
+  Changed versions that you give to others must use another name and logo, or say clearly that they are
+  changed versions and not the original BindLens.
+
+=====================================================================================================
+THIRD-PARTY SOFTWARE
+=====================================================================================================
+
+PyMuPDF and MuPDF
+  Copyright (C) Artifex Software, Inc.  https://pymupdf.readthedocs.io  https://mupdf.com
+  Licence: GNU Affero General Public License v3 (or Artifex's commercial licence). Same licence as
+  BindLens (LICENSE.txt). PDFs that BindLens creates say so in their properties ("Producer").
+
+Python
+  Copyright (C) Python Software Foundation.  https://www.python.org
+  Licence: Python Software Foundation License Version 2 (https://docs.python.org/3/license.html).
+
+Tcl/Tk (tkinter)
+  Copyright (C) the Regents of the University of California, Sun Microsystems, Inc., Scriptics Corporation,
+  ActiveState Corporation and other parties.  Licence: Tcl/Tk licence (BSD-style)
+  (https://www.tcl.tk/software/tcltk/license.html).
+
+tkinterdnd2 (drag and drop)
+MIT License
+
+Copyright (c) 2020 Philippe Gagné
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+tkdnd (drag and drop, inside tkinterdnd2)
+This software is copyrighted by:
+George Petasis, National Centre for Scientific Research "Demokritos",
+Aghia Paraskevi, Athens, Greece.
+e-mail: petasis@iit.demokritos.gr
+
+The following terms apply to all files associated
+with the software unless explicitly disclaimed in individual files.
+
+The authors hereby grant permission to use, copy, modify, distribute,
+and license this software and its documentation for any purpose, provided
+that existing copyright notices are retained in all copies and that this
+notice is included verbatim in any distributions. No written agreement,
+license, or royalty fee is required for any of the authorized uses.
+Modifications to this software may be copyrighted by their authors
+and need not follow the licensing terms described here, provided that
+the new terms are clearly indicated on the first page of each file where
+they apply.
+
+IN NO EVENT SHALL THE AUTHORS OR DISTRIBUTORS BE LIABLE TO ANY PARTY
+FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ARISING OUT OF THE USE OF THIS SOFTWARE, ITS DOCUMENTATION, OR ANY
+DERIVATIVES THEREOF, EVEN IF THE AUTHORS HAVE BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+THE AUTHORS AND DISTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.  THIS SOFTWARE
+IS PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE
+NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+
+Tesseract text-reading data (eng.traineddata - downloaded only if you ask BindLens to read scans)
+  Copyright (C) Google and the Tesseract OCR contributors.  https://github.com/tesseract-ocr/tessdata_fast
+  Licence: Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
+Photos for backgrounds and Home (downloaded only if you choose them)
+  Wikimedia Commons: each photo keeps its own licence and author, shown with the photo
+  (https://commons.wikimedia.org). Lorem Picsum: photos from Unsplash, Unsplash Licence
+  (https://unsplash.com/license).
+
+Microsoft Office / LibreOffice
+  Not included. If installed on your computer, BindLens asks it (hidden) for pictures of Word, Excel and
+  PowerPoint pages. They keep their own licences.

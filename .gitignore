@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+build/
+dist/
+Output/
+*.spec
+BindLens-error.log
+selftest.txt
+BindLens-*.ico

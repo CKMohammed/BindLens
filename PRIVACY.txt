@@ -1,0 +1,37 @@
+BINDLENS - PRIVACY
+Copyright (C) 2026 Mohammed Chahboune Kadi
+
+In short: BindLens works on your computer. It has no account, collects nothing about you and sends
+nothing anywhere.
+
+WHAT STAYS ON YOUR COMPUTER
+  - Your documents stay where they are. BindLens reads them where they are and writes your marks
+    (highlights, notes, stamps…) into your own PDF files, only when you make them.
+  - Your library, settings, positions, reminders, calendar notes, the index for searching, the record of
+    changes and your PIN (kept as a code that cannot be read back) are kept in %APPDATA%\BindLens on this
+    computer.
+  - Errors are written to BindLens-error.log next to BindLens. Nothing is sent to anyone.
+  - Reports are made on your computer and saved only where you save them.
+
+WHEN BINDLENS USES THE INTERNET (only when you ask)
+  - Photos for the background or Home: Wikimedia Commons (commons.wikimedia.org) and Lorem Picsum
+    (picsum.photos).
+  - A calendar link you add (Outlook, Google…): the address you gave.
+  - Reading scanned pages: the text-reading data is downloaded once from GitHub (github.com), if it is not
+    on your computer yet.
+  Those sites see your computer's internet address, as with any website you visit. BindLens sends them
+  nothing about you or your documents.
+
+  Email: "Send by email" opens your own email program with the file attached - BindLens does not send it.
+  Office: Word, Excel and PowerPoint pages are made by Microsoft Office or LibreOffice on your computer.
+
+YOUR RESPONSIBILITY
+  If you keep other people's personal data in your documents (for example staff, children, clients), you
+  remain responsible for it under data protection law (GDPR), as with any file on your computer. BindLens
+  does not process it anywhere else. A PIN (File > Lock with a PIN) helps on a shared computer.
+
+TO REMOVE EVERYTHING
+  Delete the BindLens program folder and %APPDATA%\BindLens. Your own documents stay; marks you made
+  stay inside your PDFs (BindLens can take them off before, if you want).
+
+Questions: write to the author.
