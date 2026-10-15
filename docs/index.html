@@ -33,7 +33,7 @@
   --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
   --r:14px;
-  --fw:12px;            /* the page frame's width */
+  --fw:14px;            /* the page frame's width */
   color-scheme:dark;
 }
 @property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
@@ -44,13 +44,34 @@ body{margin:0;background:
     radial-gradient(900px 600px at 105% 20%,rgba(124,92,255,.14),transparent 60%),
     var(--paper);
   color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding:var(--fw) calc(var(--fw) + clamp(16px,4vw,48px))}
-/* the frame round the page: gold, with a vivid purple line inside and a slow gleam going round */
-.pageframe{position:fixed;inset:0;z-index:60;pointer-events:none;border:var(--fw) solid transparent;
-  border-image:conic-gradient(from var(--spin),#8A6A1E,#F6D77A 9%,#B8862A 18%,#FFE9A8 27%,#9A7417 36%,#E6C35C 45%,
-    #7C5CFF 50%,#E6C35C 55%,#9A7417 64%,#FFE9A8 73%,#B8862A 82%,#F6D77A 91%,#8A6A1E) 1;
-  box-shadow:inset 0 0 0 2px #7C5CFF,inset 0 0 26px rgba(124,92,255,.35);animation:spin 40s linear infinite}
+/* the frame round the page: living lava (purple, magenta, gold, orange, blue flowing round), a thin gold edge inside */
+.pageframe{position:fixed;inset:0;z-index:60;pointer-events:none;padding:var(--fw);overflow:hidden;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.pageframe .lava{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;will-change:transform;
+  background:
+    radial-gradient(9% 9% at 50% 18%,#FFE07A,transparent 70%),
+    radial-gradient(10% 10% at 78% 34%,#FF3D9A,transparent 70%),
+    radial-gradient(9% 9% at 82% 62%,#FF7A2F,transparent 70%),
+    radial-gradient(10% 10% at 62% 82%,#FFC83D,transparent 70%),
+    radial-gradient(9% 9% at 34% 80%,#FF4FB8,transparent 70%),
+    radial-gradient(10% 10% at 18% 60%,#FF8A3D,transparent 70%),
+    radial-gradient(9% 9% at 22% 30%,#FFD24A,transparent 70%),
+    conic-gradient(from 0deg,#6A3BFF,#D02A8A,#F0562A,#F2A51C,#D9307E,#7C5CFF,#3E6BFF,#B23CFF,#F0562A,#6A3BFF);
+  animation:lavaspin 24s linear infinite}
+.pageframe .lava.b{mix-blend-mode:screen;opacity:.9;animation:lavaspin 33s linear infinite reverse;
+  background:
+    radial-gradient(8% 8% at 40% 20%,#FF5CA8,transparent 70%),
+    radial-gradient(9% 9% at 76% 44%,#FFD24A,transparent 70%),
+    radial-gradient(8% 8% at 60% 78%,#9A6BFF,transparent 70%),
+    radial-gradient(9% 9% at 24% 66%,#FFB13D,transparent 70%),
+    radial-gradient(8% 8% at 30% 38%,#FF6A3D,transparent 70%),
+    radial-gradient(8% 8% at 70% 22%,#7C9BFF,transparent 70%)}
+@keyframes lavaspin{to{transform:rotate(360deg)}}
+.pageedge{position:fixed;inset:var(--fw);z-index:61;pointer-events:none;
+  box-shadow:inset 0 0 0 1.5px rgba(242,200,90,.9),inset 0 0 28px rgba(255,90,140,.22),inset 0 0 60px rgba(124,92,255,.22),0 0 0 1px rgba(0,0,0,.5)}
 @keyframes spin{to{--spin:360deg}}
-@media (prefers-reduced-motion:reduce){.pageframe,.frame,.vframe{animation:none}}
+@media (prefers-reduced-motion:reduce){.pageframe .lava,.frame,.vframe{animation:none}}
 a{color:var(--violet-l);text-underline-offset:3px}
 a:focus-visible,button:focus-visible,summary:focus-visible,video:focus-visible{outline:3px solid var(--gold-l);outline-offset:3px;border-radius:6px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.08}
@@ -234,7 +255,8 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
 <link rel="icon" href="img/icon.png">
 </head>
 <body>
-<div class="pageframe" aria-hidden="true"></div>
+<div class="pageframe" aria-hidden="true"><div class="lava"></div><div class="lava b"></div></div>
+<div class="pageedge" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
     <a class="brand" href="#top" aria-label="BindLens home">
@@ -270,20 +292,20 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
         </div>
       </div>
 
-      <div class="frame" role="img" aria-label="The BindLens window: a book of documents with a highlighted line, a sticky note, a tick, a clock and the next deadline, inside a frame of slowly flowing colours.">
+      <div class="frame" role="img" aria-label="The BindLens window: a client proposal with a highlighted line, a sticky note, a tick, a clock and the next deadline, inside a frame of slowly flowing colours.">
         <div class="app">
-          <div class="bar"><i>File</i><i>Edit</i><i>Pages</i><i>View</i><i>Help</i><span class="doc">Staff files · Training certificates</span><span class="win">&#8211; &#9633; &#10005;</span></div>
+          <div class="bar"><i>File</i><i>Edit</i><i>Pages</i><i>View</i><i>Help</i><span class="doc">Clients · Proposal</span><span class="win">&#8211; &#9633; &#10005;</span></div>
           <div class="body">
             <div class="rail">
-              <div style="background:#F08A4B">14</div>
-              <div style="background:#5BB9C9">ST</div>
+              <div style="background:#F08A4B">CL</div>
+              <div style="background:#E9A13B">CO</div>
               <div style="background:#6C8CF5">IN</div>
-              <div style="background:#E06C9F">PO</div>
-              <div style="background:#9A93A8">MI</div>
-              <div style="background:#E9A13B">RO</div>
+              <div style="background:#9A93A8">PR</div>
+              <div style="background:#5BB9C9">TH</div>
+              <div style="background:#E06C9F">TX</div>
             </div>
             <div class="sheet">
-              <h4>Training record - First Aid</h4>
+              <h4>Proposal - Harbour Cafe website</h4>
               <div class="ln" style="width:92%"></div>
               <div class="ln hl" style="width:88%"></div>
               <div class="ln" style="width:64%"></div>
@@ -292,13 +314,13 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
               <div class="ln" style="width:52%"></div>
               <div class="ln" style="width:84%"></div>
               <div class="ln" style="width:70%"></div>
-              <div class="note">Renew before 3 November</div>
+              <div class="note">Send the quote by 20 October</div>
               <div class="tick" aria-hidden="true">&#10003;</div>
               <div class="pill">&#8249; &nbsp;7 / 24&nbsp; &#8250; &nbsp; 103%</div>
             </div>
             <div class="side">
               <div class="card"><div class="clock"></div><small>Sunday 11 October</small></div>
-              <div class="card next"><b>Next:</b> First Aid renewal - in 23 days</div>
+              <div class="card next"><b>Next:</b> Office lease renewal - in 45 days</div>
             </div>
           </div>
         </div>
@@ -320,21 +342,21 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
       <div class="steps">
         <div class="step"><h3>Add a folder</h3><p>It becomes a book: all its documents one after another, in order. Folders inside it become chapters. Nothing is copied or moved.</p></div>
         <div class="step"><h3>Read and mark</h3><p>Highlight, underline, write, draw, stamp or tick. Your marks are saved inside the original PDF, and every one of them can be taken off again.</p></div>
-        <div class="step"><h3>Pull out what you need</h3><p>Contacts, expiry dates, invoices and tables come out as a report in seconds. Save it as PDF, Word or Excel, or print it.</p></div>
+        <div class="step"><h3>Pull out what you need</h3><p>Contacts, deadlines, invoices and tables come out as a report in seconds. Save it as PDF, Word or Excel, or print it.</p></div>
       </div>
     </section>
 
     <section id="see">
       <div class="tabhead"><span class="tab">See it</span><h2>BindLens, as it is</h2></div>
       <div class="shots">
-        <figure class="wide"><img src="img/home_bookcase.webp" width="1400" height="900" loading="lazy" alt="Home in BindLens: the books of the library standing in a wooden bookcase, one of them pulled out a little."><figcaption><b>Home.</b> Continue where you were, see what needs you, and find your books - on a turning circle, in a bookcase, a filing cabinet, lockers or a classroom's cubbies.</figcaption>
+        <figure class="wide"><img src="img/home_bookcase.webp" width="1400" height="900" loading="lazy" alt="Home in BindLens: the books of the library standing in a wooden bookcase, one of them pulled out a little."><figcaption><b>Home.</b> Continue where you were, see what needs you, and find your books - on a turning circle, in a bookcase, a filing cabinet, lever-arch files or lockers.</figcaption>
           <div class="homes">
             <img src="img/home_cabinet.webp" width="1400" height="900" loading="lazy" alt="Home as a filing cabinet: one drawer for each book, one drawer open.">
-            <img src="img/home_lockers.webp" width="1400" height="900" loading="lazy" alt="Home as a row of school lockers, one door open.">
+            <img src="img/home_lockers.webp" width="1400" height="900" loading="lazy" alt="Home as a row of lockers, one door open.">
             <img src="img/home_circle.webp" width="1400" height="900" loading="lazy" alt="Home with the books on a slowly turning circle and soft moving colours behind.">
           </div>
         </figure>
-        <figure><img src="img/book.webp" width="1400" height="900" loading="lazy" alt="A book open in BindLens: a training record with a highlighted date, an underlined line and a sticky note."><figcaption><b>Mark your PDFs.</b> Highlight, underline, write, add notes and stamps - saved inside the original file.</figcaption></figure>
+        <figure><img src="img/book.webp" width="1400" height="900" loading="lazy" alt="A book open in BindLens: a client proposal with highlighted lines, an underlined line and sticky notes."><figcaption><b>Mark your PDFs.</b> Highlight, underline, write, add notes and stamps - saved inside the original file.</figcaption></figure>
         <figure><img src="img/read.webp" width="1400" height="900" loading="lazy" alt="Reading mode: the page in the middle, the book's contents on the left, a calendar and clock on the right."><figcaption><b>Read calmly.</b> The page, the book's contents in its own colours, the date and the time.</figcaption></figure>
         <figure><img src="img/gallery.webp" width="1400" height="900" loading="lazy" alt="A folder of photos shown as a gallery of framed pictures."><figcaption><b>Photos and videos.</b> A folder of pictures opens as a gallery; videos play inside BindLens.</figcaption></figure>
         <figure><img src="img/pin.webp" width="1400" height="900" loading="lazy" alt="The PIN screen: a ring binder with a small padlock and a number pad, over moving colours."><figcaption><b>A PIN, if you want one.</b> The binder opens with the right code.</figcaption></figure>
@@ -355,11 +377,11 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
         </div>
         <div class="f">
           <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
-          <h3>Reports in seconds</h3><p>Contacts, expiry dates, invoices and money, tables as they are, a person across all files, charts that say what they show.</p>
+          <h3>Reports in seconds</h3><p>Contacts, deadlines, invoices and money, tables as they are, a person across all files, charts that say what they show.</p>
         </div>
         <div class="f">
           <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
-          <h3>What needs you</h3><p>Vetting, training, certificates and deadlines found in your documents, with a reminder before they run out. Add them to Outlook or Google Calendar.</p>
+          <h3>What needs you</h3><p>Contract renewals, invoice due dates, insurance renewals and submission deadlines found in your documents, with a reminder before they come. Add them to Outlook or Google Calendar.</p>
         </div>
         <div class="f">
           <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
@@ -387,19 +409,19 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
     <section>
       <div class="split">
         <div class="read">
-          <div class="tabhead"><span class="tab">Reports</span><h2>Expiry dates, before they expire</h2></div>
-          <p style="color:var(--muted)">BindLens reads the dates in your certificates, vetting letters and training records, and lists what is about to run out. Double-click a row to open its page. Names, emails and phones are found by what each column holds, whatever its title says.</p>
+          <div class="tabhead"><span class="tab">Reports</span><h2>Deadlines, before they pass</h2></div>
+          <p style="color:var(--muted)">BindLens reads the dates in your contracts, invoices, insurance papers and project plans, and lists what is coming up. Double-click a row to open its page. Names, emails and phones are found by what each column holds, whatever its title says.</p>
         </div>
         <div class="report">
-          <header><b>Expiry dates</b><small>Staff files · 24 documents</small></header>
+          <header><b>Deadlines</b><small>Office · 32 documents</small></header>
           <div class="tw">
             <table>
-              <thead><tr><th>Person</th><th>What</th><th>Expires</th><th>Status</th></tr></thead>
+              <thead><tr><th>Document</th><th>What</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
-                <tr><td>Aoife Byrne</td><td>Child protection training</td><td>28 Sep 2026</td><td><span class="chip bad">Expired</span></td></tr>
-                <tr><td>Mary Ryan</td><td>Garda vetting</td><td>3 Nov 2026</td><td><span class="chip warn">In 23 days</span></td></tr>
-                <tr><td>Seán Doyle</td><td>First Aid certificate</td><td>14 Nov 2026</td><td><span class="chip warn">In 34 days</span></td></tr>
-                <tr><td>Niamh Kelly</td><td>Manual handling</td><td>2 Jun 2027</td><td><span class="chip ok">OK</span></td></tr>
+                <tr><td>Invoice 4502 - Cleaning</td><td>Payment due</td><td>30 Sep 2026</td><td><span class="chip bad">Overdue</span></td></tr>
+                <tr><td>Home insurance</td><td>Renewal</td><td>2 Nov 2026</td><td><span class="chip warn">In 17 days</span></td></tr>
+                <tr><td>Office lease - Main Street</td><td>Renewal notice</td><td>30 Nov 2026</td><td><span class="chip warn">In 45 days</span></td></tr>
+                <tr><td>Thesis - Chapter 1</td><td>Submission</td><td>15 Jan 2027</td><td><span class="chip ok">OK</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -412,7 +434,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
       <div class="vault">
         <div>
           <h2>Nothing leaves your <span>computer.</span></h2>
-          <p class="small">For childcare services, clinics, offices and anyone who keeps other people's documents. BindLens has no account, no cloud and no AI. It works on your computer, with your files where they are.</p>
+          <p class="small">For offices, universities, freelancers and anyone who keeps important documents. BindLens has no account, no cloud and no AI. It works on your computer, with your files where they are.</p>
         </div>
         <ul>
           <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Your documents, marks, notes and settings stay on your computer.</span></li>
@@ -426,10 +448,10 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
     <section>
       <div class="tabhead"><span class="tab">Made for</span><h2>Anyone with folders of documents</h2></div>
       <div class="who">
-        <div><h3>Childcare and schools</h3><p>Staff files, vetting, training certificates, policies and inspections, with the dates that need you.</p></div>
-        <div><h3>Small offices</h3><p>Invoices, contracts, forms and letters: read, sign, stamp and pull the numbers out.</p></div>
-        <div><h3>Students</h3><p>Notes and readings as one book, highlights on a summary sheet and cards to review.</p></div>
-        <div><h3>At home</h3><p>Bills, manuals, warranties and photos, each folder a book you can find things in.</p></div>
+        <div><h3>Offices</h3><p>Invoices, contracts, quotes and letters: read, sign, stamp and pull the numbers out.</p></div>
+        <div><h3>Universities and research</h3><p>Readings, lecture notes, papers and your thesis as books: highlight, find any word, make a summary sheet.</p></div>
+        <div><h3>Freelancers</h3><p>Clients, proposals, projects and deadlines in one place, with the dates that need you.</p></div>
+        <div><h3>Paperwork at home</h3><p>Bills, taxes, insurance, manuals and warranties: each folder a book you can find things in.</p></div>
       </div>
     </section>
 
