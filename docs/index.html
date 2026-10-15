@@ -12,70 +12,80 @@
 @font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
 @font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:"JetBrains Mono";src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
-/* Layout: a binder - the app drawn in the hero inside its flowing frame; sections open like index tabs; one column of reading, wide where the app is shown */
+/* BindLens's own look: black, gold and a vivid purple - and a frame round the whole page, like the app's window */
 :root{
-  --paper:#F5F4F8;      /* page, a cool paper with a violet bias */
-  --sheet:#FFFFFF;      /* cards, the drawn page */
-  --ink:#17161F;        /* text */
-  --muted:#5D5B6E;      /* quieter text */
-  --line:#DDDAE8;       /* hairlines */
-  --violet:#5B52E8;     /* BindLens's own accent: links, buttons */
-  --violet-ink:#FFFFFF; /* text on violet */
-  --gold:#C9952A;       /* the lens and the Home frame */
-  --gold-soft:#F7E7BF;
-  --tab:#ECEAF6;        /* index tabs */
-  --hl:#FFE680;         /* a highlighter mark */
-  --ok:#1E8E3E; --warn:#C25E12; --bad:#C62828;
+  --paper:#0A0A0D;      /* the page: black */
+  --sheet:#141319;      /* cards */
+  --sheet2:#1B1922;
+  --ink:#F5F3FB;        /* text */
+  --muted:#ADA9BF;      /* quieter text */
+  --line:#2B2834;       /* hairlines */
+  --violet:#7C5CFF;     /* vivid purple: buttons, links */
+  --violet-l:#A28BFF;
+  --violet-ink:#FFFFFF;
+  --gold:#D4AF37;       /* the lens, the frame */
+  --gold-l:#F2C85A;
+  --gold-d:#8A6A1E;
+  --tab:#17151E;
+  --hl:rgba(212,175,55,.38);
+  --ok:#5BC07A; --warn:#F0A060; --bad:#F07070;
   --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
   --r:14px;
+  --fw:12px;            /* the page frame's width */
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --paper:#111118; --sheet:#1B1A24; --ink:#ECEAF4; --muted:#A6A3B8; --line:#2E2C3C; --violet:#9C95FF; --violet-ink:#15141C;
-  --gold:#F2C45A; --gold-soft:#3A3020; --tab:#211F2D; --hl:#7A6A1A; --ok:#5BC07A; --warn:#F0A060; --bad:#F07070; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --paper:#111118; --sheet:#1B1A24; --ink:#ECEAF4; --muted:#A6A3B8; --line:#2E2C3C; --violet:#9C95FF; --violet-ink:#15141C;
-  --gold:#F2C45A; --gold-soft:#3A3020; --tab:#211F2D; --hl:#7A6A1A; --ok:#5BC07A; --warn:#F0A060; --bad:#F07070; color-scheme:dark}
-
 @property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
 *{box-sizing:border-box}
-body{background:var(--paper);color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding-inline:clamp(16px,4vw,48px)}
-a{color:var(--violet);text-underline-offset:3px}
-a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+html{background:var(--paper)}
+body{margin:0;background:
+    radial-gradient(1200px 700px at 8% -10%,rgba(212,175,55,.10),transparent 60%),
+    radial-gradient(900px 600px at 105% 20%,rgba(124,92,255,.14),transparent 60%),
+    var(--paper);
+  color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding:var(--fw) calc(var(--fw) + clamp(16px,4vw,48px))}
+/* the frame round the page: gold, with a vivid purple line inside and a slow gleam going round */
+.pageframe{position:fixed;inset:0;z-index:60;pointer-events:none;border:var(--fw) solid transparent;
+  border-image:conic-gradient(from var(--spin),#8A6A1E,#F6D77A 9%,#B8862A 18%,#FFE9A8 27%,#9A7417 36%,#E6C35C 45%,
+    #7C5CFF 50%,#E6C35C 55%,#9A7417 64%,#FFE9A8 73%,#B8862A 82%,#F6D77A 91%,#8A6A1E) 1;
+  box-shadow:inset 0 0 0 2px #7C5CFF,inset 0 0 26px rgba(124,92,255,.35);animation:spin 40s linear infinite}
+@keyframes spin{to{--spin:360deg}}
+@media (prefers-reduced-motion:reduce){.pageframe,.frame,.vframe{animation:none}}
+a{color:var(--violet-l);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible,video:focus-visible{outline:3px solid var(--gold-l);outline-offset:3px;border-radius:6px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.08}
 p{margin:0}
-kbd{font:500 .82em var(--f-mono);background:var(--tab);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:.05em .4em;white-space:nowrap}
+kbd{font:500 .82em var(--f-mono);background:var(--sheet2);border:1px solid var(--line);border-bottom:2px solid var(--gold-d);border-radius:6px;padding:.05em .4em;white-space:nowrap;color:var(--ink)}
 .wrap{max-width:1160px;margin-inline:auto}
 .read{max-width:66ch}
 
 /* header */
 .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font:800 1.45rem var(--f-display);letter-spacing:-.02em}
-.brand b{font-weight:800}.brand span{color:var(--violet);font-weight:500}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);font:800 1.5rem var(--f-display);letter-spacing:-.02em}
+.brand img{width:44px;height:44px;border-radius:11px;box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(212,175,55,.35)}
+.brand span{color:var(--gold-l);font-weight:800}
 .nav{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
 .nav a{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
-.nav a:hover{color:var(--ink)}
-.btn{display:inline-flex;align-items:center;gap:.6em;background:var(--violet);color:var(--violet-ink);text-decoration:none;font-weight:700;border-radius:999px;padding:.8em 1.4em;border:0;font-size:1rem}
-.btn:hover{filter:brightness(1.08)}
-.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.nav a:hover{color:var(--gold-l)}
+.btn{display:inline-flex;align-items:center;gap:.6em;background:var(--violet);color:var(--violet-ink)!important;text-decoration:none;font-weight:700;border-radius:999px;padding:.8em 1.4em;border:0;font-size:1rem;
+  box-shadow:0 0 0 1.5px rgba(242,200,90,.55),0 10px 28px -10px rgba(124,92,255,.75)}
+.btn:hover{filter:brightness(1.12)}
+.btn.ghost{background:transparent;color:var(--gold-l)!important;box-shadow:inset 0 0 0 1.5px var(--gold)}
 
 /* hero */
 .hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;padding-block:clamp(24px,5vw,64px) 40px}
 .hero h1{font-size:clamp(2.5rem,5.6vw,4.4rem);letter-spacing:-.035em;font-weight:800}
-.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--hl) 62%,var(--hl) 92%,transparent 92%)}
+.hero h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.45) 64%,rgba(124,92,255,.45) 90%,transparent 90%)}
 .hero .lede{color:var(--muted);font-size:1.18rem;margin-top:20px;max-width:46ch}
 .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
 .facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;color:var(--muted);font-size:.92rem}
 .facts span{display:inline-flex;align-items:center;gap:6px}
-.facts svg{width:16px;height:16px;stroke:var(--ok)}
+.facts svg{width:16px;height:16px;stroke:var(--gold-l)}
 
-/* the app, drawn */
-.frame{--c1:#675EF4;--c2:#C45BE0;--c3:#3E8EF7;--c4:#E2B13C;border-radius:18px;padding:9px;
-  background:conic-gradient(from var(--spin),var(--c1),var(--c2),var(--c3),var(--c4),var(--c1));
-  animation:spin 26s linear infinite;box-shadow:0 30px 60px -28px rgba(30,20,80,.45);max-width:100%}
-@keyframes spin{to{--spin:360deg}}
-@media (prefers-reduced-motion:reduce){.frame{animation:none}}
+/* the app, drawn - in its gold frame */
+.frame{border-radius:18px;padding:9px;
+  background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
+  animation:spin 26s linear infinite;box-shadow:0 30px 70px -26px rgba(124,92,255,.55),0 0 40px -10px rgba(212,175,55,.35);max-width:100%}
 .app{background:#F2F1F7;border-radius:11px;overflow:hidden;color:#17161F;font:400 12px/1.3 var(--f-body)}
 .app .bar{display:flex;align-items:center;gap:14px;padding:7px 12px;background:rgba(255,255,255,.55);border-bottom:1px solid #E1DEEC}
 .app .bar i{font-style:normal;color:#3B3A48}
@@ -99,33 +109,34 @@ kbd{font:500 .82em var(--f-mono);background:var(--tab);border:1px solid var(--li
 .clock::after{height:30px;transform:translateX(-50%) rotate(110deg);background:#5B52E8}
 .card small{display:block;color:#6B6880;text-align:center}
 .next{font-size:10.5px}.next b{color:#C25E12}
-.pill{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:#fff;border:1px solid #E1DEEC;border-radius:999px;padding:4px 12px;font-size:10.5px;white-space:nowrap;box-shadow:0 4px 12px -8px rgba(0,0,0,.4)}
+.pill{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:#fff;border:1px solid #E1DEEC;border-radius:999px;padding:4px 12px;font-size:10.5px;white-space:nowrap;box-shadow:0 4px 12px -8px rgba(0,0,0,.4);color:#17161F}
 
-/* sections as index tabs */
+/* sections as index tabs - gold */
 section{padding-block:56px}
-.tabhead{display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--line);margin-bottom:28px;flex-wrap:wrap}
-.tabhead .tab{background:var(--tab);border:2px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;margin-bottom:-2px;
-  font:700 .78rem var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tabhead{display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--gold-d);margin-bottom:28px;flex-wrap:wrap}
+.tabhead .tab{background:var(--tab);border:2px solid var(--gold);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;margin-bottom:-2px;
+  font:700 .78rem var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
 .tabhead h2{font-size:clamp(1.7rem,3.2vw,2.5rem);letter-spacing:-.025em;padding-bottom:10px}
 
 /* steps */
 .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;counter-reset:s}
-.step{counter-increment:s}
+.step{counter-increment:s;background:var(--sheet);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:var(--r);padding:20px 20px 22px}
 .step h3{font-size:1.3rem;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
-.step h3::before{content:counter(s);font:700 .9rem var(--f-mono);color:var(--violet);border:1.5px solid var(--violet);border-radius:999px;width:1.8em;height:1.8em;display:inline-grid;place-items:center;flex:none}
+.step h3::before{content:counter(s);font:700 .9rem var(--f-mono);color:#0A0A0D;background:var(--gold-l);border-radius:999px;width:1.8em;height:1.8em;display:inline-grid;place-items:center;flex:none}
 .step p{color:var(--muted)}
 
 /* features */
 .feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px}
 .f h3{font-size:1.12rem;margin:10px 0 6px;font-family:var(--f-body);font-weight:700}
 .f p{color:var(--muted);font-size:.98rem}
-.f svg{width:28px;height:28px;stroke:var(--violet);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.f svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  padding:6px;border-radius:10px;background:rgba(124,92,255,.16);box-sizing:content-box}
 
 /* report sample */
 .split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(24px,4vw,56px);align-items:center}
-.report{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.report{background:var(--sheet);border:1.5px solid var(--gold-d);border-radius:var(--r);overflow:hidden;box-shadow:0 20px 50px -30px rgba(124,92,255,.6)}
 .report header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
-.report header b{font-family:var(--f-display);font-size:1.1rem}
+.report header b{font-family:var(--f-display);font-size:1.1rem;color:var(--gold-l)}
 .report header small{color:var(--muted)}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:.93rem;font-variant-numeric:tabular-nums}
@@ -133,18 +144,19 @@ th,td{text-align:left;padding:10px 18px;border-bottom:1px solid var(--line);whit
 th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
 tr:last-child td{border-bottom:0}
 .chip{display:inline-block;border-radius:999px;padding:.12em .7em;font-size:.82rem;font-weight:700}
-.chip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
-.chip.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
-.chip.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.chip.bad{color:var(--bad);background:rgba(240,112,112,.14)}
+.chip.warn{color:var(--warn);background:rgba(240,160,96,.14)}
+.chip.ok{color:var(--ok);background:rgba(91,192,122,.14)}
 .examples{font-size:.82rem;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
 
 /* privacy */
-.vault{background:var(--sheet);border:1px solid var(--line);border-radius:22px;padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+.vault{background:linear-gradient(160deg,var(--sheet2),var(--sheet));border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;
+  box-shadow:inset 0 0 0 1px rgba(124,92,255,.35)}
 .vault h2{font-size:clamp(1.8rem,3.4vw,2.7rem);letter-spacing:-.03em}
-.vault h2 span{color:var(--gold)}
+.vault h2 span{color:var(--gold-l)}
 .vault ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
 .vault li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
-.vault li svg{width:22px;height:22px;stroke:var(--gold);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+.vault li svg{width:22px;height:22px;stroke:var(--gold-l);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
 .vault p.small{color:var(--muted);font-size:.95rem;margin-top:16px}
 
 /* who */
@@ -157,36 +169,56 @@ tr:last-child td{border-bottom:0}
 details{border-bottom:1px solid var(--line);padding-block:16px}
 summary{cursor:pointer;font-weight:700;font-size:1.06rem;list-style:none;display:flex;justify-content:space-between;gap:16px}
 summary::-webkit-details-marker{display:none}
-summary::after{content:"+";font:700 1.3rem var(--f-mono);color:var(--violet);line-height:1}
+summary::after{content:"+";font:700 1.3rem var(--f-mono);color:var(--gold-l);line-height:1}
 details[open] summary::after{content:"\2212"}
 details p{color:var(--muted);margin-top:10px;max-width:70ch}
 
+/* the video */
+.vframe{border-radius:18px;padding:8px;background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
+  animation:spin 30s linear infinite;box-shadow:0 30px 80px -30px rgba(124,92,255,.6),0 0 50px -12px rgba(212,175,55,.35)}
+.vframe video{display:block;width:100%;height:auto;border-radius:11px;background:#000;aspect-ratio:16/9}
+.vcap{margin-top:12px;color:var(--muted);font-size:.95rem}
+
+/* install */
+.inst{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;counter-reset:i}
+.inst li{list-style:none;counter-increment:i;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 20px;position:relative}
+.inst li::before{content:counter(i);display:grid;place-items:center;width:2.1em;height:2.1em;border-radius:999px;background:var(--violet);color:#fff;
+  font:700 1rem var(--f-mono);box-shadow:0 0 0 2px var(--gold);margin-bottom:12px}
+.inst b{display:block;font-size:1.08rem;margin-bottom:4px}
+.inst p{color:var(--muted);font-size:.96rem}
+.inst .k{color:var(--gold-l);font-weight:700}
+.inst img{display:block;width:100%;height:auto;margin-top:12px;border-radius:8px;border:1.5px solid var(--gold-d)}
+ol.inst{padding:0;margin:0}
+
 /* download */
-.dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:var(--tab);border-radius:22px;padding:clamp(24px,4vw,44px)}
+.dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:linear-gradient(160deg,var(--sheet2),var(--sheet));
+  border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,44px);box-shadow:0 0 60px -20px rgba(124,92,255,.5)}
 .dl h2{font-size:clamp(1.7rem,3vw,2.4rem);letter-spacing:-.025em}
 .dl p{color:var(--muted);margin-top:8px}
-.soon{display:inline-block;margin-top:10px;font:500 .82rem var(--f-mono);color:var(--gold)}
-/* real screenshots */
+.soon{display:inline-block;margin-top:10px;font:500 .82rem var(--f-mono);color:var(--gold-l)}
+/* real screenshots - each in a thin gold frame */
 .shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 30px}
 .shots figure{margin:0}
-.shots img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 14px 34px -18px rgba(30,20,80,.45);background:var(--sheet)}
+.shots img{display:block;width:100%;height:auto;border-radius:12px;border:2px solid var(--gold);box-shadow:0 18px 40px -20px rgba(124,92,255,.6);background:var(--sheet)}
 .shots figcaption{margin-top:10px;color:var(--muted);font-size:.95rem}
-.shots figcaption b{color:var(--ink)}
+.shots figcaption b{color:var(--gold-l)}
 .shots .wide{grid-column:1 / -1}
 .homes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
-.homes img{border-radius:9px}
+.homes img{border-radius:9px;border-width:1.5px}
 
-footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.9rem;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer{border-top:1px solid var(--gold-d);padding-block:28px 40px;color:var(--muted);font-size:.9rem;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 footer nav{display:flex;gap:18px;flex-wrap:wrap}
 
 @media (max-width:900px){
   .hero,.split,.vault,.dl{grid-template-columns:minmax(0,1fr)}
-  .steps,.feat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .steps,.feat,.inst{grid-template-columns:repeat(2,minmax(0,1fr))}
   .who{grid-template-columns:repeat(2,minmax(0,1fr))}
   .shots{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:600px){
-  .steps,.feat,.who,.homes{grid-template-columns:minmax(0,1fr)}
+  :root{--fw:6px}
+  body{padding:var(--fw) calc(var(--fw) + 14px)}
+  .steps,.feat,.who,.homes,.inst{grid-template-columns:minmax(0,1fr)}
   .app .body{grid-template-columns:minmax(0,1fr);min-height:0}
   .rail,.side{display:none}
   .nav a:not(.btn){display:none}
@@ -196,24 +228,19 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
 <link rel="icon" href="img/icon.png">
 </head>
 <body>
+<div class="pageframe" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
     <a class="brand" href="#top" aria-label="BindLens home">
-      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-        <rect x="3" y="4" width="20" height="26" rx="3" fill="#675EF4"/>
-        <rect x="7" y="4" width="16" height="26" rx="2" fill="#FFFFFF" stroke="#675EF4" stroke-width="1.5"/>
-        <line x1="10" y1="11" x2="19" y2="11" stroke="#C9C5F5" stroke-width="2"/><line x1="10" y1="16" x2="17" y2="16" stroke="#C9C5F5" stroke-width="2"/>
-        <circle cx="22" cy="21" r="7" fill="none" stroke="#E2B13C" stroke-width="3"/>
-        <line x1="27" y1="26" x2="31" y2="30" stroke="#E2B13C" stroke-width="3.2" stroke-linecap="round"/>
-      </svg>
-      <span style="color:var(--ink);font-weight:800">Bind</span><span>Lens</span>
+      <img src="img/logo.png" width="44" height="44" alt=""><b>Bind<span>Lens</span></b>
     </a>
     <nav class="nav" aria-label="Main">
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
       <a href="#faq">Questions</a>
-      <a href="#see">See it</a>
+      <a href="#watch">Watch</a>
+      <a href="#install">Install</a>
       <a class="btn" href="#download">Download</a>
     </nav>
   </header>
@@ -228,7 +255,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
             Download for Windows
           </a>
-          <a class="btn ghost" href="#how">See how it works</a>
+          <a class="btn ghost" href="#watch">Watch the 2-minute video</a>
         </div>
         <div class="facts">
           <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>No account</span>
@@ -271,6 +298,16 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
         </div>
       </div>
     </div>
+
+    <section id="watch">
+      <div class="tabhead"><span class="tab">Watch</span><h2>BindLens in two minutes</h2></div>
+      <div class="vframe">
+        <video controls preload="none" playsinline poster="img/how-it-works.webp" width="1280" height="720">
+          <source src="img/how-it-works.mp4" type="video/mp4">
+        </video>
+      </div>
+      <p class="vcap">Every chapter of the app, recorded from BindLens itself (the names in it are made up). With sound.</p>
+    </section>
 
     <section id="how">
       <div class="tabhead"><span class="tab">How it works</span><h2>Three steps, no setup</h2></div>
@@ -396,10 +433,20 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
         <details open><summary>Does BindLens change my files?</summary><p>Only when you mark a PDF: your marks are saved inside that PDF. Nothing is copied, moved or renamed unless you ask, every mark can be taken off again, and Help › What BindLens changed in my folders lists every change.</p></details>
         <details><summary>Do I need the internet?</summary><p>No. BindLens works offline. It goes online only when you ask for a photo, add a calendar link or ask it to read scanned pages for the first time.</p></details>
         <details><summary>Which computers does it run on?</summary><p>Windows 10 and Windows 11. On Mac and Linux it can be run from its source code with Python.</p></details>
-        <details><summary>Windows says “Windows protected your PC”. Is it safe?</summary><p>Windows shows this for new programs that are not signed yet. Click More info, then Run anyway. The message will go once BindLens is signed.</p></details>
+        <details><summary>A blue window appears when I install it. What do I click?</summary><p>Click <b>More info</b>, then <b>Run anyway</b>. See <a href="#install">How to install</a>.</p></details>
         <details><summary>Where are my settings kept?</summary><p>On your computer, in your user folder (%APPDATA%\BindLens). They stay when you update BindLens.</p></details>
         <details><summary>Is BindLens open source?</summary><p>Yes. BindLens is free software under the GNU Affero General Public License v3, and its source code comes with the program. The name BindLens and its logo are not part of that licence.</p></details>
       </div>
+    </section>
+
+    <section id="install">
+      <div class="tabhead"><span class="tab">Install</span><h2>How to install</h2></div>
+      <ol class="inst">
+        <li><b>Download</b><p>Click <span class="k">Download for Windows</span> and save <span class="k">BindLens.Setup.exe</span>.</p></li>
+        <li><b>Open it</b><p>Double-click <span class="k">BindLens.Setup.exe</span> in your Downloads.</p></li>
+        <li><b>If a blue window appears</b><p>Click <span class="k">More info</span>, then <span class="k">Run anyway</span>.</p></li>
+        <li><b>Install and open</b><p>Click <span class="k">Install</span>, then open BindLens from its icon on the desktop.</p></li>
+      </ol>
     </section>
 
     <section id="download">
@@ -407,7 +454,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
         <div>
           <h2>BindLens for Windows</h2>
           <p>Version 1.0 · Windows 10 and 11 · free · one installer, no administrator rights needed.</p>
-          <span class="soon">Windows may say “Windows protected your PC”: More info › Run anyway.</span>
+          <span class="soon"><a href="#install" style="color:inherit">How to install, step by step</a></span>
           <p style="margin-top:10px"><a href="https://github.com/CKMohammed/BindLens">Source code</a> · <a href="https://github.com/CKMohammed/BindLens/releases">All versions</a></p>
         </div>
         <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
