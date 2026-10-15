@@ -180,15 +180,20 @@ details p{color:var(--muted);margin-top:10px;max-width:70ch}
 .vcap{margin-top:12px;color:var(--muted);font-size:.95rem}
 
 /* install */
-.inst{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;counter-reset:i}
-.inst li{list-style:none;counter-increment:i;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 20px;position:relative}
-.inst li::before{content:counter(i);display:grid;place-items:center;width:2.1em;height:2.1em;border-radius:999px;background:var(--violet);color:#fff;
-  font:700 1rem var(--f-mono);box-shadow:0 0 0 2px var(--gold);margin-bottom:12px}
-.inst b{display:block;font-size:1.08rem;margin-bottom:4px}
-.inst p{color:var(--muted);font-size:.96rem}
-.inst .k{color:var(--gold-l);font-weight:700}
-.inst img{display:block;width:100%;height:auto;margin-top:12px;border-radius:8px;border:1.5px solid var(--gold-d)}
-ol.inst{padding:0;margin:0}
+.instwrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(20px,3vw,40px);align-items:start}
+ol.inst{padding:0;margin:0;display:grid;gap:12px;counter-reset:i}
+.inst li{list-style:none;counter-increment:i;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 14px 64px;position:relative;min-height:62px}
+.inst li::before{content:counter(i);position:absolute;left:14px;top:13px;display:grid;place-items:center;width:2.1em;height:2.1em;border-radius:999px;background:var(--violet);color:#fff;
+  font:700 1rem var(--f-mono);box-shadow:0 0 0 2px var(--gold)}
+.inst b{display:block;font-size:1.06rem;margin-bottom:2px}
+.inst p{color:var(--muted);font-size:.95rem}
+.k{color:var(--gold-l);font-weight:700}
+.instshots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.instshots figure{margin:0}
+.instshots img{display:block;width:100%;height:auto;border-radius:10px;border:2px solid var(--gold);box-shadow:0 18px 40px -22px rgba(124,92,255,.7)}
+.instshots figcaption{margin-top:10px;font-size:1rem;color:var(--ink)}
+.instshots figcaption b{display:inline-grid;place-items:center;width:1.7em;height:1.7em;border-radius:999px;background:var(--violet);color:#fff;font:700 .85rem var(--f-mono);
+  box-shadow:0 0 0 2px var(--gold);margin-right:8px}
 
 /* download */
 .dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:linear-gradient(160deg,var(--sheet2),var(--sheet));
@@ -211,14 +216,15 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
 
 @media (max-width:900px){
   .hero,.split,.vault,.dl{grid-template-columns:minmax(0,1fr)}
-  .steps,.feat,.inst{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .steps,.feat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .instwrap{grid-template-columns:minmax(0,1fr)}
   .who{grid-template-columns:repeat(2,minmax(0,1fr))}
   .shots{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:600px){
   :root{--fw:6px}
   body{padding:var(--fw) calc(var(--fw) + 14px)}
-  .steps,.feat,.who,.homes,.inst{grid-template-columns:minmax(0,1fr)}
+  .steps,.feat,.who,.homes,.instshots{grid-template-columns:minmax(0,1fr)}
   .app .body{grid-template-columns:minmax(0,1fr);min-height:0}
   .rail,.side{display:none}
   .nav a:not(.btn){display:none}
@@ -441,12 +447,19 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
 
     <section id="install">
       <div class="tabhead"><span class="tab">Install</span><h2>How to install</h2></div>
-      <ol class="inst">
-        <li><b>Download</b><p>Click <span class="k">Download for Windows</span> and save <span class="k">BindLens.Setup.exe</span>.</p></li>
-        <li><b>Open it</b><p>Double-click <span class="k">BindLens.Setup.exe</span> in your Downloads.</p></li>
-        <li><b>If a blue window appears</b><p>Click <span class="k">More info</span>, then <span class="k">Run anyway</span>.</p></li>
-        <li><b>Install and open</b><p>Click <span class="k">Install</span>, then open BindLens from its icon on the desktop.</p></li>
-      </ol>
+      <div class="instwrap">
+        <ol class="inst">
+          <li><b>Download</b><p>Click <span class="k">Download for Windows</span> and save <span class="k">BindLens.Setup.exe</span>.</p></li>
+          <li><b>Open it</b><p>Double-click <span class="k">BindLens.Setup.exe</span> in your Downloads.</p></li>
+          <li><b>Click <span class="k">More info</span></b><p>If a blue window appears.</p></li>
+          <li><b>Click <span class="k">Run anyway</span></b><p>The installer opens.</p></li>
+          <li><b>Install and open</b><p>Click <span class="k">Install</span>, then open BindLens from its icon on the desktop.</p></li>
+        </ol>
+        <div class="instshots">
+          <figure><img src="img/install-more-info.webp" width="1064" height="994" loading="lazy" alt="The blue Windows window, with More info marked in gold."><figcaption><b>3</b> Click <span class="k">More info</span></figcaption></figure>
+          <figure><img src="img/install-run-anyway.webp" width="1064" height="996" loading="lazy" alt="The blue Windows window after More info, with Run anyway marked in gold."><figcaption><b>4</b> Click <span class="k">Run anyway</span></figcaption></figure>
+        </div>
+      </div>
     </section>
 
     <section id="download">
