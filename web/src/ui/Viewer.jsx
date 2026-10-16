@@ -200,6 +200,7 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     { label: "Separator line here", icon: "line", run: at(() => { const pg0 = docState.value[file.id]?.pages?.[page]; const W = pg0 ? pg0.w : 595; return addMark(file, page, { type: "Line", a: [W * 0.08, p[1]], b: [W * 0.92, p[1]], color: rgb(o.pen), width: 1, subject: "Separator line" }); }) },
     (settings.value.signatures || []).length > 0 && { label: "My signature here", icon: "sign", run: at(() => { const sig = settings.value.signatures[0]; const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0)); const w = 160, h = 160 * sig.h / sig.w; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }); }) },
     "-",
+    "speechSynthesis" in window && { label: window.speechSynthesis.speaking ? "Stop reading aloud" : "Read aloud from here", icon: window.speechSynthesis.speaking ? "pause" : "play", run: () => { if (window.speechSynthesis.speaking) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); else window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page } })); } },
     { label: "Change the text of the PDF here", icon: "edit", run: () => { tool.value = "edit"; toast("Click the line to change."); } },
     !readOnly && { label: "Take all the marks off this page", icon: "eraser", run: async () => {
       if (!(await confirm("Take all the marks off this page?", "Highlights, drawings, notes, stamps... Undo (Ctrl+Z) brings them back.", { ok: "Take them off", danger: true }))) return;
@@ -785,7 +786,7 @@ function EmptyButtons({ book }) {
   return (
     <div class="row wrap" style={{ justifyContent: "center", marginTop: 14 }}>
       <button class="btn" onClick={async () => mod.uploadFiles(book, await mod.pickFiles())}><Icon n="upload" />Add files</button>
-      {store.value.kind === "drive" && <button class="btn ghost" onClick={() => mod.addFromDrive(book)}><Icon n="drive" />From my Drive</button>}
+      {store.value.canPick && <button class="btn ghost" onClick={() => mod.addFromDrive(book)}><Icon n="drive" />From my Drive</button>}
       <button class="btn ghost" onClick={() => openPanel("scan", { book: book.id })}><Icon n="camera" />Scan</button>
       <button class="btn ghost" onClick={() => openPanel("write", { book: book.id })}><Icon n="edit" />Write</button>
     </div>

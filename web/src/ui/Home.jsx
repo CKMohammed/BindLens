@@ -18,7 +18,7 @@ export function AccountButton() {
   return (
     <button class="ib" title={u.email || "Account"} onClick={(e) => openMenu(e, [
       { title: s.kind === "demo" ? "Example library (nothing is saved)" : (u.email || "") },
-      s.kind === "drive" && { label: "Open the BindLens folder in Google Drive", icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
+      s.cloud && { label: "Open the BindLens folder in " + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
       { label: "Settings", icon: "settings", run: () => openPanel("settings") },
       { label: "Help", icon: "help", run: () => openPanel("help") },
       "-",
@@ -86,7 +86,7 @@ function Spine({ b, h, onHover, lean }) {
     { label: "Move left", icon: "left", run: () => moveBook(b, -1) },
     { label: "Move right", icon: "right", run: () => moveBook(b, 1) },
     "-",
-    { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
+    store.value.kind !== "onedrive" && { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
   ];
   const w = 40 + Math.min(18, b.files.length * 2);
@@ -216,7 +216,7 @@ export function Home() {
           <button class="qa" onClick={() => openPanel("scan")}><Icon n="camera" />Scan</button>
           <button class="qa" onClick={() => { if (!books.value.length) { toast("Make a book first."); return; } if (!settings.value.last) openBook(books.value[0].id); openPanel("study"); }}><Icon n="star" />Study cards</button>
           <button class="qa" onClick={(e) => openMenu(e, addItems())}><Icon n="upload" />Add</button>
-          {store.value.kind === "drive" && <button class="qa" onClick={() => addFromDrive()}><Icon n="drive" />From Drive</button>}
+          {store.value.canPick && <button class="qa" onClick={() => addFromDrive()}><Icon n="drive" />From Drive</button>}
           <button class="qa" onClick={() => openPanel("settings")}><Icon n="palette" />Frame colours</button>
         </div>
       </div>

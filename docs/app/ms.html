@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>BindLens - signing in</title></head>
+<body style="font:16px system-ui,sans-serif;padding:30px;color:#1E1C2B">
+<p>Signing you in to BindLens...</p>
+<script>
+// Microsoft's sign-in comes back here: hand the answer to the BindLens window that opened this one, then close
+(function () {
+  var p = new URLSearchParams(location.search);
+  var msg = { type: "bl-ms", code: p.get("code"), state: p.get("state"), error: p.get("error_description") || p.get("error") };
+  if (window.opener) { window.opener.postMessage(msg, location.origin); setTimeout(function () { window.close(); }, 200); }
+  else document.body.innerHTML = "<p>You can close this window and go back to BindLens.</p>";
+})();
+</script>
+</body></html>

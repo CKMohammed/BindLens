@@ -144,8 +144,8 @@ function RowsTable({ rep, onGo }) {
   );
 }
 
-export function Reports({ compare }) {
-  const [pick, setPick] = useState(null);
+export function Reports({ compare, pickId }) {
+  const [pick, setPick] = useState(() => (pickId && REPORTS.find(r => r.id === pickId)) || null);
   const [scope, setScope] = useState(currentBook.value ? "book" : "all");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("");

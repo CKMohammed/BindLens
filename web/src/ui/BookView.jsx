@@ -96,7 +96,7 @@ function TopBar({ book }) {
   ]); };
   const addMenu = (e) => openMenu(e, [
     { label: "Add files...", icon: "upload", run: async () => uploadFiles(book, await pickFiles()) },
-    store.value.kind === "drive" && { label: "Add from my Google Drive...", icon: "drive", run: () => addFromDrive(book) },
+    store.value.canPick && { label: "Add from my Google Drive...", icon: "drive", run: () => addFromDrive(book) },
     { label: "Add a folder as a sub-book...", icon: "book", run: () => addFolder(book) },
     { label: "Add pages from another PDF here...", icon: "addpage", run: () => { const f = fileFor(fileId.value); if (f && f.kind === "pdf") FT.addPagesFromPdf(f, pageNo.value + 1); else toast("Open a PDF page first."); } },
     "-",
@@ -200,7 +200,7 @@ function FileRow({ book, f, cur, indent }) {
     <button class={"filerow" + (f.id === cur ? " on" : "")} style={indent ? { paddingLeft: 10 + indent * 14 } : null}
       onClick={() => { fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; if (isPhone()) leftOpen.value = false; }}
       onContextMenu={(e) => { e.preventDefault(); fileMenu(e, book, f); }}>
-      <span class="ico"><Icon n={fileIcon(f.kind)} size={18} /></span>
+      <span class="ico"><Icon n={/\.eml$/i.test(f.name) ? "mail" : fileIcon(f.kind)} size={18} /></span>
       <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {tag}</span>}</span>
       <span class="n">{st?.pages ? st.pages.length : ""}</span>
       <span class="ib" style={{ width: 26, height: 26 }} onClick={(e) => { e.stopPropagation(); fileMenu(e, book, f); }}><Icon n="more" size={16} /></span>
@@ -309,7 +309,7 @@ function fileMenu(e, book, f) {
     { label: "Print...", icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
     { label: "Send by email...", icon: "mail", run: () => FT.sendFile(f) },
     { label: "Download a copy", icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
-    store.value.kind === "drive" && { label: "Open in Google Drive", icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
+    store.value.cloud && { label: "Open in " + store.value.cloud, icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
     f.kind === "image" && { label: "Open the photos as a gallery", icon: "image", run: () => openPanel("gallery", { fileId: f.id }) },
     pdf && { label: "Make scanned pages searchable (OCR)", icon: "type", run: async () => {
       const { readScannedDoc } = await import("../ocr.js");
@@ -317,16 +317,16 @@ function fileMenu(e, book, f) {
       const n = await readScannedDoc(f);
       toast(n ? `${n} words read in "${f.name}".` : `"${f.name}" has no scanned pages without words.`, n ? "ok" : "");
     } },
-    store.value.kind === "drive" && ["word", "excel", "powerpoint"].includes(f.kind) && { label: (settings.value.googleLook || {})[f.id] ? "Show it BindLens's own way (quicker)" : "Show it as it looks (Google converts it)", icon: "eye", run: async () => {
+    store.value.officePdf && ["word", "excel", "powerpoint"].includes(f.kind) && { label: (settings.value.googleLook || {})[f.id] ? "Show it BindLens's own way (quicker)" : `Show it as it looks (${store.value.kind === "drive" ? "Google" : "OneDrive"} converts it)`, icon: "eye", run: async () => {
       const g = { ...(settings.value.googleLook || {}) };
       if (g[f.id]) delete g[f.id]; else g[f.id] = true;
       setSetting("googleLook", g);
       const { reopen, notifyChanged } = await import("../docs.js");
-      toast(g[f.id] ? "Asking Google to show it as it looks..." : "BindLens shows it its own way.");
+      toast(g[f.id] ? `Asking ${store.value.cloud} to show it as it looks...` : "BindLens shows it its own way.");
       await reopen(f); notifyChanged(f.id, "pages");
     } },
     "-",
-    { label: "Take it out of this book (it stays in your Drive)", icon: "logout", run: () => releaseFile(book, f) },
+    store.value.kind !== "onedrive" && { label: "Take it out of this book (it stays in your Drive)", icon: "logout", run: () => releaseFile(book, f) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteFile(book, f) },
   ]);
 }
@@ -441,8 +441,20 @@ async function readAloud(book, setOn) {
   setOn(false);
 }
 
+// "Read aloud from here" (the page's right-click menu) - any view of the book
+const aloudSig = { set: null };
+window.addEventListener("bl-read-aloud", (e) => {
+  const b = currentBook.value;
+  if (!b) return;
+  fileId.value = e.detail.fileId; pageNo.value = e.detail.page;
+  stopReading();
+  readAloud(b, (on) => { aloudSig.set && aloudSig.set(on); if (on) toast("Reading aloud. Right-click the page again, or press Esc, to stop."); });
+});
+window.addEventListener("keydown", (e) => { if (e.key === "Escape" && speaking) { stopReading(); aloudSig.set && aloudSig.set(false); } });
+
 function ReadingSide({ book }) {
-  const [aloud, setAloud] = useState(false);
+  const [aloud, setAloud] = useState(!!speaking);
+  useEffect(() => { aloudSig.set = setAloud; return () => { aloudSig.set = null; }; }, []);
   useEffect(() => () => stopReading(), []);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
@@ -487,7 +499,7 @@ function Side({ book }) {
     { title: "Colour" },
     ...BOOK_COLORS.slice(0, 8).map(c => ({ label: "", swatch: c, run: () => setBookColor(b, c) })),
     "-",
-    { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
+    store.value.kind !== "onedrive" && { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
   ]);
   return (
@@ -533,7 +545,7 @@ function Side({ book }) {
 }
 
 function PageBar({ book }) {
-  const files = book.files;
+  const files = visibleFiles(book);
   let total = 0, cur = 0;
   for (const f of files) {
     const n = docState.value[f.id]?.pages?.length || 1;

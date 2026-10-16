@@ -64,7 +64,123 @@ async function pptxToHtml(buf) {
   return html || "<p>(No slides.)</p>";
 }
 
+// ---- e-mails (.eml), OpenDocument (.odt .ods .odp), RTF and data files (.json .xml .log ...), as the Windows app does
+
+function decodeWords(s) {
+  // =?utf-8?B?...?= and =?utf-8?Q?...?= in e-mail headers
+  return String(s || "").replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (m, cs, enc, txt) => {
+    try {
+      let bytes;
+      if (enc.toUpperCase() === "B") bytes = Uint8Array.from(atob(txt), c => c.charCodeAt(0));
+      else bytes = Uint8Array.from(txt.replace(/_/g, " ").replace(/=([0-9A-F]{2})/gi, (x, h) => String.fromCharCode(parseInt(h, 16))), c => c.charCodeAt(0));
+      return new TextDecoder(cs).decode(bytes);
+    } catch (e) { return txt; }
+  }).replace(/\?=\s+=\?/g, "?==?");
+}
+
+function mimePart(raw) {
+  const i = raw.search(/\r?\n\r?\n/);
+  const head = (i < 0 ? raw : raw.slice(0, i)).replace(/\r?\n[ \t]+/g, " ");
+  const body = i < 0 ? "" : raw.slice(i).replace(/^\r?\n\r?\n/, "");
+  const headers = {};
+  for (const line of head.split(/\r?\n/)) { const k = line.indexOf(":"); if (k > 0) headers[line.slice(0, k).trim().toLowerCase()] = line.slice(k + 1).trim(); }
+  return { headers, body };
+}
+
+function decodeBody(part) {
+  const enc = (part.headers["content-transfer-encoding"] || "").toLowerCase();
+  const cs = (/charset="?([^";]+)/i.exec(part.headers["content-type"] || "") || [])[1] || "utf-8";
+  let bytes;
+  if (enc === "base64") { try { bytes = Uint8Array.from(atob(part.body.replace(/\s+/g, "")), c => c.charCodeAt(0)); } catch (e) { bytes = new TextEncoder().encode(part.body); } }
+  else if (enc === "quoted-printable") bytes = Uint8Array.from(part.body.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/gi, (x, h) => String.fromCharCode(parseInt(h, 16))), c => c.charCodeAt(0) & 255);
+  else bytes = Uint8Array.from(part.body, c => c.charCodeAt(0) & 255);
+  try { return new TextDecoder(cs).decode(bytes); } catch (e) { return new TextDecoder().decode(bytes); }
+}
+
+function walkMime(part, out) {
+  const ct = (part.headers["content-type"] || "text/plain").toLowerCase();
+  const disp = part.headers["content-disposition"] || "";
+  const fname = (/filename\*?="?([^";]+)/i.exec(disp) || /name="?([^";]+)/i.exec(part.headers["content-type"] || "") || [])[1];
+  if (ct.startsWith("multipart/")) {
+    const b = (/boundary="?([^";]+)"?/i.exec(part.headers["content-type"]) || [])[1];
+    if (!b) return;
+    for (const chunk of part.body.split("--" + b).slice(1)) {
+      if (chunk.startsWith("--")) break;
+      walkMime(mimePart(chunk.replace(/^\r?\n/, "")), out);
+    }
+  } else if (fname && /attachment|inline/i.test(disp || "attachment") && !ct.startsWith("text/plain")) out.att.push(decodeWords(fname));
+  else if (ct.startsWith("text/plain") && out.plain == null) out.plain = decodeBody(part);
+  else if (ct.startsWith("text/html") && out.html == null) out.html = decodeBody(part);
+  else if (fname) out.att.push(decodeWords(fname));
+}
+
+function emlToHtml(buf) {
+  const raw = new TextDecoder("latin1").decode(buf);
+  const top = mimePart(raw);
+  const out = { plain: null, html: null, att: [] };
+  walkMime(top, out);
+  let h = `<h1>${escapeHtml(decodeWords(top.headers.subject || "(no subject)"))}</h1><table style="border:0;width:auto">`;
+  for (const k of ["from", "to", "cc", "date"]) if (top.headers[k]) h += `<tr><td style="border:0;color:#6B6F80;padding:0 8pt 1pt 0">${k[0].toUpperCase() + k.slice(1)}</td><td style="border:0;padding:0 0 1pt 0">${escapeHtml(decodeWords(top.headers[k]))}</td></tr>`;
+  h += "</table>";
+  if (out.plain != null) h += `<pre style="font-family:sans-serif;font-size:10.5pt;margin-top:10pt">${escapeHtml(out.plain.trim())}</pre>`;
+  else if (out.html != null) h += out.html.replace(/<(script|style|head)[^>]*>[\s\S]*?<\/\1>/gi, "").replace(/<img[^>]*>/gi, "");
+  if (out.att.length) h += "<h2>Attached</h2>" + out.att.map(a => `<p>• ${escapeHtml(a)}</p>`).join("");
+  return h;
+}
+
+async function odfToHtml(buf) {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buf);
+  const xml = await zip.file("content.xml").async("string");
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const textOf = (el) => {
+    let t = "";
+    for (const n of el.childNodes) {
+      if (n.nodeType === 3) t += n.nodeValue;
+      else if (n.localName === "s") t += " ".repeat(Math.min(50, Number(n.getAttribute("text:c") || 1)));
+      else if (n.localName === "tab") t += "\t";
+      else if (n.localName === "line-break") t += "\n";
+      else if (n.localName !== "annotation") t += textOf(n);
+    }
+    return t;
+  };
+  const walk = (el) => {
+    let h = "";
+    for (const n of el.children) {
+      const k = n.localName;
+      if (k === "h") h += `<h2>${escapeHtml(textOf(n))}</h2>`;
+      else if (k === "p") { const t = textOf(n); h += t.trim() ? `<p>${escapeHtml(t).replace(/\n/g, "<br>")}</p>` : ""; }
+      else if (k === "list") h += "<ul>" + [...n.children].map(li => `<li>${escapeHtml([...li.getElementsByTagNameNS("*", "p")].map(textOf).join(" "))}</li>`).join("") + "</ul>";
+      else if (k === "table") {
+        const name = n.getAttribute("table:name");
+        const rows = [...n.getElementsByTagNameNS("*", "table-row")].map(r => [...r.children].filter(c => c.localName === "table-cell").flatMap(c => Array(Math.min(20, Number(c.getAttribute("table:number-columns-repeated") || 1))).fill([...c.getElementsByTagNameNS("*", "p")].map(textOf).join(" ")))).filter(r => r.some(c => c.trim()));
+        if (!rows.length) continue;
+        const nc = Math.max(...rows.map(r => { let k2 = r.length; while (k2 > 0 && !r[k2 - 1].trim()) k2--; return k2; }));
+        if (name && el.localName === "spreadsheet") h += `<div class="sheet">${escapeHtml(name)}</div>`;
+        h += "<table>" + rows.slice(0, 5000).map((r, i) => "<tr>" + r.slice(0, nc).map(c => i === 0 ? `<th>${escapeHtml(c)}</th>` : `<td>${escapeHtml(c)}</td>`).join("") + "</tr>").join("") + "</table>";
+      } else if (k === "page") h += `<div class="slide">${walk(n)}</div>`;
+      else if (k === "frame" || k === "text-box" || k === "section" || k === "text" || k === "spreadsheet" || k === "presentation" || k === "body" || k === "custom-shape") h += walk(n);
+    }
+    return h;
+  };
+  const body = doc.getElementsByTagNameNS("*", "body")[0];
+  return (body && walk(body)) || "<p>(This document is empty.)</p>";
+}
+
+function rtfToText(s) {
+  let out = s.replace(/\{\\\*[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, "")
+    .replace(/\{\\(?:fonttbl|colortbl|stylesheet|info|pict)[\s\S]*?\}\s*(?=\\|\{|$)/g, "")
+    .replace(/\\par[d]?\b ?/g, "\n").replace(/\\line\b ?/g, "\n").replace(/\\tab\b ?/g, "\t")
+    .replace(/\\'([0-9a-f]{2})/gi, (m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\u(-?\d+)\??/g, (m, n) => String.fromCharCode((Number(n) + 65536) % 65536))
+    .replace(/\\[a-z]+-?\d* ?/gi, "").replace(/[{}]/g, "").replace(/\\([\\{}])/g, "$1");
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function textToHtml(text, name) {
+  const e = ext(name);
+  if (e === "json") { try { text = JSON.stringify(JSON.parse(text), null, 2); } catch (err) {} }
+  if (e === "rtf") return rtfToText(text).split(/\n/).map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : "").join("") || "<p>(Empty.)</p>";
   if (ext(name) === "md") {
     return text.split(/\n{2,}/).map(block => {
       const m = /^(#{1,3})\s+(.*)/.exec(block);
@@ -79,13 +195,16 @@ function textToHtml(text, name) {
 // -> {html} for the engine, or null when the engine opens the file itself
 export async function toHtml(kind, name, buf) {
   const e = ext(name);
+  if (e === "eml") return emlToHtml(buf);
+  if (e === "odt" || e === "odp" || e === "ods") return odfToHtml(buf);
+  if (e === "rtf") return textToHtml(new TextDecoder("latin1").decode(buf), name);
   if (kind === "word" && e === "docx") return docxToHtml(buf);
   if (kind === "excel") return xlsxToHtml(buf, name);
   if (kind === "powerpoint" && e === "pptx") return pptxToHtml(buf);
   if (kind === "text" && (e === "html" || e === "htm")) return new TextDecoder().decode(buf);
   if (kind === "text") return textToHtml(new TextDecoder().decode(buf), name);
   if (kind === "word" || kind === "powerpoint") {
-    return `<h2>${escapeHtml(name)}</h2><p>This older Office file cannot be shown in the browser. Open it in Word or PowerPoint, or save it as .docx / .pptx.</p>`;
+    return `<h2>${escapeHtml(name)}</h2><p>This older Office file cannot be shown in the browser by itself. Right-click it in the Library and choose "Show it as it looks (Google converts it)", or save it as .docx / .pptx.</p>`;
   }
   return null;
 }

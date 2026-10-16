@@ -73,11 +73,11 @@ export function Settings() {
       </div>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>Account</h3>
-      {s.kind === "drive" ? <>
-        <p class="small" style={{ margin: "0 0 8px" }}>Signed in as <b>{s.user?.email}</b>. Your books are in the <b>BindLens</b> folder of your Google Drive.</p>
+      {s.cloud ? <>
+        <p class="small" style={{ margin: "0 0 8px" }}>Signed in as <b>{s.user?.email}</b>. Your books are in {s.kind === "onedrive" ? <>the <b>Apps/BindLens</b> folder of your OneDrive</> : <>the <b>BindLens</b> folder of your Google Drive</>}.</p>
         <div class="row wrap">
-          <a class="btn soft small" href={s.folderLink()} target="_blank" rel="noopener"><Icon n="drive" size={16} />Open the folder in Drive</a>
-          <button class="btn plain small" onClick={async () => { await idb.clear("files"); await idb.clear("text"); toast("The copies kept in this browser are gone. Your Drive is unchanged."); }}>Clear the copies in this browser</button>
+          <a class="btn soft small" href={s.folderLink()} target="_blank" rel="noopener"><Icon n="drive" size={16} />Open the folder in {s.kind === "onedrive" ? "OneDrive" : "Drive"}</a>
+          <button class="btn plain small" onClick={async () => { await idb.clear("files"); await idb.clear("text"); toast(`The copies kept in this browser are gone. Your ${s.cloud} is unchanged.`); }}>Clear the copies in this browser</button>
           <button class="btn plain small" onClick={signOut}><Icon n="logout" size={16} />Sign out</button>
         </div>
       </> : <p class="small">This is the example library: what you change here is not saved. <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>Sign in with Google</a> to keep your own books.</p>}
@@ -169,6 +169,7 @@ const HELP = [
   ["grid", "Pages and copies", "Right-click a file: save some pages as a new PDF, split it into single pages, add pages from another PDF, a watermark, make it smaller, a copy with a password or read-only. The book's menu saves the whole book as one PDF."],
   ["clock", "Earlier versions", "Google Drive keeps the versions of a file. Right-click it, Earlier versions: open a copy of one, or go back to it. Pages you take out are kept too (Deleted pages)."],
   ["edit", "Edit a written page", "A page written in BindLens opens in Write again: Pages button, Edit this written page."],
+  ["file", "Files it shows", "PDF, Word, Excel, PowerPoint, OpenDocument (.odt .ods .odp), RTF, e-mails (.eml), CSV and text files, photos, videos, music and e-books. Word, Excel and PowerPoint look close to the original; right-click one, Show it as it looks, and Google draws it exactly (old .doc and .ppt files always go that way)."],
 ];
 
 export function Help() {

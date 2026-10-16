@@ -22,8 +22,35 @@ async function pdfBytesOf(file) {
   return call("imagesToPdf", pngs);
 }
 
-export async function makePrintPdf(what, file, page, book) {
+async function withoutMarks(u8) {
+  const tmp = "print-nomarks-" + Date.now();
+  await call("open", tmp, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength), "application/pdf", "x.pdf");
+  const n = (await call("info", tmp)).pages.length;
+  for (let i = 0; i < n; i++) await call("deleteAllAnnots", tmp, i);
+  const out = await call("save", tmp);
+  await call("close", tmp);
+  return out;
+}
+
+export async function makePrintPdf(what, file, page, book, { range = "", marks = true } = {}) {
+  const u8 = await makeIt(what, file, page, book, range);
+  return marks ? u8 : withoutMarks(u8);
+}
+
+async function makeIt(what, file, page, book, range) {
   if (what === "doc") return pdfBytesOf(file);
+  if (what === "pages") {
+    const all = await pdfBytesOf(file);
+    const tmp = "print-" + Date.now();
+    await call("open", tmp, all.buffer.slice(all.byteOffset, all.byteOffset + all.byteLength), "application/pdf", "x.pdf");
+    const n = (await call("info", tmp)).pages.length;
+    const { parsePages } = await import("../filetools.js");
+    const pages = parsePages(range, n);
+    if (!pages) { await call("close", tmp); throw new Error("Write the pages like this: 1-3, 5"); }
+    const out = await call("extractPages", tmp, pages);
+    await call("close", tmp);
+    return out;
+  }
   if (what === "page") {
     const all = await pdfBytesOf(file);
     const tmp = "print-" + Date.now();
@@ -57,6 +84,8 @@ export function Print() {
   const file = currentFile.value;
   const [what, setWhat] = useState(file ? "doc" : "book");
   const [busy, setBusy] = useState(false);
+  const [range, setRange] = useState("");
+  const [marks, setMarks] = useState(true);
   const close = () => { panel.value = null; };
   const go = async () => {
     const w = window.open("", "_blank");
@@ -64,7 +93,7 @@ export function Print() {
     setBusy(true);
     try {
       if (file) await saveNow(file.id);
-      const u8 = await makePrintPdf(what, file, pageNo.value, book);
+      const u8 = await makePrintPdf(what, file, pageNo.value, book, { range, marks });
       const url = URL.createObjectURL(new Blob([u8], { type: "application/pdf" }));
       if (w) w.location.href = url; else window.open(url, "_blank");
       close();
@@ -82,12 +111,15 @@ export function Print() {
   );
   return (
     <Dialog title="Print" icon="print" onClose={close}
-      foot={<><button class="btn plain" onClick={close}>Cancel</button><button class="btn" disabled={busy || !book} onClick={go}>{busy ? "Making it..." : <><Icon n="print" size={17} />Open to print</>}</button></>}>
+      foot={<><button class="btn plain" onClick={close}>Cancel</button><button class="btn" disabled={busy || !book || (what === "pages" && !range.trim())} onClick={go}>{busy ? "Making it..." : <><Icon n="print" size={17} />Open to print</>}</button></>}>
       <div style={{ display: "grid", gap: 8 }}>
         {opt("page", "file", "This page", file ? `Page ${pageNo.value + 1} of ${file.name}` : "", !file)}
-        {opt("doc", "pdf", "This document", file ? file.name + ", with your marks" : "", !file)}
+        {opt("pages", "grid", "Some pages", file ? `Of ${file.name}` : "", !file)}
+        {what === "pages" && <input class="field" autoFocus placeholder="Which pages? For example 1-3, 5" value={range} onInput={(e) => setRange(e.target.value)} />}
+        {opt("doc", "pdf", "This document", file ? file.name : "", !file)}
         {opt("book", "book", "The whole book", book ? `Every document of "${book.name}", one after another` : "", !book)}
       </div>
+      <label class="chk" style={{ marginTop: 12 }}><input type="checkbox" checked={marks} onChange={(e) => setMarks(e.target.checked)} />With my marks (highlights, notes, stamps...)</label>
       <p class="small muted" style={{ marginBottom: 0 }}>The PDF opens in a new tab of your browser. Print it from there with your printer.</p>
     </Dialog>
   );

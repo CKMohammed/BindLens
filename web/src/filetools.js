@@ -168,13 +168,13 @@ export async function sendFile(file) {
     try { await navigator.share({ files: [f], title: file.name }); return; } catch (e) { if (e.name === "AbortError") return; }
   }
   const how = await choose("Send by email", `Your browser cannot attach files to an email by itself. Download "${file.name}" and attach it, or send a link to it in your Drive.`, [
-    store.value.kind === "drive" && { key: "link", label: "Email a link", icon: "drive" },
+    store.value.cloud && { key: "link", label: "Email a link", icon: "drive" },
     { key: "download", label: "Download it to attach", icon: "download" },
   ].filter(Boolean));
   if (how === "download") download(buf, file.name, file.mime);
   if (how === "link") {
     const link = store.value.webLink(file);
-    toast("The person needs access to the file: share it in Drive first (Open in Google Drive, then Share).", "", 7000);
+    toast(`The person needs access to the file: share it in ${store.value.cloud} first (Open in ${store.value.cloud}, then Share).`, "", 7000);
     location.href = `mailto:?subject=${encodeURIComponent(file.name)}&body=${encodeURIComponent(link)}`;
   }
 }

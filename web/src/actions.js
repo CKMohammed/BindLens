@@ -73,7 +73,7 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
 }
 
 export async function addFromDrive(book) {
-  if (store.value.kind !== "drive") { toast("Sign in with Google to add files from your Drive."); return; }
+  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? "With OneDrive, add the files from your computer (Add files)." : "Sign in with Google to add files from your Drive."); return; }
   try {
     const picked = await store.value.pick(true);
     if (!picked.length) return;
@@ -306,7 +306,8 @@ export async function releaseBook(book) {
     ? "The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
   if (!ok) return;
   await saveAll();
-  await store.value.release(book.id, store.value.rootId);
+  try { await store.value.release(book.id, store.value.rootId); }
+  catch (e) { toast("Google Drive did not let BindLens move it (" + e.message + "). Move the folder out of the BindLens folder in Google Drive itself.", "bad", 8000); return; }
   logChange("Took the book out of BindLens (it is in My Drive)", book.name);
   batch(() => {
     books.value = books.value.filter(b => b.id !== book.id);
@@ -320,7 +321,8 @@ export async function releaseFile(book, file) {
     ? "It goes to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
   if (!ok) return;
   await saveAll();
-  await store.value.release(file.id, file.parent || book.id);
+  try { await store.value.release(file.id, file.parent || book.id); }
+  catch (e) { toast("Google Drive did not let BindLens move it (" + e.message + "). Move the file out of the BindLens folder in Google Drive itself.", "bad", 8000); return; }
   logChange("Took out of the book (it is in My Drive)", file.name, book.name);
   removeFile(file.id);
   if (fileId.value === file.id) { const b = books.value.find(x => x.id === book.id); fileId.value = b?.files[0]?.id || null; pageNo.value = 0; }

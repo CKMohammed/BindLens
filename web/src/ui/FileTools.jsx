@@ -49,7 +49,7 @@ export function Versions({ fileId }) {
   };
   return (
     <Dialog title={`Earlier versions of "${file.name}"`} icon="clock" onClose={close} cls="mid">
-      <p class="small muted" style={{ marginTop: 0 }}>{store.value.kind === "drive" ? "Google Drive keeps the versions of a file for about 30 days. Open a copy of one, or make the file as it was." : "In the example library, the versions are kept while this tab is open."}</p>
+      <p class="small muted" style={{ marginTop: 0 }}>{store.value.cloud ? `${store.value.cloud} keeps the earlier versions of a file (Google Drive for about 30 days). Open a copy of one, or make the file as it was.` : "In the example library, the versions are kept while this tab is open."}</p>
       {err ? <p class="small" style={{ color: "var(--bad)" }}>{err}</p> : !list ? <div class="spinner" /> : list.length < 2 ? <p class="muted">There are no earlier versions yet. Every time BindLens saves your marks, the version before is kept.</p> : (
         <div class="rep-out" style={{ maxHeight: "50vh" }}>
           <table class="rows">

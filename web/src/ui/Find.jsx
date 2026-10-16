@@ -18,6 +18,8 @@ const ACTIONS = [
   { label: "Photos as a gallery", icon: "image", words: "photos gallery pictures slideshow", run: () => openPanel("gallery") },
   { label: "Print", icon: "print", words: "print printer paper", run: () => openPanel("print") },
   { label: "Reading mode", icon: "read", words: "read reading calm mode", run: () => { if (view.value !== "book") continueReading(); readMode.value = true; } },
+  { label: "Rows with a name or value (report)", icon: "table", words: "rows name value table report person filas", run: () => openPanel("reports", { pickId: "rows" }) },
+  { label: "Rows as they look (report)", icon: "image", words: "rows look pictures snapshot report person filas", run: () => openPanel("reports", { pickId: "snapshot" }) },
   { label: "Continue where I was", icon: "right", words: "continue last open resume", run: () => continueReading() },
   { label: "Home", icon: "home", words: "home library shelf bookcase start", run: () => goHome() },
   { label: "Frame colours", icon: "palette", words: "frame colours colors personalise customize look theme", run: () => openPanel("settings") },

@@ -28,13 +28,14 @@ export function baseName(name) {
 const KINDS = {
   pdf: "pdf",
   png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", bmp: "image", tif: "image", tiff: "image",
-  heic: "image",
+  svg: "image",
   mp4: "video", webm: "video", mov: "video", m4v: "video", ogv: "video",
   mp3: "audio", m4a: "audio", wav: "audio", ogg: "audio",
-  docx: "word", doc: "word", odt: "word", rtf: "word",
-  xlsx: "excel", xls: "excel", ods: "excel", csv: "excel",
-  pptx: "powerpoint", ppt: "powerpoint", odp: "powerpoint",
-  txt: "text", md: "text", html: "text", htm: "text",
+  docx: "word", doc: "word", odt: "word", rtf: "word", docm: "word", dotx: "word",
+  xlsx: "excel", xls: "excel", ods: "excel", csv: "excel", tsv: "excel", xlsm: "excel", xlsb: "excel",
+  pptx: "powerpoint", ppt: "powerpoint", odp: "powerpoint", ppsx: "powerpoint", pptm: "powerpoint",
+  txt: "text", md: "text", html: "text", htm: "text", json: "text", log: "text", xml: "text", yaml: "text",
+  yml: "text", ini: "text", eml: "text",
   epub: "ebook", xps: "ebook", cbz: "ebook", fb2: "ebook",
 };
 
@@ -64,7 +65,9 @@ export function mimeOf(name) {
     xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     csv: "text/csv", txt: "text/plain", md: "text/markdown", html: "text/html", htm: "text/html",
-    epub: "application/epub+zip", json: "application/json",
+    epub: "application/epub+zip", json: "application/json", eml: "message/rfc822", rtf: "application/rtf",
+    odt: "application/vnd.oasis.opendocument.text", ods: "application/vnd.oasis.opendocument.spreadsheet",
+    odp: "application/vnd.oasis.opendocument.presentation", tsv: "text/tab-separated-values", xml: "text/xml",
   })[e] || "application/octet-stream";
 }
 

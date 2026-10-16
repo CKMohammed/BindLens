@@ -33,6 +33,8 @@ export function loadGoogle() {
 export class DriveStore {
   constructor() {
     this.kind = "drive";
+    this.cloud = "Google Drive";
+    this.canPick = true;
     this.token = null;
     this.expires = 0;
     this.user = null;
@@ -68,7 +70,7 @@ export class DriveStore {
     if (!this.user) {
       const about = await this.json(`${API}/about?fields=user(displayName,emailAddress,photoLink)`);
       this.user = { name: about.user.displayName, email: about.user.emailAddress, photo: about.user.photoLink };
-      try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); } catch (e) {}
+      try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); localStorage.setItem("bl_cloud", "drive"); } catch (e) {}
     }
   }
 
@@ -236,6 +238,8 @@ export class DriveStore {
       this.fetch(`${API}/files/${copy.id}`, { method: "DELETE" }).catch(() => {});
     }
   }
+
+  officePdf(file) { return this.googlePdf(file, file.kind); }
 
   // out of BindLens, into "My Drive" (nothing is deleted)
   async release(id, from) {

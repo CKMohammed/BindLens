@@ -361,3 +361,6 @@ table.rows tr.click{cursor:pointer}
 .writer .paper img{cursor:pointer}
 .writer .paper img.picked{outline:3px solid var(--accent);outline-offset:2px}
 .writer .paper table.pic,.writer .paper table.pic td{border:1px dashed #d6d2ea}
+.dialog .df{flex-wrap:wrap;align-items:center}
+.dialog .df .btn{white-space:nowrap;flex:none}
+@media (max-width:760px){.dialog .df{gap:6px;padding:10px 12px}.dialog .df .btn{padding:7px 11px;font-size:14px}.dialog .df>.grow{flex-basis:100%;order:-1}}

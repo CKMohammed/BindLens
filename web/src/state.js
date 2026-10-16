@@ -166,9 +166,12 @@ export function openBook(id, fid = null, page = 0) {
     bookId.value = id;
     view.value = "book";
     const b = books.value.find(x => x.id === id);
-    const f = fid || (b && b.files[0] && b.files[0].id) || null;
+    // a book opens where you left it (each book remembers its own page)
+    const was = !fid && b ? (settings.value.books || {})[id]?.last : null;
+    const wasOk = was && b.files.some(x => x.id === was.file);
+    const f = fid || (wasOk ? was.file : null) || (b && b.files[0] && b.files[0].id) || null;
     fileId.value = f;
-    pageNo.value = page;
+    pageNo.value = fid ? page : wasOk ? (was.page || 0) : page;
     panel.value = null;
   });
   const recent = [id, ...(settings.value.recent || []).filter(x => x !== id)].slice(0, 12);
@@ -190,6 +193,9 @@ export function rememberPlace() {
   const last = { book: bookId.value, file: fileId.value, page: pageNo.value, at: Date.now() };
   const prev = settings.value.last || {};
   if (prev.book === last.book && prev.file === last.file && prev.page === last.page) return;
+  const all = { ...(settings.value.books || {}) };
+  all[last.book] = { ...(all[last.book] || {}), last: { file: last.file, page: last.page } };
+  settings.value = { ...settings.value, books: all };
   setSetting("last", last);
 }
 

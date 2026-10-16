@@ -42,15 +42,16 @@ async function bytesFor(file) {
 
 async function convertedPdf(file, buf) {
   // "Show it as it looks": Google converts it (Word, Excel, PowerPoint), when the person chose that for this file
-  if (store.value.kind === "drive" && store.value.googlePdf && (settings.value.googleLook || {})[file.id]) {
+  const old = /\.(doc|ppt|pps|dot|wps)$/i.test(file.name);   // old Office files: only Google can show them here
+  if (store.value.officePdf && ((settings.value.googleLook || {})[file.id] || old)) {
     const gk = "gconv:" + file.id + ":" + (file.md5 || file.modified || "");
     const ghit = await idb.get("files", gk);
     if (ghit) return ghit.slice(0);
     try {
-      const pdf = await store.value.googlePdf(file, file.kind);
+      const pdf = await store.value.officePdf(file);
       idb.set("files", gk, pdf.slice(0));
       return pdf;
-    } catch (e) { toast("Google could not show it as it looks (" + e.message + "): BindLens shows it its own way.", "", 6000); }
+    } catch (e) { toast(store.value.cloud + " could not show it as it looks (" + e.message + "): BindLens shows it its own way.", "", 6000); }
   }
   const key = "conv:" + file.id + ":" + (file.md5 || file.modified || "");
   const hit = await idb.get("files", key);
@@ -242,7 +243,9 @@ export async function pdfCopyOf(file, book) {
   }
   if (!pdf) throw new Error("This file cannot be turned into a PDF here");
   const name = uniqueName(baseName(file.name) + ".pdf", book.files.map(f => f.name));
-  const f = await store.value.create(book.id, name, pdf, "application/pdf");
+  const parent = file.parent || book.id;   // next to the original, in its sub-book too
+  const f = await store.value.create(parent, name, pdf, "application/pdf");
+  f.parent = parent;
   addFileToBook(book.id, f);
   logChange("Made a PDF copy to mark", name, book.name);
   toast(`Made "${name}" so you can mark it. The original is unchanged.`, "ok", 5000);
