@@ -1,7 +1,8 @@
 # BindLens
 
 **Your documents, bound into books.** BindLens turns the folders on your computer into books you can read,
-search and mark - PDFs, Word, Excel, pictures and more - without copying or moving your files.
+search and mark - PDFs, Word, Excel, pictures and more - without copying or moving your files. Made for office
+work, administration and university papers: client files, invoices, contracts, deadlines, modules and notes.
 
 - Read every document of a folder as one book, with its contents and chapters.
 - Highlight, underline, add notes, stamps and signatures - saved **inside your original PDFs**.
@@ -12,7 +13,8 @@ search and mark - PDFs, Word, Excel, pictures and more - without copying or movi
 - A 4-digit PIN to lock BindLens, and single books.
 - Print, scan from your phone or scanner, write new pages and new documents; correct scanned pages.
 
-Website: **[ckmohammed.github.io/BindLens](https://ckmohammed.github.io/BindLens/)** (the `docs` folder).
+Website: **[bindlens.com](https://bindlens.com)** (the `docs` folder) - with **BindLens Web**, the same books in your
+browser, saved in your own Google Drive (`web` folder).
 
 ## Download (Windows)
 

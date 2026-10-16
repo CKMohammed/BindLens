@@ -3,9 +3,9 @@ BINDLENS 1.0
 Your documents, bound into books.
 
 INSTALL / UPDATE (Windows) - THE WINDOWS PROGRAM
-  Download "BindLens Setup.exe" (github.com/CKMohammed/BindLens > Releases) and run it: no Python and no
-  administrator rights needed. It installs BindLens in %LOCALAPPDATA%\Programs\BindLens, with its icon on the
-  desktop and in the Start menu. To update: run the new "BindLens Setup.exe". If Windows says "Windows protected
+  Download "BindLens Setup.exe" (bindlens.com, or github.com/CKMohammed/BindLens > Releases) and run it: no
+  Python and no administrator rights needed. It installs BindLens in %LOCALAPPDATA%\Programs\BindLens, with its
+  icon on the desktop and in the Start menu. To update: run the new "BindLens Setup.exe". If Windows says "Windows protected
   your PC" (the installer is not signed yet): More info > Run anyway.
 
 INSTALL FROM THE PYTHON FILE (the way before 4.5 - still works)
@@ -33,6 +33,23 @@ LICENCE, PRIVACY AND LEGAL
   4.3.1: PDFs that BindLens creates (reports, new pages…) say in their properties that they were made with
   BindLens and PyMuPDF under the AGPL. Your own PDFs are not changed.
 
+CHANGED IN 1.0 SINCE THE FIRST DOWNLOAD (16 October 2026 - still 1.0)
+  - BindLens is now aimed at offices, administration and university work: new page templates (incident report,
+    expense claim, timesheet, visitor sign-in sheet, assignment cover sheet, module overview), a Higher education
+    icon group (university, lecture, exam, thesis, microscope, atom), report packs led by Office / admin and
+    Study / university, "Archive boxes" on Home.
+  - Personalise: first choose what (colours, behind the pages, the frame, Home, reading, pictures, clock and
+    calendar, the logo, speed), then only its details - with a Back.
+  - Home: the frame round the window can be gold, like the window, or any of the frame's palettes. The icons of
+    the quick bar work on Home too.
+  - The calendar: the month arrows and the days react again everywhere (the card beside the page covered the
+    quick bar's calendar, and the calendars shared their places to click).
+  - Adding a page: BindLens checks that the new page is really in the file, reads it again if the disk is slow,
+    and says clearly if the file cannot be written (open in another program, read-only).
+  - Videos open as you had them last time - big inside the window the first time, or small where you left it;
+    the small player moves by its title bar.
+  - Help > About: bindlens.com - and BindLens Web, the same books in your browser.
+
 NEW IN 1.0 - the first full release (the versions before were called 1.x to 4.5 while BindLens was tested)
   - The PIN screen: a ring binder like the one in the logo - a white spine with its rings, the label where the
     PIN fills in, the finger hole, a small brass padlock on a strap. The right code opens it. The number keys are
@@ -43,7 +60,7 @@ NEW IN 1.0 - the first full release (the versions before were called 1.x to 4.5 
   - Galleries: a book that is mostly pictures opens as a gallery (polaroids, tape, pins, frames); a picture opens
     with a zoom; "Personalise" is in the gallery. Right-click a book > Show as a gallery / Show as a book.
   - Home like real furniture: a bookcase, a law library (leather and gold), lever-arch files on an office shelf,
-    a filing cabinet, letter trays on a desk, a card index (A to Z), school lockers, a classroom's cubbies. Point
+    a filing cabinet, letter trays on a desk, a card index (A to Z), lockers, archive boxes on a shelf. Point
     at a book and it comes out a little; click it and it comes out to you, then opens. The "Personalise Home"
     panel can be dragged by its title and made bigger or smaller from its corner (it remembers).
   - Each book's Contents card and map take the book's own colour and icon.
@@ -181,7 +198,8 @@ NEW IN 4.2
   - Ctrl+E: a small bar under the line - the original font, size and colour first; change the font, the size,
     the colour, bold or italic if you want.
   - Reports carry no date unless Settings > Reports > "Show the date each report was made".
-  - Reports: "People, forms & checks" (was "Staff & children"), "File checks per person", general wording.
+  - Reports: "People, forms & checks" for the files of staff, clients and students, "File checks per person",
+    general wording.
   - Help > What BindLens changed in my folders: every file BindLens added, moved, renamed or made, with the
     date. BindLens never copies a file by itself (only when you add files from elsewhere and choose Copy).
     Files called "… - copia" are made by Windows when a file is copied and pasted in the same folder.
@@ -221,7 +239,7 @@ NEW IN 4.1
     it final or take it off. Enter changes the PDF's text for good, as before.
   - Scan and add: iPhone photos (HEIC) and pages photographed at an angle (made square again).
   - Right-click a page > Read aloud from here. Stop now always stops the voice.
-  - Book icons: the Childcare and School groups are now one group, Education.
+  - Book icons: a Higher education group (university, lecture, exam, thesis, microscope, atom…).
 
 NEW IN 4.0
   Calmer and quicker
@@ -258,7 +276,7 @@ NEW IN 4.0
   Reports that read your tables properly
   - Each column is read by what it holds: the name, the email, the phone, dates, amounts - whatever its title
     says, wherever it is, even with no titles at all, and first name + surname in two columns. A value goes to
-    the person with the same role ("Parent mobile" -> the parent, "Emergency phone" -> the emergency contact).
+    the person with the same role ("Manager mobile" -> the manager, "Emergency phone" -> the emergency contact).
   - Names from email headers ("Mary Ryan" <mary@...>), from the address itself (mary.ryan@, m.ryan@,
     maryryan@), the heading above a table ("Contacts for Seán Ó Briain"), "Name: / Email:" forms (a label seen
     again = the next person). Office mailboxes (info@, accounts@) are not a person.
@@ -300,8 +318,8 @@ NEW IN 3.2
   - Clocks and a calendar beside the page: new clocks (station clock, rings, time in words) and sizes. A calendar
     under the clock - or clock and calendar on the left (Personalise > Beside the page). Click a day: add a note
     or event (colour, a sign ★ ! ⚑ ✓ ☎…, time, once / every week / month / year) - they show as dots and in
-    "Coming up"; today's notes are shown when you start. An announcement pinned on top ("Parents' evening
-    Thursday"), until a date. Irish bank holidays, the dates BindLens found (expiring papers) and your reminders.
+    "Coming up"; today's notes are shown when you start. An announcement pinned on top ("Staff meeting
+    on Thursday"), until a date. Irish bank holidays, the dates BindLens found (expiring papers) and your reminders.
     Bring in calendars: a .ics file or a link from Outlook or Google (read again every hour - it needs the
     internet). Look (soft, bold, minimal), colour, week from Monday or Sunday, week numbers. Right-click the clock
     for everything. Save your notes as .ics for Outlook.
@@ -335,7 +353,7 @@ NEW IN 3.1
   - "Make this file smaller" now says clearly that it can't be undone once BindLens is closed.
 
 NEW IN 3.0
-  - Home (Ctrl+H, the house at the top): continue reading where you were, what needs you (expiring vetting,
+  - Home (Ctrl+H, the house at the top): continue reading where you were, what needs you (expiring contracts,
     certificates, deadlines - click to open the page, "Add to my calendar"), your books, recent documents
     and the reports you made.
   - Ctrl+K finds everything: documents, words inside them AND actions ("print", "reports", "expiring",
@@ -348,15 +366,15 @@ NEW IN 3.0
   - Safer: a daily copy of each PDF before its first change (Earlier versions), marks never written over a
     file changed in another program (a copy is made), unsaved marks rescued at closing, a moved or deleted file
     is never made again, read-only files say so, password-protected PDFs stay protected, digitally signed PDFs
-    (e.g. vetting disclosures) ask first - or keep your marks in a copy. Errors are written in
+    (e.g. signed contracts or certificates) ask first - or keep your marks in a copy. Errors are written in
     BindLens-error.log and said, never silent.
   - Reports: "Hours from rotas" (8-4, 08:00-16:30, 9am-1pm, Start/Finish/Break - per day and in total);
     "Missing documents per person" now also shows what is EXPIRED or expiring for each person (the
-    inspection checklist); renewed papers (an old vetting letter with a newer one) are no longer "expired";
+    audit checklist); renewed papers (an old certificate with a newer one) are no longer "expired";
     "Add to calendar" (.ics for Outlook) from any report with dates and from Reminders; the filter and
     order you see are what is saved and printed; Irish names (Seán Ó Briain) and accents found either way.
-  - Pages > "Make this file smaller" (big scans and photos). New page templates: accident / incident report,
-    medication record, sleep check, daily sign-in sheet, fire drill record.
+  - Pages > "Make this file smaller" (big scans and photos). New page templates: incident report, expense
+    claim, timesheet, visitor sign-in sheet, fire drill record, assignment cover sheet, module overview.
   - Fixes: page ranges like "1 - 3" printed the whole document; the copies and odd/even of one print came back
     the next time; desktop.ini showed as a page; the page box (Ctrl+G) and form fields could vanish while typing;
     OneDrive "online only" files are no longer all downloaded for the search.
@@ -423,7 +441,7 @@ NEW IN 1.9.6
       Who         people named most · who is in which document · organisations named most
       Documents   kinds of documents · size of the documents · books compared · status · my marks
       Words       key words · key words in each document
-    Each chart has a line that says what it shows ("Sunny Days Creche Ltd alone is 94% of the total") and its
+    Each chart has a line that says what it shows ("Harbour Office Supplies Ltd alone is 94% of the total") and its
     numbers in a table at the end. Honest charts: bars start at zero, round numbers on the scale, one scale per
     chart, your accent colour for the data and grey for what is only there to compare.
   - The Reports list has a small picture next to each report and its group.
@@ -549,7 +567,7 @@ NEW IN 1.9
 NEW IN 1.8
   - Reports, new: Ask your documents -> Extract exact data -> Analyse -> Report.
     Write what you want - "John Smith - date, amount, invoice number", "total amount per month",
-    "hours per child", "invoices in March - invoice number, total" - and BindLens finds the exact data in
+    "hours per person", "invoices in March - invoice number, total" - and BindLens finds the exact data in
     your documents, adds it up if you asked, and shows it as a table and a chart. It shows what it understood
     while you type. No AI: only the exact data that is in your documents.
   - Or choose a report from one simple list (with a search box), in 7 groups: Document overview · Find &
@@ -582,7 +600,7 @@ NEW IN 1.7
   - Shapes you fill with colour and write in: box, rounded box, circle, diamond, hexagon, arrow, star, flag.
   - The page editor is like a simple Word: tabs, table styles, pictures you can resize, crop and put beside
     the text, page breaks, preview.
-  - 120 smooth icons for your books: folders, letters, dates, work, people, school… with badges and 3 styles.
+  - 120 smooth icons for your books: folders, letters, dates, work, people, university… with badges and 3 styles.
   - The Reports button shows how many things expired or expire soon.
   - The logo's lens looks around now and then - and after a while without touching anything, the logo comes
     alive in the middle of the window.
@@ -597,8 +615,8 @@ YOUR LIBRARY
     list): the folder stays where it is and shows inside the book (marked with a small arrow).
   - F2 (or right-click) renames a file - the real file on your computer.
   - Icons on the left: one per book. Right-click > "Icon and colour…": 120 icons in groups (folders, work,
-    people, childcare & school, files, everyday), a search, folders with a letter or number, dates (year,
-    month, quarter, week, school year, day), a badge (number, ✓, !, ★) and the style: 3D, flat or light.
+    people, higher education, files, everyday), a search, folders with a letter or number, dates (year,
+    month, quarter, week, academic year, day), a badge (number, ✓, !, ★) and the style: 3D, flat or light.
   - BindLens opens where you left off (book, page, zoom).
 
 MARKS - saved inside the original PDF (one file, no copies)

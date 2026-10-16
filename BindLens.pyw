@@ -162,8 +162,8 @@ ACCENTS = ["#6C63FF", "#2F80ED", "#2EC4B6", "#E8772E", "#3DBE6B", "#E0457B", "#B
 BOOK_ICONS = ["letters", "folder", "book", "doc", "archive", "star", "heart", "flag", "check", "target", "bulb",
               "clock", "calendar",
               # education
-              "cap", "school", "pencil", "apple", "baby", "puzzle", "flask", "globe", "calculator", "palette",
-              "music", "ball",
+              "cap", "school", "pencil", "university", "lecture", "exam", "thesis", "flask", "globe", "calculator",
+              "palette", "music",
               # work and institutions
               "case", "building", "bank", "euro", "invoice", "chart", "handshake", "cart", "truck", "hospital",
               "scales", "home", "people", "person", "mail", "phone", "lock", "gear", "plane", "leaf",
@@ -3790,41 +3790,55 @@ PAGE_TEMPLATES["cover"] = ("Report cover", {"paper": "blank"}, [
     _p(""), _p(""), _p(""), _p(""), _p(""), _p("Report title", "h1", al="c"), _p("Subtitle", "h3", al="c"),
     _p(""), _p(""), _p("Prepared by …", al="c"), _p("Date", al="c")])
 PAGE_TEMPLATES["cornell"] = ("Cornell notes", {"paper": "cornell", "margin": 96}, [_p("")])
-# 3.0: the everyday records of a childcare service
-PAGE_TEMPLATES["incident"] = ("Accident / incident report", {"paper": "blank", "margin": 48}, [
-    _p("Accident / incident report", "h1"),
-    {"t": "table", "rows": [["Child's name", "", "Date of birth", ""], ["Room", "", "Date and time", ""],
-                            ["Where it happened", "", "Staff present", ""]], "head": 0},
-    _p("What happened", "h3"), _p(""), _p(""), _p("Injury (where on the body, what it looked like)", "h3"), _p(""),
-    _p("First aid / action taken", "h3"), _p(""),
-    {"t": "table", "rows": [["Parent / guardian told", "By whom", "How", "Date and time"], ["", "", "", ""]],
-     "head": 1},
+# the everyday papers of an office, an administration and a university course
+PAGE_TEMPLATES["incident"] = ("Incident report", {"paper": "blank", "margin": 48}, [
+    _p("Incident report", "h1"),
+    {"t": "table", "rows": [["Person involved", "", "Department", ""], ["Where it happened", "", "Date and time", ""],
+                            ["Reported by", "", "Witnesses", ""]], "head": 0},
+    _p("What happened", "h3"), _p(""), _p(""), _p("Action taken", "h3"), _p(""),
+    _p("Follow-up", "h3"),
+    {"t": "table", "rows": [["What", "Who", "By when", "Done"], ["", "", "", ""], ["", "", "", ""]], "head": 1},
     _p("Signed", "h3"),
-    {"t": "table", "rows": [["", "Name", "Signature", "Date"], ["Staff member", "", "", ""], ["Manager", "", "", ""],
-                            ["Parent / guardian", "", "", ""]], "head": 1}])
-PAGE_TEMPLATES["medication"] = ("Medication record", {"paper": "blank", "orient": "landscape", "margin": 36}, [
-    _p("Medication record", "h2"),
-    {"t": "table", "rows": [["Child's name", "", "Medicine", "", "Reason", ""],
-                            ["Dose", "", "How it is given", "", "Parent's consent signed", ""]], "head": 0},
-    {"t": "table", "rows": [["Date", "Time", "Dose given", "Given by", "Witnessed by", "Parent informed",
-                             "Parent's signature"]] + [["", "", "", "", "", "", ""] for _ in range(8)], "head": 1}])
-PAGE_TEMPLATES["sleep"] = ("Sleep check", {"paper": "blank", "margin": 48}, [
-    _p("Sleep check", "h1"), _p("Room:            Date:"),
-    {"t": "table", "rows": [["Child", "Asleep at", "Checked at", "Position (on back)", "Breathing OK", "Woke at",
-                             "Initials"]] + [["", "", "", "", "", "", ""] for _ in range(14)], "head": 1},
-    _p("Children are checked every 10 minutes while they sleep.", i=1)])
-PAGE_TEMPLATES["signin"] = ("Daily sign-in sheet", {"paper": "blank", "orient": "landscape", "margin": 36}, [
-    _p("Daily sign-in sheet", "h2"), _p("Room:            Date:"),
-    {"t": "table", "rows": [["Child", "Time in", "Brought by", "Signature", "Time out", "Collected by",
-                             "Signature", "Notes"]] + [["", "", "", "", "", "", "", ""] for _ in range(14)],
+    {"t": "table", "rows": [["", "Name", "Signature", "Date"], ["Reported by", "", "", ""], ["Manager", "", "", ""]],
      "head": 1}])
+PAGE_TEMPLATES["expenses"] = ("Expense claim", {"paper": "blank", "orient": "landscape", "margin": 36}, [
+    _p("Expense claim", "h2"),
+    {"t": "table", "rows": [["Name", "", "Department", "", "Period", ""]], "head": 0},
+    {"t": "table", "rows": [["Date", "Description", "Category", "Project / cost centre", "Amount", "Receipt"]]
+     + [["", "", "", "", "", ""] for _ in range(9)] + [["", "", "", "", "Total", ""]], "head": 1},
+    _p("Signed by the claimant:                    Approved by:", i=1)])
+PAGE_TEMPLATES["timesheet"] = ("Timesheet", {"paper": "blank", "margin": 48}, [
+    _p("Timesheet", "h1"), _p("Name:            Week of:"),
+    {"t": "table", "rows": [["Day", "Start", "Finish", "Break", "Hours", "Notes"]]
+     + [[d, "", "", "", "", ""] for d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")]
+     + [["Total", "", "", "", "", ""]], "head": 1},
+    _p("Signed:                    Approved by:", i=1)])
+PAGE_TEMPLATES["visitors"] = ("Visitor sign-in sheet", {"paper": "blank", "orient": "landscape", "margin": 36}, [
+    _p("Visitor sign-in sheet", "h2"), _p("Office:            Date:"),
+    {"t": "table", "rows": [["Name", "Company", "Visiting", "Time in", "Signature", "Time out", "Badge no.",
+                             "Notes"]] + [["", "", "", "", "", "", "", ""] for _ in range(14)], "head": 1}])
 PAGE_TEMPLATES["firedrill"] = ("Fire drill record", {"paper": "blank", "margin": 48}, [
     _p("Fire drill record", "h1"),
-    {"t": "table", "rows": [["Date", "", "Time", ""], ["Children present", "", "Staff present", ""],
+    {"t": "table", "rows": [["Date", "", "Time", ""], ["People present", "", "Fire wardens", ""],
                             ["Time to get everyone out", "", "Assembly point", ""]], "head": 0},
     _p("How it went - anything to improve", "h3"), _p(""), _p(""), _p("Actions", "h3"),
     {"t": "table", "rows": [["What", "Who", "By when", "Done"], ["", "", "", ""], ["", "", "", ""]], "head": 1},
     _p("Signed by the person in charge:")])
+PAGE_TEMPLATES["assignment"] = ("Assignment cover sheet", {"paper": "blank", "margin": 56}, [
+    _p("Assignment", "h1"),
+    {"t": "table", "rows": [["Student", "", "Student number", ""], ["Course", "", "Module / subject", ""],
+                            ["Lecturer", "", "Due date", ""], ["Title", "", "Word count", ""]], "head": 0},
+    _p("Declaration", "h3"),
+    _p("This work is my own, and every source I used is acknowledged.", i=1),
+    _p("Signed:                    Date:"), _p(""), _p("Feedback", "h3"), _p(""), _p("")])
+PAGE_TEMPLATES["module"] = ("Module overview", {"paper": "blank", "margin": 48}, [
+    _p("Module overview", "h1"),
+    {"t": "table", "rows": [["Module", "", "Code", ""], ["Lecturer", "", "Credits", ""],
+                            ["Semester", "", "Room / online", ""]], "head": 0},
+    _p("Assessments", "h3"),
+    {"t": "table", "rows": [["What", "Weight", "Due", "Mark"], ["", "", "", ""], ["", "", "", ""], ["", "", "", ""]],
+     "head": 1},
+    _p("Reading list", "h3"), _p("", "ul"), _p("Notes", "h3"), _p("")])
 
 
 # ---------------------------------------------------------------------------
@@ -7144,7 +7158,7 @@ def draw_icon(c, name, cx, cy, col, s=1.0, w=1.7, tag=None):
                      outline=col, width=w * s, **({"tags": tag} if tag else {}))
         c.create_arc(cx - 7 * s, cy - 3 * s, cx + 7 * s, cy + 3 * s, start=180, extent=180, style="arc",
                      outline=col, width=w * s, **({"tags": tag} if tag else {}))
-    # ---- 1.7: folders, office, staff, childcare and files ------------------------------------------------
+    # ---- 1.7: folders, office, staff and files ------------------------------------------------------------
     elif name == "folder_open":
         L(-8, 7, -8, -7, -3, -7, -1, -5, 6, -5, 6, -2); L(-8, 7, -5, -2, 9, -2, 6, 7, -8, 7)
     elif name == "folders":
@@ -7255,6 +7269,30 @@ def draw_icon(c, name, cx, cy, col, s=1.0, w=1.7, tag=None):
     elif name == "abc":
         L(-9, 4, -6.5, -4, -4, 4); L(-8, 1, -5, 1); L(-2, -4, -2, 4, 1, 4, 1.5, 2, 1, 0, -2, 0); L(-2, -4, 0.5, -4, 1, -2, 0.5, 0)
         A(3, -4, 10, 4, 60, 240)
+    # ---- higher education: a university, a lecture, an exam, a thesis, a microscope, an atom
+    elif name == "university":
+        L(-9, -3, 0, -9, 9, -3, -9, -3); L(-6, -1, -6, 6); L(-2, -1, -2, 6); L(2, -1, 2, 6); L(6, -1, 6, 6)
+        L(-8.5, 6.5, 8.5, 6.5); L(-9.5, 9, 9.5, 9)
+    elif name == "lecture":
+        L(-9, -8, 9, -8, 9, 4, -9, 4, -9, -8); L(-6, 1, -2, -3, 1, 0, 6, -5); L(0, 4, 0, 7); L(-4, 9.5, 0, 7, 4, 9.5)
+    elif name == "exam":
+        L(-7, -9, 4, -9, 8, -5, 8, 9, -7, 9, -7, -9); L(4, -9, 4, -5, 8, -5); L(-4, -4, 1, -4); L(-4, 0, 4, 0)
+        L(-4, 5, -2, 7, 3, 2.5)
+    elif name == "thesis":
+        L(-7, -9, 7, -9, 7, 9, -7, 9, -7, -9); L(-4, -9, -4, 9); L(1.5, -9, 1.5, -1.5, 3.25, -3.5, 5, -1.5, 5, -9)
+        L(-1.5, 4, 4.5, 4)
+    elif name == "microscope":
+        L(-2, -9, 2, -9, 2, -6, -2, -6, -2, -9); L(0, -6, 0, 1); L(-4, 1, 4, 1); L(4, -3, 7, 1, 5, 6)
+        L(-6, 9, 8, 9); L(5, 6, 5, 9); L(-2, 1, -2, 4)
+    elif name == "atom":
+        import math as _m
+        for ang in (0, 60, 120):
+            ca, sa, pts = _m.cos(_m.radians(ang)), _m.sin(_m.radians(ang)), []
+            for t in range(0, 361, 24):
+                x, y = 9 * _m.cos(_m.radians(t)), 3.6 * _m.sin(_m.radians(t))
+                pts += [x * ca - y * sa, x * sa + y * ca]
+            L(*pts)
+        D(0, 0, 1.7)
 
 
 # ---- book tiles, drawn smooth by PyMuPDF (no jagged edges) ---------------------------------------------
@@ -7269,17 +7307,18 @@ ICON_GROUPS = OrderedDict([
               "laptop", "phone", "mail", "megaphone", "target", "bulb", "gear", "key", "lock", "hourglass"]),
     ("People", ["person", "people", "id_badge", "cv", "certificate", "shield", "timesheet", "clock", "calendar",
                 "holiday", "medical", "interview", "heart_pulse", "hospital"]),
-    ("Education", ["school", "cap", "pencil", "abc", "backpack", "apple", "child", "baby", "blocks",
-                            "puzzle", "ball", "flask", "globe", "palette", "music", "paw", "cake", "food", "bed",
-                            "bus"]),
+    ("Higher education", ["cap", "university", "lecture", "exam", "thesis", "school", "pencil", "abc", "backpack",
+                          "flask", "microscope", "atom", "globe", "palette", "music", "bus"]),
     ("Files & home", ["dt:PDF", "dt:DOC", "dt:XLS", "image", "scan", "policy", "scales", "umbrella", "warning",
                       "home", "car", "plane", "mappin", "camera"]),
     ("Everyday", ["star", "star2", "heart", "flag", "check", "bell", "gift", "sun", "leaf", "tree", "trophy", "tag",
-                  "coffee", "wrench"]),
+                  "coffee", "wrench", "cake", "food", "bed", "paw"]),
 ])
 ICON_WORDS = {"money": "euro coins wallet bank invoice receipt percent calculator", "tax": "percent invoice receipt",
               "staff": "person people id_badge cv certificate timesheet interview", "pay": "euro wallet coins",
-              "kids": "child baby blocks abc backpack", "child": "child baby blocks", "school": "school cap abc pencil",
+              "university": "university cap lecture exam thesis", "school": "school cap abc pencil",
+              "study": "cap lecture exam thesis pencil backpack", "exam": "exam cap check", "notes": "doc pencil lecture",
+              "research": "microscope flask atom thesis", "admin": "folder binder stamp2 signature contract invoice",
               "health": "medical heart_pulse hospital", "legal": "scales contract policy signature",
               "date": "calendar clock hourglass", "safety": "warning shield umbrella", "photo": "image camera",
               "contract": "contract signature handshake", "holiday": "holiday plane sun", "home": "home key"}
@@ -9440,7 +9479,7 @@ EXTRACT_PATTERNS["Eircodes / postcodes"] = re.compile(
 NAME_HDR = re.compile(r"\b(name|full name|parent|guardian|contact|staff|child|student|pupil|employee|person|"
                       r"member|client|customer|teacher|educator|worker|nombre|alumno)\b", re.I)
 ORG_HDR = re.compile(r"\b(organi[sz]ation|company|school|institution|centre|center|service|employer|setting|"
-                     r"agency|business|provider|creche|preschool|club|department|empresa|centro)\b", re.I)
+                     r"agency|business|provider|university|college|club|department|empresa|centro)\b", re.I)
 SUM_HDR = re.compile(r"\b(hours?|hrs|fees?|amount|total|cost|price|paid|due|balance|qty|quantity|rate|"
                      r"salary|wages?|charge|euros?|importe|horas?|precio|overtime|pay)\b|€|\$|£", re.I)
 # 3.0: names with any European letters (Seán, Łucja, Zoë) and the Irish particles as words of their own
@@ -9823,7 +9862,7 @@ NOT_NAME = re.compile(r"\b(signature|signed|sign|date|centre|center|support|addr
                       r"telephone|mobile|tel|number|form|office|school|county|council|department|service|total|"
                       r"page|section|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|"
                       r"march|april|may|june|july|august|september|october|november|december|ireland|dublin|"
-                      r"limited|ltd|creche|montessori|childcare|preschool|education|registration|details|"
+                      r"limited|ltd|university|college|faculty|institute|education|registration|details|"
                       r"information|guardian|parent|child|name|yes|no|in|out|hrs|hours|total|week|mon|tue|wed|thu|fri|"
                       r"sat|sun|am|pm|list|notes?|updated|contact|organisation|status|paid|pending|overdue)\b", re.I)
 LABEL_NAME = re.compile(r"(?:(?:child'?s?|parent'?s?|guardian'?s?|mother'?s?|father'?s?|contact|first|full|"
@@ -10408,7 +10447,7 @@ def parse_question(q):
         if not c_ or len(c_) < 2 or c_ in out["terms"]:
             continue
         if out["agg"] and c_ == c_.lower() and not re.search(r"\d", c_):
-            cols.append(c_)                 # 'hours per child': hours is what is added up (a column)
+            cols.append(c_)                 # 'hours per person': hours is what is added up (a column)
         else:
             out["terms"].append(c_)
     for piece in re.split(r",|;|\band\b|\by\b", tail):              # other things to take = column names
@@ -10682,7 +10721,7 @@ DEFAULT_THEMES = OrderedDict([
     ("Money", "fee, fees, payment, paid, invoice, cost, price, amount, balance, due, refund, €, euro, budget"),
     ("Dates & deadlines", "deadline, due, expiry, expires, renewal, renew, valid until, date, schedule"),
     ("Health & safety", "safety, accident, incident, injury, first aid, allergy, medication, medical, risk, hazard"),
-    ("People & staff", "staff, team, manager, teacher, employee, volunteer, parent, guardian, child, children"),
+    ("People & staff", "staff, team, manager, lecturer, student, employee, colleague, client, applicant, member"),
     ("Problems & complaints", "complaint, problem, issue, concern, error, late, missing, fail, failed, delay"),
     ("Rules & compliance", "policy, procedure, regulation, compliance, inspection, audit, legal, consent, gdpr"),
 ])
@@ -11211,7 +11250,7 @@ GENERIC_MAILBOX = re.compile(r"^(?:info|office|admin|administration|administrato
                              r"billing|invoices?|orders?|service|services|careers|jobs|news|newsletter|marketing|"
                              r"general|staff|board|manager|reservations?)\d*$", re.I)
 ORG_WORDS = re.compile(r"\b(?:ltd|limited|plc|inc|llc|school|ns|n\.s\.|college|university|council|centre|center|"
-                       r"creche|crèche|montessori|road|street|avenue|lane|co\.|county|total|subtotal|class|group|"
+                       r"university|college|faculty|road|street|avenue|lane|co\.|county|total|subtotal|class|group|"
                        r"services|department|hospital|clinic|club|association|trust|society|company|team)\b", re.I)
 
 
@@ -16050,7 +16089,7 @@ WHATS_NEW_10 = [
     ("image", "Galleries", "A book that is mostly pictures opens as a gallery - polaroids, tape, pins, frames; a "
                            "picture opens with a zoom. Right-click a book: show it as a gallery or as a book."),
     ("home", "Home like real furniture", "A bookcase, a law library, lever-arch files, a filing cabinet, desk trays, a "
-                                         "card index, lockers, a classroom: point at a book and it comes out a little, "
+                                         "card index, lockers, archive boxes: point at a book and it comes out a little, "
                                          "click it and it comes out to you. Personalise Home - drag it, resize it."),
     ("book", "Each book in its own colours", "The Contents card and the map beside the page take the book's colour "
                                              "and icon."),
@@ -16116,7 +16155,8 @@ WHATS_NEW_42 = [
     ("clock", "Cards that step aside", "Drag the clock anywhere, like the calendar. Both get smaller or hide when the "
                                        "page needs the room - they never cover it."),
     ("report", "Reports for everyone", "No date on reports unless you want it (Settings). 'People, forms & checks' "
-                                       "instead of 'Staff & children'. The GO TO list: one clear line per document."),
+                                       "for the files of staff, clients and students. The GO TO list: one clear line "
+                                       "per document."),
     ("check", "Every change can be checked", "Help > What BindLens changed in my folders. BindLens never copies a file "
                                              "by itself - files called '… - copia' were copied in Windows."),
 ]
@@ -17927,6 +17967,9 @@ class App:
         tk.Label(d, text=f"© 2026 {APP_AUTHOR}\nFree software under the {APP_LICENSE}.\nThe source code is included "
                          "(BindLens.pyw). It comes with no warranty.", font=self.F(8), bg=T["panel"], fg=T["muted"],
                  justify="center", wraplength=380).pack(padx=30, pady=(12, 0))
+        web = tk.Label(d, text="bindlens.com", font=self.F(9, "bold"), bg=T["panel"], fg=self.accent, cursor="hand2")
+        web.pack(pady=(10, 0))                          # 1.0: the website (and BindLens Web, in your browser)
+        web.bind("<Button-1>", lambda e: __import__("webbrowser").open("https://bindlens.com"))
         bt = tk.Frame(d, bg=T["panel"])
         bt.pack(pady=20)
         PillButton(bt, self, "Licence, privacy and legal…", lambda: (d.destroy(), self.legal_dialog()),
@@ -21232,7 +21275,8 @@ class App:
                 "slide_secs", k))
         m.add_cascade(label="Slideshow - how fast", menu=m4)
         m.add_separator()
-        m.add_command(label="More… (Personalise > Reading mode)", command=self.personalise_dialog)
+        m.add_command(label="More… (Personalise > Pictures & gallery)",
+                      command=lambda: self.personalise_dialog("pictures"))
         if x is None:
             x, y = self.root.winfo_pointerx(), self.root.winfo_pointery()
         self._popup(m, x=x, y=y)
@@ -23820,6 +23864,7 @@ class App:
                 w_.configure(width=geo[2], height=geo[3])
                 w_.place(in_=c, x=geo[0], y=geo[1])
                 w_.tk.call("raise", w_._w)
+                self._keep_panel_on_top()
                 self._sides_geo[key] = geo
                 self._sides_sig[key] = None
             base = (geo, bgid, self.T["canvas"], self.accent, conf[key == "l" and "left" or "right"])
@@ -24841,6 +24886,7 @@ class App:
             cv.configure(width=geo[2], height=geo[3])
             cv.place(in_=self.canvas, x=geo[0], y=geo[1])
             cv.tk.call("raise", cv._w)
+            self._keep_panel_on_top()
             self._sides_geo["c"] = geo
             self._sides_sig["c"] = None
         import datetime
@@ -25057,6 +25103,17 @@ class App:
             self._sides_sig["r"] = None
             self._sides_sig["c"] = None
             self._sides_update()
+        p = getattr(self, "_qb_panel", None)              # 1.0: the quick bar's calendar follows too
+        if p and p.get("k") == "calendar" and callable(getattr(self, "_qp_cal_redraw", None)):
+            try:
+                self.root.after(60, self._qp_cal_redraw)
+            except Exception:
+                pass
+        if getattr(self, "_home", None) is not None:      # and Home's
+            try:
+                self.root.after(60, self._home_draw)
+            except Exception:
+                pass
 
     def _cal_color(self):
         return self._cal_conf().get("color") or self.accent
@@ -25234,6 +25291,10 @@ class App:
         ink = ink or T["text"]
         sub = sub or T["muted"]
         hits = self._cal_hits = []
+        try:
+            cv._bl_cal_hits = hits          # 1.0: each calendar keeps its own places to click (the page's card, the
+        except Exception:                   # panel, reading, Home) - one list for all made clicks miss
+            pass
         today = datetime.date.today()
         y += 8
         pin = self._cal_pinned() if conf.get("pinned", True) else None
@@ -25337,7 +25398,8 @@ class App:
         return y
 
     def _cal_hit(self, e):
-        for x0, y0, x1, y1, k, v in getattr(self, "_cal_hits", []):
+        own = getattr(getattr(e, "widget", None), "_bl_cal_hits", None)
+        for x0, y0, x1, y1, k, v in (own if own is not None else getattr(self, "_cal_hits", [])):
             if x0 <= e.x <= x1 and y0 <= e.y <= y1:
                 return k, v
         return None, None
@@ -25520,7 +25582,7 @@ class App:
             _log(f"calendar open: {ex}")
 
     def _cal_pin_dialog(self):
-        """The announcement at the top of the calendar ('Parents' evening Thursday') - until a date if you like."""
+        """The announcement at the top of the calendar ('Staff meeting on Thursday') - until a date if you like."""
         T = self.T
         data = self._cal_data()
         p = dict(data.get("pinned") or {})
@@ -25659,7 +25721,7 @@ class App:
             label("Calendars you bring in")
             feeds = self._cal_data()["feeds"]
             if not feeds:
-                tk.Label(body, text="None yet. Bring in Outlook, Google or school calendars: a calendar file (.ics) or "
+                tk.Label(body, text="None yet. Bring in Outlook, Google or university calendars: a calendar file (.ics) or "
                                     "its link (an iCal / ICS address).", font=self.F(9), bg=T["panel"],
                          fg=T["muted"], wraplength=440, justify="left").pack(anchor="w")
             for fd in feeds:
@@ -26868,7 +26930,7 @@ class App:
                                                                                                padx=(0, 8))
         qe = ttk.Entry(qrow, textvariable=qv, width=24)
         qe.pack(side="left")
-        tk.Label(qrow, text="e.g. money, staff, kids, health", font=self.F(8), bg=T["panel"],
+        tk.Label(qrow, text="e.g. money, staff, university, health", font=self.F(8), bg=T["panel"],
                  fg=T["muted"]).pack(side="left", padx=8)
         # groups
         groups = list(ICON_GROUPS) + ["Letters & numbers", "Dates"]
@@ -26958,7 +27020,7 @@ class App:
                     anchor="w", pady=(6, 0))
                 grid_of(body, ["mo:" + m_ for m_ in ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
                                                       "OCT", "NOV", "DEC")], per=12)
-                tk.Label(body, text="QUARTER · SCHOOL YEAR · WEEK · DAY", font=self.F(8, "bold"), bg=T["panel"],
+                tk.Label(body, text="QUARTER · ACADEMIC YEAR · WEEK · DAY", font=self.F(8, "bold"), bg=T["panel"],
                          fg=T["muted"]).pack(anchor="w", pady=(6, 0))
                 ay = [f"ay:{str(y)[2:]}/{str(y + 1)[2:]}" for y in (yr - 2, yr - 1, yr, yr + 1)]
                 grid_of(body, ["q:Q1", "q:Q2", "q:Q3", "q:Q4"] + ay +
@@ -26969,7 +27031,7 @@ class App:
                 dv = tk.StringVar(value=str(yr))
                 ttk.Entry(row, textvariable=dv, width=8).pack(side="left", padx=6)
                 for kind, lab in (("yr", "Year / folder"), ("cal", "Day / calendar"), ("wk", "Week"),
-                                  ("ay", "School year")):
+                                  ("ay", "Academic year")):
                     b_ = tk.Label(row, text=lab, font=self.F(9), bg=T["chip"], fg=T["text"], padx=8, pady=3,
                                   cursor="hand2")
                     b_.pack(side="left", padx=2)
@@ -27110,8 +27172,13 @@ class App:
 
     def _frame_cols(self):
         """The frame's colours - gold while Home is shown (like the logo's lens), else the chosen palette."""
-        if getattr(self, "_home", None) is not None and self._home_conf().get("gold", True):
-            return list(FRAME_PALETTES["gold"][1])
+        if getattr(self, "_home", None) is not None:
+            hc = self._home_conf()
+            fr = hc.get("frame") or ("gold" if hc.get("gold", True) else "same")     # 1.0: the frame on Home, chosen
+            if fr != "same" and fr in FRAME_PALETTES and FRAME_PALETTES[fr][1]:
+                return list(FRAME_PALETTES[fr][1])
+            if fr == "accent":
+                return frame_palette({**self._frame_conf(), "palette": "accent"}, self.accent)
         return frame_palette(self._frame_conf(), self.accent)
 
     def show_home(self, _e=None):
@@ -27638,11 +27705,11 @@ class App:
                                                                                  self.show_launcher())))
 
     # ---- 1.0: Home as real furniture - a bookcase, a law library, lever-arch files on an office shelf, a filing
-    #      cabinet, letter trays on a desk, a card index, school lockers, a classroom's cubbies. Point at a book and
+    #      cabinet, letter trays on a desk, a card index, lockers, archive boxes on a shelf. Point at a book and
     #      it comes out a little; click it and it comes out to you, then opens.
     HOME_FURNITURE = OrderedDict([("bookcase", "Bookcase"), ("law", "Law library"), ("lever", "Lever-arch files"),
                                   ("cabinet", "Filing cabinet"), ("trays", "Desk trays"), ("cards", "Card index"),
-                                  ("lockers", "Lockers"), ("cubbies", "Classroom")])
+                                  ("lockers", "Lockers"), ("cubbies", "Archive boxes")])
 
     @staticmethod
     def _hf_seed(s):
@@ -28295,7 +28362,7 @@ class App:
                           outline=wd, tags=tg)
         return sorted(shown)
 
-    # -- school lockers: the door swings open on its hinge and the book is inside
+    # -- lockers: the door swings open on its hinge and the book is inside
     def _hf_lockers(self, c, books, box, k):
         x0, y0, x1, y1 = box
         W, H = x1 - x0, y1 - y0
@@ -28389,7 +28456,7 @@ class App:
             c.create_polygon(*(P(0, 0) + P(1, 0) + P(1, 1) + P(0, 1)), fill="", outline="#F5C842", width=2, tags=tg)
         return (x, y, x + w, y + h), (x + w / 2.0, y + h * 0.6)
 
-    # -- a classroom: a cubby shelf with coloured bins (a globe, an apple and building blocks on top)
+    # -- archive boxes: a shelf of boxes, one for each book (a globe, a mug and boxes of past years on top)
     def _hf_cubbies(self, c, books, box, k):
         x0, y0, x1, y1 = box
         W, H = x1 - x0, y1 - y0
@@ -28422,7 +28489,7 @@ class App:
                                   tags=tg)
                 if i < len(books):
                     draws.append((i, ax0 + 5, ay0 + 6, ax0 + cwd - 5, ay0 + chh - 2))
-        # on top: a globe, an apple, building blocks
+        # on top: a globe, a mug, boxes of past years
         gx, gy = sx + 34 * k, top - 22 * k
         c.create_line(gx, top, gx, gy + 14 * k, fill="#6B4A2A", width=max(2, int(3 * k)), tags=tg)
         c.create_oval(gx - 14 * k, top - 4 * k, gx + 14 * k, top + 1, fill="#6B4A2A", outline="", tags=tg)
@@ -28431,18 +28498,25 @@ class App:
                          gy + 6 * k, gx - 10 * k, gy + 2 * k, fill="#5DB36A", outline="", smooth=True, tags=tg)
         c.create_arc(gx - 19 * k, gy - 19 * k, gx + 19 * k, gy + 19 * k, start=200, extent=140, style="arc",
                      outline="#B08A3C", width=2, tags=tg)
-        ax_, ay_ = sx + 78 * k, top - 13 * k
-        c.create_oval(ax_ - 12 * k, ay_ - 11 * k, ax_ + 12 * k, ay_ + 12 * k, fill="#E0403A", outline="#9A2420",
-                      tags=tg)
-        c.create_line(ax_, ay_ - 10 * k, ax_ + 2 * k, ay_ - 17 * k, fill="#5A3A1A", width=2, tags=tg)
-        c.create_oval(ax_ + 2 * k, ay_ - 19 * k, ax_ + 11 * k, ay_ - 13 * k, fill="#5DB36A", outline="", tags=tg)
-        bx_ = sx + tot - 40 * k
-        for j, (bc, ch_) in enumerate((("#F2B51C", "A"), ("#3A7BD5", "B"), ("#E04A4A", "C"))):
-            bxx = bx_ - (1 - j) * 26 * k if j < 2 else bx_ - 13 * k
+        # a mug of coffee
+        ax_, ay_ = sx + 76 * k, top
+        c.create_rectangle(ax_ - 10 * k, ay_ - 22 * k, ax_ + 10 * k, ay_, fill="#F4F1EA", outline="#8E8778", tags=tg)
+        c.create_arc(ax_ + 4 * k, ay_ - 18 * k, ax_ + 18 * k, ay_ - 6 * k, start=-90, extent=180, style="arc",
+                     outline="#8E8778", width=max(2, int(2.4 * k)), tags=tg)
+        c.create_rectangle(ax_ - 10 * k, ay_ - 16 * k, ax_ + 10 * k, ay_ - 12 * k, fill="#6C5CFF", outline="", tags=tg)
+        for j in range(2):
+            c.create_line(ax_ - 3 * k + j * 6 * k, ay_ - 26 * k, ax_ - 1 * k + j * 6 * k, ay_ - 32 * k, ax_ - 3 * k + j * 6 * k,
+                          ay_ - 38 * k, fill="#B8B2A4", smooth=True, width=1.5, tags=tg)
+        # boxes of past years, one on the other
+        bx_ = sx + tot - 46 * k
+        for j, lab_ in enumerate(("2024", "2025", "2026")):
+            bxx = bx_ - (1 - j) * 30 * k if j < 2 else bx_ - 15 * k
             byy = top if j < 2 else top - 24 * k
-            c.create_rectangle(bxx - 12 * k, byy - 24 * k, bxx + 12 * k, byy, fill=bc, outline=mix(bc, "#000000", 0.4),
+            kraft = ("#C8A26B", "#B9925C", "#D2AE78")[j]
+            c.create_rectangle(bxx - 14 * k, byy - 24 * k, bxx + 14 * k, byy, fill=kraft, outline=mix(kraft, "#000000", 0.4),
                                tags=tg)
-            c.create_text(bxx, byy - 12 * k, text=ch_, font=self.F(max(8, int(11 * k)), "bold"), fill="#FFFFFF",
+            c.create_rectangle(bxx - 9 * k, byy - 17 * k, bxx + 9 * k, byy - 9 * k, fill="#FFFDF6", outline="", tags=tg)
+            c.create_text(bxx, byy - 13 * k, text=lab_, font=self.F(max(6, int(7 * k)), "bold"), fill="#3A3226",
                           tags=tg)
         shown = []
         for (i, a0, b0, a1, b1) in sorted(draws, key=lambda t_: self._hf_out(t_[0])):
@@ -28849,8 +28923,23 @@ class App:
             self._qp_section(body, "Photo - soften it")
             self._qp_chips(body, [(0.0, "Not"), (0.15, "A little"), (0.30, "Soft"), (0.5, "Very soft")],
                            float(hc.get("soften", 0.3)), lambda v: setv("soften", v))
-        for key, lab in (("motion", "Moving (never in Fast mode)"),
-                         ("gold", "A gold frame on Home")):
+        # 1.0: the frame round the window while Home is shown - gold like the logo's lens, the window's own frame,
+        # or one of the frame's palettes
+        self._qp_section(body, "Home - the frame round the window")
+        fr_now = hc.get("frame") or ("gold" if hc.get("gold", True) else "same")
+
+        def set_frame(v):
+            hc["frame"] = v
+            hc["gold"] = v == "gold"
+            self.lib.save_meta()
+            if getattr(self, "_home", None) is not None:
+                self._frame_layout()
+                self._home_draw()
+            refresh()
+        pals = [(k_, lab_) for k_, (lab_, _c) in FRAME_PALETTES.items() if k_ not in ("gold",)]
+        self._qp_chips(body, [("gold", "Gold"), ("same", "Like the window")] + pals[:3], fr_now, set_frame)
+        self._qp_chips(body, pals[3:], fr_now, set_frame)
+        for key, lab in (("motion", "Moving (never in Fast mode)"),):
             var = tk.BooleanVar(value=bool(hc.get(key, True)))
             ttk.Checkbutton(body, text=lab, variable=var,
                             command=lambda k=key, v=var: setv(k, v.get())).pack(anchor="w", pady=(4, 0))
@@ -32948,7 +33037,7 @@ class App:
         if di is None:
             return []
         pick = lambda *names: next((i for i, h in enumerate(hl) if any(n_ in h for n_ in names)), None)
-        wi, ti = pick("person", "who", "name", "staff", "child"), pick("what", "kind", "item", "type")
+        wi, ti = pick("person", "who", "name", "staff", "student"), pick("what", "kind", "item", "type")
         fi_, pg, li = pick("file", "document"), pick("page"), pick("line", "text")
         ev = []
         for r in rows:
@@ -32995,18 +33084,43 @@ class App:
         fi, pi = self.book.pages[g][0], self.book.pages[g][1]
         return fi, pi, g
 
-    def _structure_changed(self, fi, goto=None):
-        """The pages of a file changed: lay the book out again, keep your place."""
+    def _structure_changed(self, fi, goto=None, _tries=0, _want=None):
+        """The pages of a file changed: lay the book out again, keep your place. 1.0: and check the new pages are
+        really there - on a slow disk (OneDrive, an antivirus) the book could be read again from the old file and
+        the new page looked lost: then it waits for the file and reads it again, and says so if it cannot."""
         f = self.book.files[fi]
         self.page_sizes.pop(f["key"], None)
         g = goto if goto is not None else self.current_page
         folder, prefix = self.folder, self.prefix
         stacks = (self.undo_stack, self.redo_stack)
+        path = f["path"]
+        if _want is None:
+            try:
+                _want = self.book.doc(fi).page_count
+            except Exception:
+                _want = None
 
         def after():
             self.undo_stack, self.redo_stack = stacks              # same files: Ctrl+Z still works
             if self.book and self.book.total:
                 self.goto_page(min(g, self.book.total - 1))
+            if _want is None or not self.book:
+                return
+            k = next((i for i, f_ in enumerate(self.book.files) if f_["path"] == path), None)
+            have = self.book.files[k].get("count") if k is not None else None
+            if have == _want:
+                return
+            if _tries < 4:
+                _log(f"pages: {os.path.basename(path)} has {have} pages, {_want} expected - reading it again")
+                self.root.after(700, lambda: self.book and k is not None and
+                                self._structure_changed(k, goto=g, _tries=_tries + 1, _want=_want))
+                return
+            why = (getattr(self.writer, "failed", {}) or {}).get(path)
+            _log(f"pages: {os.path.basename(path)} still has {have} pages, {_want} expected ({why})")
+            messagebox.showerror(APP_NAME, f"The new page could not be saved in “{os.path.basename(path)}”." +
+                                 (f"\n\n{why}" if why else "\n\nIs the file open in another program (or read-only)? "
+                                  "Close it there and try again.") +
+                                 "\n\nThe details are in BindLens-error.log.")
         self.open_folder(folder, prefix, then=after)
 
     def _close_book_keep_writes(self):
@@ -36252,333 +36366,398 @@ class App:
         w.after(200, lambda: search("Nature"))
         return w
 
-    def personalise_dialog(self):
-        """Make BindLens yours: theme, accent, app icon and what is behind the pages."""
+    # 1.0: Personalise - first a small choice of WHAT to make yours (a tile each), then only the details of that
+    # one, with a Back. Everything it had is still here, one thing at a time.
+    PERS_SECTIONS = [
+        ("colours", "palette", "Colours & theme", "Light or dark, and your colour"),
+        ("behind", "image", "Behind the pages", "Colours, textures, a photo, calm movement"),
+        ("frame", "frame", "The frame", "The colours round the window"),
+        ("home", "home", "Home", "Your books as furniture, what is behind them"),
+        ("reading", "book", "Reading", "Reading mode: colours, pages, what is beside"),
+        ("pictures", "image", "Pictures & gallery", "Slideshow, frames, how pictures come in"),
+        ("beside", "calendar", "Clock & calendar", "The map, the clock and the calendar beside the page"),
+        ("logo", "star", "Logo & resting screen", "The logo, and what shows when you rest"),
+        ("speed", "bolt", "Speed", "Everything on, or Fast mode"),
+    ]
+
+    def personalise_dialog(self, sec=None):
+        """Make BindLens yours: choose what (colours, behind the pages, the frame, Home, reading, pictures, clock
+        and calendar, the logo, speed), then its details."""
         T = self.T
         s = self.lib.settings
         if not s.get("pers_opened"):
             s["pers_opened"] = True                     # 1.0: no 'Make BindLens yours?' note any more
         d = self._dialog("Personalise")
+        names = {k: t for k, _i, t, _d in self.PERS_SECTIONS}
+        if sec not in names:
+            sec = None
+        top = tk.Frame(d, bg=T["panel"])
+        top.pack(fill="x", padx=22, pady=(14, 0))
+        if sec:
+            bk = tk.Label(top, text="‹  All", font=self.F(10, "bold"), bg=T["panel"], fg=self.accent, cursor="hand2")
+            bk.pack(side="left")
+            bk.bind("<Button-1>", lambda e: (d.destroy(), self.personalise_dialog()))
+            tk.Label(top, text=names[sec], font=self.F(14, "bold"), bg=T["panel"], fg=T["text"]).pack(side="left",
+                                                                                                  padx=(14, 0))
+        else:
+            tk.Label(top, text="What would you like to make yours?", font=self.F(14, "bold"), bg=T["panel"],
+                     fg=T["text"]).pack(side="left")
         outer = tk.Frame(self._scroll_body(d), bg=T["panel"])
-        outer.pack(fill="both", padx=22, pady=(16, 4))
-        body = tk.Frame(outer, bg=T["panel"])               # two columns: the window fits small screens too
+        outer.pack(fill="both", padx=22, pady=(10, 4))
+        body = tk.Frame(outer, bg=T["panel"])
         body.pack(side="left", fill="y", anchor="n")
 
         def label(t):
             tk.Label(body, text=t.upper(), font=self.F(8, "bold"), bg=T["panel"], fg=T["muted"]).pack(
                 anchor="w", pady=(12, 5))
-        label("Theme")
-        tf = tk.Frame(body, bg=T["panel"])
-        tf.pack(anchor="w")
-        for i, (name, th) in enumerate(THEMES.items()):
-            cv = tk.Canvas(tf, width=74, height=58, bg=T["panel"], highlightthickness=0, cursor="hand2")
-            cv.grid(row=0, column=i, padx=3)
-            on = s.get("theme") == name
-            round_rect(cv, 3, 3, 71, 41, 8, fill=th["canvas"], outline=self.accent if on else th["border"],
-                       width=2 if on else 1)
-            round_rect(cv, 9, 9, 30, 35, 4, fill=th["panel"], outline="")
-            round_rect(cv, 34, 9, 64, 35, 3, fill="#FFFFFF" if name not in ("Dark", "Midnight") else "#DADADA",
-                       outline="")
-            cv.create_text(37, 51, text=name, font=self.F(8), fill=T["text"])
-            cv.bind("<Button-1>", lambda e, n=name: (self._set_setting("theme", n), d.destroy(),
-                                                     self.personalise_dialog()))
-        label("Accent colour")
-        af = tk.Frame(body, bg=T["panel"])
-        af.pack(anchor="w")
-        for c in ACCENTS + ["#FF5E62", "#00B8A9", "#F7B32B"]:
-            cv = tk.Canvas(af, width=28, height=28, bg=T["panel"], highlightthickness=0, cursor="hand2")
-            cv.pack(side="left", padx=1)
-            cv.create_oval(4, 4, 24, 24, fill=c, outline=T["text"] if c == self.accent else "")
-            cv.bind("<Button-1>", lambda e, c=c: (self._set_setting("accent", c), d.destroy(),
-                                                  self.personalise_dialog()))
-        more = tk.Label(af, text="More…", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
-        more.pack(side="left", padx=8)
+        if sec is None:
+            # the tiles: one for each thing, with its icon - click one for its details
+            A = self.accent
+            grid = tk.Frame(body, bg=T["panel"])
+            grid.pack(anchor="w", pady=(4, 6))
+            for i, (k, icon, title, desc) in enumerate(self.PERS_SECTIONS):
+                cv = tk.Canvas(grid, width=196, height=92, bg=T["panel"], highlightthickness=0, cursor="hand2")
+                cv.grid(row=i // 3, column=i % 3, padx=5, pady=5)
 
-        def custom_accent(_e=None):
-            res = colorchooser.askcolor(color=self.accent, parent=d)
-            if res and res[1]:
-                self._set_setting("accent", res[1].upper())
+                def paint(cv=cv, icon=icon, title=title, desc=desc, hov=False):
+                    cv.delete("all")
+                    round_rect(cv, 2, 2, 194, 90, 14, fill=mix(T["panel"], A, 0.10 if hov else 0.04),
+                               outline=A if hov else T["border"], width=2 if hov else 1)
+                    cv.create_oval(14, 16, 50, 52, fill=mix(T["panel"], A, 0.18), outline="")
+                    draw_icon(cv, icon, 32, 34, A, s=1.0)
+                    cv.create_text(62, 26, text=title, anchor="w", font=self.F(10, "bold"), fill=T["text"])
+                    cv.create_text(62, 44, text=desc, anchor="nw", width=124, font=self.F(8), fill=T["muted"])
+                paint()
+                cv.bind("<Enter>", lambda e, p_=paint: p_(hov=True))
+                cv.bind("<Leave>", lambda e, p_=paint: p_())
+                cv.bind("<Button-1>", lambda e, k=k: (d.destroy(), self.personalise_dialog(k)))
+            tk.Label(body, text="Everything you change is kept, and shows at once.", font=self.F(8),
+                     bg=T["panel"], fg=T["muted"]).pack(anchor="w", pady=(2, 0))
+        if sec == "colours":
+            label("Theme")
+            tf = tk.Frame(body, bg=T["panel"])
+            tf.pack(anchor="w")
+            for i, (name, th) in enumerate(THEMES.items()):
+                cv = tk.Canvas(tf, width=74, height=58, bg=T["panel"], highlightthickness=0, cursor="hand2")
+                cv.grid(row=0, column=i, padx=3)
+                on = s.get("theme") == name
+                round_rect(cv, 3, 3, 71, 41, 8, fill=th["canvas"], outline=self.accent if on else th["border"],
+                           width=2 if on else 1)
+                round_rect(cv, 9, 9, 30, 35, 4, fill=th["panel"], outline="")
+                round_rect(cv, 34, 9, 64, 35, 3, fill="#FFFFFF" if name not in ("Dark", "Midnight") else "#DADADA",
+                           outline="")
+                cv.create_text(37, 51, text=name, font=self.F(8), fill=T["text"])
+                cv.bind("<Button-1>", lambda e, n=name: (self._set_setting("theme", n), d.destroy(),
+                                                         self.personalise_dialog(sec)))
+            label("Accent colour")
+            af = tk.Frame(body, bg=T["panel"])
+            af.pack(anchor="w")
+            for c in ACCENTS + ["#FF5E62", "#00B8A9", "#F7B32B"]:
+                cv = tk.Canvas(af, width=28, height=28, bg=T["panel"], highlightthickness=0, cursor="hand2")
+                cv.pack(side="left", padx=1)
+                cv.create_oval(4, 4, 24, 24, fill=c, outline=T["text"] if c == self.accent else "")
+                cv.bind("<Button-1>", lambda e, c=c: (self._set_setting("accent", c), d.destroy(),
+                                                      self.personalise_dialog(sec)))
+            more = tk.Label(af, text="More…", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
+            more.pack(side="left", padx=8)
+
+            def custom_accent(_e=None):
+                res = colorchooser.askcolor(color=self.accent, parent=d)
+                if res and res[1]:
+                    self._set_setting("accent", res[1].upper())
+                    d.destroy()
+                    self.personalise_dialog(sec)
+            more.bind("<Button-1>", custom_accent)
+        if sec == "behind":
+            label("Behind the pages")
+            conf = dict(self._bg_conf())
+            bf = tk.Frame(body, bg=T["panel"])
+            bf.pack(anchor="w")
+
+            def set_bg(**kw):
+                new = dict(self._bg_conf())
+                new.update(kw)
+                s["background"] = new
+                self.lib.save_meta()
+                self.apply_background()
                 d.destroy()
-                self.personalise_dialog()
-        more.bind("<Button-1>", custom_accent)
-        label("Behind the pages")
-        conf = dict(self._bg_conf())
-        bf = tk.Frame(body, bg=T["panel"])
-        bf.pack(anchor="w")
-
-        def set_bg(**kw):
-            new = dict(self._bg_conf())
-            new.update(kw)
-            s["background"] = new
-            self.lib.save_meta()
-            self.apply_background()
-            d.destroy()
-            self.personalise_dialog()
-        opts = [("none", None)] + [(n, cols) for n, cols in GRADIENTS.items()]
-        for i, (name, cols) in enumerate(opts):
-            cv = tk.Canvas(bf, width=66, height=52, bg=T["panel"], highlightthickness=0, cursor="hand2")
-            cv.grid(row=i // 9, column=i % 9, padx=2, pady=2)
-            on = (conf.get("mode", "none") == "none" and name == "none") or \
-                 (conf.get("mode") == "gradient" and conf.get("name") == name)
-            if cols:
-                for k in range(56):
-                    t = k / 55
-                    seg = t * (len(cols) - 1)
-                    j = min(len(cols) - 2, int(seg))
-                    cv.create_line(5 + k, 4, 5 + k, 36, fill=mix(cols[j], cols[j + 1], seg - j))
-            else:
-                cv.create_rectangle(5, 4, 61, 36, fill=T["canvas"], outline=T["border"])
-            if on:
-                cv.create_rectangle(3, 2, 63, 38, outline=self.accent, width=2)
-            cv.create_text(33, 46, text="Plain" if name == "none" else name, font=self.F(8), fill=T["text"])
-            if cols:
-                cv.bind("<Button-1>", lambda e, n=name, c=cols: set_bg(mode="gradient", name=n, colors=c))
-            else:
-                cv.bind("<Button-1>", lambda e: set_bg(mode="none"))
-        # 1.9: textures - paper, linen, wood…
-        txf = tk.Frame(body, bg=T["panel"])
-        txf.pack(anchor="w", pady=(4, 0))
-        self._tex_thumbs = []
-        all_tex = list(BIG_TEXTURES) + list(TEXTURES)     # 4.0: big real woods, marble, cork… first
-        for i, name in enumerate(all_tex):
-            cv = tk.Canvas(txf, width=66, height=52, bg=T["panel"], highlightthickness=0, cursor="hand2")
-            cv.grid(row=i // 8, column=i % 8, padx=2, pady=2)
-            try:
-                if name in BIG_TEXTURES:
-                    thumbs = self.__dict__.setdefault("_big_thumbs", {})
-                    if name not in thumbs:
-                        tw_, th_ = (224, 128) if BIG_TEXTURES[name]["kind"] == "wood" else (112, 64)
-                        pix_ = self.fitz.Pixmap(self.fitz.csRGB, tw_, th_, make_texture(name, tw_, th_), False)
-                        if tw_ != 56:
-                            pix_ = self.fitz.Pixmap(pix_, 56, 32, None)
-                        thumbs[name] = pix_.tobytes("ppm")
-                    img = tk.PhotoImage(data=thumbs[name])
+                self.personalise_dialog(sec)
+            opts = [("none", None)] + [(n, cols) for n, cols in GRADIENTS.items()]
+            for i, (name, cols) in enumerate(opts):
+                cv = tk.Canvas(bf, width=66, height=52, bg=T["panel"], highlightthickness=0, cursor="hand2")
+                cv.grid(row=i // 9, column=i % 9, padx=2, pady=2)
+                on = (conf.get("mode", "none") == "none" and name == "none") or \
+                     (conf.get("mode") == "gradient" and conf.get("name") == name)
+                if cols:
+                    for k in range(56):
+                        t = k / 55
+                        seg = t * (len(cols) - 1)
+                        j = min(len(cols) - 2, int(seg))
+                        cv.create_line(5 + k, 4, 5 + k, 36, fill=mix(cols[j], cols[j + 1], seg - j))
                 else:
-                    img = tk.PhotoImage(data=texture_ppm(name, 56, 32, T["canvas"]))
-                self._tex_thumbs.append(img)
-                cv.create_image(5, 4, image=img, anchor="nw")
-            except Exception:
-                cv.create_rectangle(5, 4, 61, 36, fill=(TEXTURES.get(name) or {"tones": ["#DDDDDD"]})["tones"][0],
-                                    outline="")
-            if conf.get("mode") == "texture" and conf.get("name") == name:
-                cv.create_rectangle(3, 2, 63, 38, outline=self.accent, width=2)
-            else:
-                cv.create_rectangle(5, 4, 61, 36, outline=T["border"])
-            cv.create_text(33, 46, text=self._fit_text(name, self._sfont(8), 64), font=self.F(8), fill=T["text"])
-            cv.bind("<Button-1>", lambda e, n=name: set_bg(mode="texture", name=n))
-        row = tk.Frame(body, bg=T["panel"])
-        row.pack(anchor="w", pady=(8, 0))
+                    cv.create_rectangle(5, 4, 61, 36, fill=T["canvas"], outline=T["border"])
+                if on:
+                    cv.create_rectangle(3, 2, 63, 38, outline=self.accent, width=2)
+                cv.create_text(33, 46, text="Plain" if name == "none" else name, font=self.F(8), fill=T["text"])
+                if cols:
+                    cv.bind("<Button-1>", lambda e, n=name, c=cols: set_bg(mode="gradient", name=n, colors=c))
+                else:
+                    cv.bind("<Button-1>", lambda e: set_bg(mode="none"))
+            # 1.9: textures - paper, linen, wood…
+            txf = tk.Frame(body, bg=T["panel"])
+            txf.pack(anchor="w", pady=(4, 0))
+            self._tex_thumbs = []
+            all_tex = list(BIG_TEXTURES) + list(TEXTURES)     # 4.0: big real woods, marble, cork… first
+            for i, name in enumerate(all_tex):
+                cv = tk.Canvas(txf, width=66, height=52, bg=T["panel"], highlightthickness=0, cursor="hand2")
+                cv.grid(row=i // 8, column=i % 8, padx=2, pady=2)
+                try:
+                    if name in BIG_TEXTURES:
+                        thumbs = self.__dict__.setdefault("_big_thumbs", {})
+                        if name not in thumbs:
+                            tw_, th_ = (224, 128) if BIG_TEXTURES[name]["kind"] == "wood" else (112, 64)
+                            pix_ = self.fitz.Pixmap(self.fitz.csRGB, tw_, th_, make_texture(name, tw_, th_), False)
+                            if tw_ != 56:
+                                pix_ = self.fitz.Pixmap(pix_, 56, 32, None)
+                            thumbs[name] = pix_.tobytes("ppm")
+                        img = tk.PhotoImage(data=thumbs[name])
+                    else:
+                        img = tk.PhotoImage(data=texture_ppm(name, 56, 32, T["canvas"]))
+                    self._tex_thumbs.append(img)
+                    cv.create_image(5, 4, image=img, anchor="nw")
+                except Exception:
+                    cv.create_rectangle(5, 4, 61, 36, fill=(TEXTURES.get(name) or {"tones": ["#DDDDDD"]})["tones"][0],
+                                        outline="")
+                if conf.get("mode") == "texture" and conf.get("name") == name:
+                    cv.create_rectangle(3, 2, 63, 38, outline=self.accent, width=2)
+                else:
+                    cv.create_rectangle(5, 4, 61, 36, outline=T["border"])
+                cv.create_text(33, 46, text=self._fit_text(name, self._sfont(8), 64), font=self.F(8), fill=T["text"])
+                cv.bind("<Button-1>", lambda e, n=name: set_bg(mode="texture", name=n))
+            row = tk.Frame(body, bg=T["panel"])
+            row.pack(anchor="w", pady=(8, 0))
 
-        def two_colours():
-            a = colorchooser.askcolor(title="First colour", parent=d)
-            if not (a and a[1]):
-                return
-            b = colorchooser.askcolor(title="Second colour", parent=d)
-            if not (b and b[1]):
-                return
-            set_bg(mode="gradient", name="Custom", colors=[a[1].upper(), b[1].upper()])
+            def two_colours():
+                a = colorchooser.askcolor(title="First colour", parent=d)
+                if not (a and a[1]):
+                    return
+                b = colorchooser.askcolor(title="Second colour", parent=d)
+                if not (b and b[1]):
+                    return
+                set_bg(mode="gradient", name="Custom", colors=[a[1].upper(), b[1].upper()])
 
-        def picture():
-            path = filedialog.askopenfilename(parent=d, title="A picture for behind the pages",
-                                              filetypes=[("Pictures", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
-                                                         ("All files", "*.*")])
-            if not path:
-                return
-            try:
-                key, w, h = import_image(self.fitz, path, self._bg_dir(), max_side=2600)
-            except Exception as ex:
-                messagebox.showerror(APP_NAME, f"Could not read that picture:\n{ex}", parent=d)
-                return
-            self._use_bg_picture(os.path.join(self._bg_dir(), key + ".png"), "Your picture")
-            d.destroy()
-            self.personalise_dialog()
-        PillButton(row, self, "Your two colours…", two_colours, kind="soft").pack(side="left")
-        PillButton(row, self, "Your picture…", picture, kind="soft").pack(side="left", padx=6)
-        PillButton(row, self, "Photo gallery…", lambda: (d.destroy(), self.picture_gallery(
-            on_done=self.personalise_dialog)), kind="soft").pack(side="left")
-        if conf.get("mode") == "picture":
-            sv = tk.DoubleVar(value=float(conf.get("soften", 0.35)))
-            tk.Label(body, text="Soften the picture", font=self.F(9), bg=T["panel"], fg=T["text"]).pack(
-                anchor="w", pady=(8, 0))
-            ttk.Scale(body, from_=0, to=0.85, variable=sv, length=260,
-                      command=lambda v: None).pack(anchor="w")
-            sv.trace_add("write", lambda *a: (s.__setitem__("background", dict(self._bg_conf(), soften=sv.get())),
-                                              self.apply_background()))
+            def picture():
+                path = filedialog.askopenfilename(parent=d, title="A picture for behind the pages",
+                                                  filetypes=[("Pictures", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                                                             ("All files", "*.*")])
+                if not path:
+                    return
+                try:
+                    key, w, h = import_image(self.fitz, path, self._bg_dir(), max_side=2600)
+                except Exception as ex:
+                    messagebox.showerror(APP_NAME, f"Could not read that picture:\n{ex}", parent=d)
+                    return
+                self._use_bg_picture(os.path.join(self._bg_dir(), key + ".png"), "Your picture")
+                d.destroy()
+                self.personalise_dialog(sec)
+            PillButton(row, self, "Your two colours…", two_colours, kind="soft").pack(side="left")
+            PillButton(row, self, "Your picture…", picture, kind="soft").pack(side="left", padx=6)
+            PillButton(row, self, "Photo gallery…", lambda: (d.destroy(), self.picture_gallery(
+                on_done=self.personalise_dialog)), kind="soft").pack(side="left")
+            if conf.get("mode") == "picture":
+                sv = tk.DoubleVar(value=float(conf.get("soften", 0.35)))
+                tk.Label(body, text="Soften the picture", font=self.F(9), bg=T["panel"], fg=T["text"]).pack(
+                    anchor="w", pady=(8, 0))
+                ttk.Scale(body, from_=0, to=0.85, variable=sv, length=260,
+                          command=lambda v: None).pack(anchor="w")
+                sv.trace_add("write", lambda *a: (s.__setitem__("background", dict(self._bg_conf(), soften=sv.get())),
+                                                  self.apply_background()))
 
-        def chip_line(title, items, key, cur):
-            tk.Label(body, text=title, font=self.F(9), bg=T["panel"], fg=T["text"]).pack(anchor="w", pady=(10, 3))
-            fr = None
-            for i, (k, lab) in enumerate(items.items()):
-                if i % 7 == 0:
-                    fr = tk.Frame(body, bg=T["panel"])
-                    fr.pack(anchor="w")
-                on = cur == k
-                lb = tk.Label(fr, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                              bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                              fg=self.accent if on else T["text"])
-                lb.pack(side="left", padx=2, pady=2)
-                lb.bind("<Button-1>", lambda e, k=k: set_bg(**{key: k}))
-        if conf.get("mode") == "gradient":
-            chip_line("Movement of the colours", self.BG_MOTIONS, "motion", conf.get("motion", "still"))
-        chip_line("Something calm moving behind the pages", self.BG_EFFECTS, "effect", conf.get("effect", "none"))
-        if conf.get("effect", "none") != "none" or conf.get("motion") in ("drift", "flow"):
-            sl = tk.Frame(body, bg=T["panel"])
-            sl.pack(anchor="w", pady=(6, 0))
-            av = tk.DoubleVar(value=float(conf.get("amount", 1.0)))
-            spv = tk.DoubleVar(value=float(conf.get("speed", 1.0)))
-            tk.Label(sl, text="How many", font=self.F(9), bg=T["panel"], fg=T["muted"]).pack(side="left")
-            ttk.Scale(sl, from_=0.4, to=2.0, variable=av, length=150).pack(side="left", padx=(6, 18))
-            tk.Label(sl, text="Speed", font=self.F(9), bg=T["panel"], fg=T["muted"]).pack(side="left")
-            ttk.Scale(sl, from_=0.3, to=2.5, variable=spv, length=150).pack(side="left", padx=6)
+            def chip_line(title, items, key, cur):
+                tk.Label(body, text=title, font=self.F(9), bg=T["panel"], fg=T["text"]).pack(anchor="w", pady=(10, 3))
+                fr = None
+                for i, (k, lab) in enumerate(items.items()):
+                    if i % 7 == 0:
+                        fr = tk.Frame(body, bg=T["panel"])
+                        fr.pack(anchor="w")
+                    on = cur == k
+                    lb = tk.Label(fr, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                                  bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                                  fg=self.accent if on else T["text"])
+                    lb.pack(side="left", padx=2, pady=2)
+                    lb.bind("<Button-1>", lambda e, k=k: set_bg(**{key: k}))
+            if conf.get("mode") == "gradient":
+                chip_line("Movement of the colours", self.BG_MOTIONS, "motion", conf.get("motion", "still"))
+            chip_line("Something calm moving behind the pages", self.BG_EFFECTS, "effect", conf.get("effect", "none"))
+            if conf.get("effect", "none") != "none" or conf.get("motion") in ("drift", "flow"):
+                sl = tk.Frame(body, bg=T["panel"])
+                sl.pack(anchor="w", pady=(6, 0))
+                av = tk.DoubleVar(value=float(conf.get("amount", 1.0)))
+                spv = tk.DoubleVar(value=float(conf.get("speed", 1.0)))
+                tk.Label(sl, text="How many", font=self.F(9), bg=T["panel"], fg=T["muted"]).pack(side="left")
+                ttk.Scale(sl, from_=0.4, to=2.0, variable=av, length=150).pack(side="left", padx=(6, 18))
+                tk.Label(sl, text="Speed", font=self.F(9), bg=T["panel"], fg=T["muted"]).pack(side="left")
+                ttk.Scale(sl, from_=0.3, to=2.5, variable=spv, length=150).pack(side="left", padx=6)
 
-            def upd(*_a):
-                s["background"] = dict(self._bg_conf(), amount=round(av.get(), 2), speed=round(spv.get(), 2))
-                self._fx_parts = None
-                self.redraw()
-            av.trace_add("write", upd)
-            spv.trace_add("write", upd)
-        # 1.9: beside the page - a map of the book on the left, a clock on the right
-        tk.Frame(outer, width=1, bg=T["border"]).pack(side="left", fill="y", padx=(24, 0), pady=(14, 0))
-        body = tk.Frame(outer, bg=T["panel"])
-        body.pack(side="left", fill="y", anchor="n", padx=(24, 0))
-        label("Beside the page")
-        bconf = self._beside_conf()
+                def upd(*_a):
+                    s["background"] = dict(self._bg_conf(), amount=round(av.get(), 2), speed=round(spv.get(), 2))
+                    self._fx_parts = None
+                    self.redraw()
+                av.trace_add("write", upd)
+                spv.trace_add("write", upd)
+        if sec == "frame":
+            frf = tk.Frame(body, bg=T["panel"])                 # 4.1: the frame round the window, here too
+            frf.pack(anchor="w", fill="x")
 
-        def set_side(key, val):
-            self._set_beside(key, val)
-            d.destroy()
-            self.personalise_dialog()
-        for key, title, items in (("left", "Left", self.SIDE_LEFT), ("right", "Right", self.SIDE_RIGHT)):
+            def fill_frame():
+                for w_ in frf.winfo_children():
+                    w_.destroy()
+                self._qp_fill_frame(frf, refresh=fill_frame)
+            fill_frame()
+        if sec == "home":
+            hmf = tk.Frame(body, bg=T["panel"])                 # 4.3: Home
+            hmf.pack(anchor="w", fill="x")
+
+            def fill_home():
+                for w_ in hmf.winfo_children():
+                    w_.destroy()
+                self._fill_home_section(hmf, refresh=fill_home)
+            fill_home()
+        if sec == "reading":
+            rdf = tk.Frame(body, bg=T["panel"])                 # 4.2: how reading mode looks
+            rdf.pack(anchor="w", fill="x")
+
+            def fill_read():
+                for w_ in rdf.winfo_children():
+                    w_.destroy()
+                self._fill_read_section(rdf, refresh=fill_read, part="read")
+            fill_read()
+        if sec == "pictures":
+            rdf = tk.Frame(body, bg=T["panel"])                 # 4.2: how reading mode looks
+            rdf.pack(anchor="w", fill="x")
+
+            def fill_read():
+                for w_ in rdf.winfo_children():
+                    w_.destroy()
+                self._fill_read_section(rdf, refresh=fill_read, part="pictures")
+            fill_read()
+        if sec == "beside":
+            label("Beside the page")
+            bconf = self._beside_conf()
+
+            def set_side(key, val):
+                self._set_beside(key, val)
+                d.destroy()
+                self.personalise_dialog(sec)
+            for key, title, items in (("left", "Left", self.SIDE_LEFT), ("right", "Right", self.SIDE_RIGHT)):
+                fr_ = tk.Frame(body, bg=T["panel"])
+                fr_.pack(anchor="w", pady=(0, 3))
+                tk.Label(fr_, text=title, font=self.F(9), width=6, anchor="w", bg=T["panel"], fg=T["text"]).pack(
+                    side="left")
+                for i_, (k, lab) in enumerate(items.items()):
+                    if i_ and i_ % 4 == 0:                      # 3.2: more clocks - a second line
+                        fr_ = tk.Frame(body, bg=T["panel"])
+                        fr_.pack(anchor="w", pady=(0, 3))
+                        tk.Label(fr_, text="", width=6, bg=T["panel"]).pack(side="left")
+                    on = bconf[key] == k
+                    lb = tk.Label(fr_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                                  bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                                  fg=self.accent if on else T["text"])
+                    lb.pack(side="left", padx=2)
+                    lb.bind("<Button-1>", lambda e, key=key, k=k: set_side(key, k))
             fr_ = tk.Frame(body, bg=T["panel"])
-            fr_.pack(anchor="w", pady=(0, 3))
-            tk.Label(fr_, text=title, font=self.F(9), width=6, anchor="w", bg=T["panel"], fg=T["text"]).pack(
-                side="left")
-            for i_, (k, lab) in enumerate(items.items()):
-                if i_ and i_ % 4 == 0:                      # 3.2: more clocks - a second line
+            fr_.pack(anchor="w", pady=(0, 2))
+            tk.Label(fr_, text="", width=6, bg=T["panel"]).pack(side="left")
+            for i_, (key, lab) in enumerate((("date", "Date"), ("deadline", "Next deadline"), ("anim", "Animation"),
+                                             ("calendar", "Calendar"), ("clock_left", "Clock on the left"))):
+                if i_ == 3:
                     fr_ = tk.Frame(body, bg=T["panel"])
-                    fr_.pack(anchor="w", pady=(0, 3))
+                    fr_.pack(anchor="w", pady=(0, 2))
                     tk.Label(fr_, text="", width=6, bg=T["panel"]).pack(side="left")
-                on = bconf[key] == k
+                on = bool(bconf[key])
                 lb = tk.Label(fr_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
                               bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
                               fg=self.accent if on else T["text"])
                 lb.pack(side="left", padx=2)
-                lb.bind("<Button-1>", lambda e, key=key, k=k: set_side(key, k))
-        fr_ = tk.Frame(body, bg=T["panel"])
-        fr_.pack(anchor="w", pady=(0, 2))
-        tk.Label(fr_, text="", width=6, bg=T["panel"]).pack(side="left")
-        for i_, (key, lab) in enumerate((("date", "Date"), ("deadline", "Next deadline"), ("anim", "Animation"),
-                                         ("calendar", "Calendar"), ("clock_left", "Clock on the left"))):
-            if i_ == 3:
-                fr_ = tk.Frame(body, bg=T["panel"])
-                fr_.pack(anchor="w", pady=(0, 2))
-                tk.Label(fr_, text="", width=6, bg=T["panel"]).pack(side="left")
-            on = bool(bconf[key])
-            lb = tk.Label(fr_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                          bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                          fg=self.accent if on else T["text"])
-            lb.pack(side="left", padx=2)
-            lb.bind("<Button-1>", lambda e, key=key, on=on: set_side(key, not on))
-        tk.Label(body, text="They show when there is room beside the page. Click the clock to change it; right-click "
-                            "either of them for more. Click a day of the calendar to add a note.", font=self.F(8),
-                 bg=T["panel"], fg=T["muted"], wraplength=380, justify="left").pack(anchor="w")
-        cl_ = tk.Label(body, text="Calendar settings, announcement, bring in a calendar…", font=self.F(9),
-                       bg=T["panel"], fg=self.accent, cursor="hand2")
-        cl_.pack(anchor="w", pady=(4, 0))
-        cl_.bind("<Button-1>", lambda e: (d.destroy(), self.calendar_settings()))
-        label("Logo and resting screen")
-        lg_ = tk.Frame(body, bg=T["panel"])               # 4.4: one logo - its background colour is yours
-        lg_.pack(anchor="w", pady=(0, 6))
-        self._logo_bg_picker(lg_, lambda: (d.destroy(), self.personalise_dialog()))
-        lf_ = tk.Frame(body, bg=T["panel"])
-        lf_.pack(anchor="w")
+                lb.bind("<Button-1>", lambda e, key=key, on=on: set_side(key, not on))
+            tk.Label(body, text="They show when there is room beside the page. Click the clock to change it; right-click "
+                                "either of them for more. Click a day of the calendar to add a note.", font=self.F(8),
+                     bg=T["panel"], fg=T["muted"], wraplength=380, justify="left").pack(anchor="w")
+            cl_ = tk.Label(body, text="Calendar settings, announcement, bring in a calendar…", font=self.F(9),
+                           bg=T["panel"], fg=self.accent, cursor="hand2")
+            cl_.pack(anchor="w", pady=(4, 0))
+            cl_.bind("<Button-1>", lambda e: (d.destroy(), self.calendar_settings()))
+        if sec == "logo":
+            label("Logo and resting screen")
+            lg_ = tk.Frame(body, bg=T["panel"])               # 4.4: one logo - its background colour is yours
+            lg_.pack(anchor="w", pady=(0, 6))
+            self._logo_bg_picker(lg_, lambda: (d.destroy(), self.personalise_dialog(sec)))
+            lf_ = tk.Frame(body, bg=T["panel"])
+            lf_.pack(anchor="w")
 
-        def set_s(key, val):
-            s[key] = val
-            self.lib.save_meta()
-            d.destroy()
-            self.personalise_dialog()
-        for k, lab in ((True, "Lens moves now and then"), (False, "Still logo")):
-            on = bool(s.get("logo_moves", True)) == k
-            lb = tk.Label(lf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                          bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                          fg=self.accent if on else T["text"])
-            lb.pack(side="left", padx=2)
-            lb.bind("<Button-1>", lambda e, k=k: set_s("logo_moves", k))
-        rf_ = tk.Frame(body, bg=T["panel"])
-        rf_.pack(anchor="w", pady=(6, 0))
-        tk.Label(rf_, text="When I don't touch anything for", font=self.F(9), bg=T["panel"], fg=T["text"]).pack(
-            side="left", padx=(0, 6))
-        rf_ = tk.Frame(body, bg=T["panel"])
-        rf_.pack(anchor="w", pady=(3, 0))
-        for k, lab in ((0, "Never"), (1, "1 min"), (2, "2 min"), (5, "5 min"), (10, "10 min")):
-            on = float(s.get("idle_minutes", 2)) == k
-            lb = tk.Label(rf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                          bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                          fg=self.accent if on else T["text"])
-            lb.pack(side="left", padx=2)
-            lb.bind("<Button-1>", lambda e, k=k: set_s("idle_minutes", k))
-        sf_ = tk.Frame(body, bg=T["panel"])
-        sf_.pack(anchor="w", pady=(4, 0))
-        for k, lab in (("sky", "Night sky with your books"), ("pieces", "Logo in pieces")):
-            on = s.get("rest_style", "sky") == k
-            lb = tk.Label(sf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                          bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                          fg=self.accent if on else T["text"])
-            lb.pack(side="left", padx=2)
-            lb.bind("<Button-1>", lambda e, k=k: set_s("rest_style", k))
-        pv_ = tk.Label(rf_, text="See it now", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
-        pv_.pack(side="left", padx=10)
-        pv_.bind("<Button-1>", lambda e: (d.destroy(), self.root.after(300, lambda: self._idle_start(force=True))))
-        tk.Label(body, text="Night sky: your books are constellations, the lens looks among them and says their "
-                            "names; the moon in its real phase. Logo in pieces: it flies from corner to corner. "
-                            "Move the mouse to go back.", font=self.F(8), bg=T["panel"], fg=T["muted"],
-                 wraplength=380, justify="left").pack(anchor="w")
-        label("Speed")                                  # 4.0: Fast mode
-        spf = tk.Frame(body, bg=T["panel"])
-        spf.pack(anchor="w")
-        cur_sp = "on" if s.get("fast_mode") else ("battery" if s.get("fast_on_battery", True) else "off")
-        for k, lab in (("off", "Everything on"), ("battery", "Fast on battery"), ("on", "Fast mode")):
-            on = cur_sp == k
-            lb = tk.Label(spf, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
-                          bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
-                          fg=self.accent if on else T["text"])
-            lb.pack(side="left", padx=2)
-            lb.bind("<Button-1>", lambda e, k=k: (self.set_fast(k), d.destroy(), self.personalise_dialog()))
-        tk.Label(body, text="Fast mode: nothing moves (backgrounds, logo, seconds) and BindLens prepares Office files "
-                            "and reads scans only when you ask. Good for slower computers.", font=self.F(8),
-                 bg=T["panel"], fg=T["muted"], wraplength=380, justify="left").pack(anchor="w", pady=(2, 0))
-        frf = tk.Frame(body, bg=T["panel"])                 # 4.1: the frame round the window, here too
-        frf.pack(anchor="w", fill="x")
-
-        def fill_frame():
-            for w_ in frf.winfo_children():
-                w_.destroy()
-            self._qp_fill_frame(frf, refresh=fill_frame)
-        fill_frame()
-        rdf = tk.Frame(body, bg=T["panel"])                 # 4.2: how reading mode looks
-        rdf.pack(anchor="w", fill="x")
-
-        def fill_read():
-            for w_ in rdf.winfo_children():
-                w_.destroy()
-            self._fill_read_section(rdf, refresh=fill_read)
-        fill_read()
-        hmf = tk.Frame(body, bg=T["panel"])                 # 4.3: Home
-        hmf.pack(anchor="w", fill="x")
-
-        def fill_home():
-            for w_ in hmf.winfo_children():
-                w_.destroy()
-            self._fill_home_section(hmf, refresh=fill_home)
-        fill_home()
+            def set_s(key, val):
+                s[key] = val
+                self.lib.save_meta()
+                d.destroy()
+                self.personalise_dialog(sec)
+            for k, lab in ((True, "Lens moves now and then"), (False, "Still logo")):
+                on = bool(s.get("logo_moves", True)) == k
+                lb = tk.Label(lf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                              bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                              fg=self.accent if on else T["text"])
+                lb.pack(side="left", padx=2)
+                lb.bind("<Button-1>", lambda e, k=k: set_s("logo_moves", k))
+            rf_ = tk.Frame(body, bg=T["panel"])
+            rf_.pack(anchor="w", pady=(6, 0))
+            tk.Label(rf_, text="When I don't touch anything for", font=self.F(9), bg=T["panel"], fg=T["text"]).pack(
+                side="left", padx=(0, 6))
+            rf_ = tk.Frame(body, bg=T["panel"])
+            rf_.pack(anchor="w", pady=(3, 0))
+            for k, lab in ((0, "Never"), (1, "1 min"), (2, "2 min"), (5, "5 min"), (10, "10 min")):
+                on = float(s.get("idle_minutes", 2)) == k
+                lb = tk.Label(rf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                              bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                              fg=self.accent if on else T["text"])
+                lb.pack(side="left", padx=2)
+                lb.bind("<Button-1>", lambda e, k=k: set_s("idle_minutes", k))
+            sf_ = tk.Frame(body, bg=T["panel"])
+            sf_.pack(anchor="w", pady=(4, 0))
+            for k, lab in (("sky", "Night sky with your books"), ("pieces", "Logo in pieces")):
+                on = s.get("rest_style", "sky") == k
+                lb = tk.Label(sf_, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                              bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                              fg=self.accent if on else T["text"])
+                lb.pack(side="left", padx=2)
+                lb.bind("<Button-1>", lambda e, k=k: set_s("rest_style", k))
+            pv_ = tk.Label(rf_, text="See it now", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
+            pv_.pack(side="left", padx=10)
+            pv_.bind("<Button-1>", lambda e: (d.destroy(), self.root.after(300, lambda: self._idle_start(force=True))))
+            tk.Label(body, text="Night sky: your books are constellations, the lens looks among them and says their "
+                                "names; the moon in its real phase. Logo in pieces: it flies from corner to corner. "
+                                "Move the mouse to go back.", font=self.F(8), bg=T["panel"], fg=T["muted"],
+                     wraplength=380, justify="left").pack(anchor="w")
+        if sec == "speed":
+            label("Speed")                                  # 4.0: Fast mode
+            spf = tk.Frame(body, bg=T["panel"])
+            spf.pack(anchor="w")
+            cur_sp = "on" if s.get("fast_mode") else ("battery" if s.get("fast_on_battery", True) else "off")
+            for k, lab in (("off", "Everything on"), ("battery", "Fast on battery"), ("on", "Fast mode")):
+                on = cur_sp == k
+                lb = tk.Label(spf, text=lab, font=self.F(9), padx=9, pady=3, cursor="hand2",
+                              bg=mix(T["panel"], self.accent, 0.2) if on else T["chip"],
+                              fg=self.accent if on else T["text"])
+                lb.pack(side="left", padx=2)
+                lb.bind("<Button-1>", lambda e, k=k: (self.set_fast(k), d.destroy(), self.personalise_dialog(sec)))
+            tk.Label(body, text="Fast mode: nothing moves (backgrounds, logo, seconds) and BindLens prepares Office files "
+                                "and reads scans only when you ask. Good for slower computers.", font=self.F(8),
+                     bg=T["panel"], fg=T["muted"], wraplength=380, justify="left").pack(anchor="w", pady=(2, 0))
         bt = ttk.Frame(d, style="Panel.TFrame", padding=(22, 14))
         bt.pack(fill="x")
         PillButton(bt, self, "Done", d.destroy, kind="accent").pack(side="right")
         d.bind("<Escape>", lambda e: d.destroy())
         self._center(d)
 
-    def _fill_read_section(self, body, refresh):
+    def _fill_read_section(self, body, refresh, part=None):
         """4.2: Personalise > Reading mode - its background, colours, movement, pages, what is beside them, and
         the slideshow of a folder of pictures."""
         T = self.T
@@ -36598,61 +36777,63 @@ class App:
                 self._sides_update()
                 self._slide_plan()
             refresh()
-        self._qp_section(body, "Reading mode - background")
-        self._qp_chips(body, [("colours", "The app's colours"), ("own", "My colours"), ("dark", "Dark"),
-                              ("same", "As the normal view")], rc.get("bg"), lambda v: setv("bg", v))
-        own = tk.Label(body, text="Choose my colours…", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
-        own.pack(anchor="w", pady=(2, 0))
+        if part != "pictures":                     # 1.0: Personalise > Reading, or > Pictures & gallery
+            self._qp_section(body, "Reading mode - background")
+            self._qp_chips(body, [("colours", "The app's colours"), ("own", "My colours"), ("dark", "Dark"),
+                                  ("same", "As the normal view")], rc.get("bg"), lambda v: setv("bg", v))
+            own = tk.Label(body, text="Choose my colours…", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
+            own.pack(anchor="w", pady=(2, 0))
 
-        def pick(_e=None):
-            cols = []
-            old_ = list(rc.get("colors") or [])
-            for i in range(3):
-                c_ = colorchooser.askcolor(color=old_[i] if i < len(old_) else self.accent, parent=self.root,
-                                           title=f"Reading colour {i + 1} of 3 (Cancel to stop)")
-                if not c_ or not c_[1]:
-                    break
-                cols.append(c_[1])
-            if cols:
-                rc["colors"] = cols
-                setv("bg", "own")
-        own.bind("<Button-1>", pick)
-        self._qp_section(body, "Movement")
-        self._qp_chips(body, [("still", "Still"), ("veryslow", "Very slow"), ("slow", "Slow")], rc.get("motion"),
-                       lambda v: setv("motion", v))
-        self._qp_section(body, "Pages while reading")
-        self._qp_chips(body, [("same", "As usual"), ("normal", "White"), ("warm", "Warm paper"), ("night", "Night")],
-                       rc.get("page"), lambda v: setv("page", v))
-        for key, lab in (("toc", "The contents beside the page"), ("clock", "The clock beside the page"),
-                         ("frame", "The frame's thin lines round the window")):
-            var = tk.BooleanVar(value=bool(rc.get(key, True)))
-            ttk.Checkbutton(body, text=lab, variable=var,
-                            command=lambda k=key, v=var: setv(k, v.get())).pack(anchor="w", pady=(4, 0))
-        self._qp_section(body, "A folder of pictures - slideshow")
-        self._qp_chips(body, [(3, "3 s"), (6, "6 s"), (10, "10 s"), (15, "15 s")], int(rc.get("slide_secs", 6)),
-                       lambda v: setv("slide_secs", v))
-        self._stage_conf()
-        var = tk.BooleanVar(value=bool(rc.get("pic_stage", True)))
-        ttk.Checkbutton(body, text="One picture at a time, big, with a film strip below", variable=var,
-                        command=lambda: setv("pic_stage", var.get())).pack(anchor="w", pady=(4, 0))
-        self._qp_section(body, "Pictures - how the next one comes in")
-        self._qp_chips(body, list(self.PIC_FX.items()), rc.get("stage_fx", "mix"), lambda v: setv("stage_fx", v))
-        self._qp_section(body, "Pictures - the frame while reading")
-        self._qp_chips(body, list(self.PIC_STYLES.items()), rc.get("stage_style", "colours"),
-                       lambda v: setv("stage_style", v))
-        self._qp_section(body, "Pictures - the frame in the gallery")
+            def pick(_e=None):
+                cols = []
+                old_ = list(rc.get("colors") or [])
+                for i in range(3):
+                    c_ = colorchooser.askcolor(color=old_[i] if i < len(old_) else self.accent, parent=self.root,
+                                               title=f"Reading colour {i + 1} of 3 (Cancel to stop)")
+                    if not c_ or not c_[1]:
+                        break
+                    cols.append(c_[1])
+                if cols:
+                    rc["colors"] = cols
+                    setv("bg", "own")
+            own.bind("<Button-1>", pick)
+            self._qp_section(body, "Movement")
+            self._qp_chips(body, [("still", "Still"), ("veryslow", "Very slow"), ("slow", "Slow")], rc.get("motion"),
+                           lambda v: setv("motion", v))
+            self._qp_section(body, "Pages while reading")
+            self._qp_chips(body, [("same", "As usual"), ("normal", "White"), ("warm", "Warm paper"), ("night", "Night")],
+                           rc.get("page"), lambda v: setv("page", v))
+            for key, lab in (("toc", "The contents beside the page"), ("clock", "The clock beside the page"),
+                             ("frame", "The frame's thin lines round the window")):
+                var = tk.BooleanVar(value=bool(rc.get(key, True)))
+                ttk.Checkbutton(body, text=lab, variable=var,
+                                command=lambda k=key, v=var: setv(k, v.get())).pack(anchor="w", pady=(4, 0))
+        if part != "read":
+            self._qp_section(body, "A folder of pictures - slideshow")
+            self._qp_chips(body, [(3, "3 s"), (6, "6 s"), (10, "10 s"), (15, "15 s")], int(rc.get("slide_secs", 6)),
+                           lambda v: setv("slide_secs", v))
+            self._stage_conf()
+            var = tk.BooleanVar(value=bool(rc.get("pic_stage", True)))
+            ttk.Checkbutton(body, text="One picture at a time, big, with a film strip below", variable=var,
+                            command=lambda: setv("pic_stage", var.get())).pack(anchor="w", pady=(4, 0))
+            self._qp_section(body, "Pictures - how the next one comes in")
+            self._qp_chips(body, list(self.PIC_FX.items()), rc.get("stage_fx", "mix"), lambda v: setv("stage_fx", v))
+            self._qp_section(body, "Pictures - the frame while reading")
+            self._qp_chips(body, list(self.PIC_STYLES.items()), rc.get("stage_style", "colours"),
+                           lambda v: setv("stage_style", v))
+            self._qp_section(body, "Pictures - the frame in the gallery")
 
-        def set_gal(v):
-            self.lib.settings["gallery_style"] = v
-            self.lib.save_meta()
-            if self.book is not None and self._is_picture_book():
-                self._layout()
-                self.redraw()
-            refresh()
-        self._qp_chips(body, list(self.PIC_STYLES.items()), self._gallery_style(), set_gal)
-        tk.Label(body, text="A folder with only pictures opens as a gallery: click a picture to see it big, zoom out "
-                            "to see them all. Read (F6) shows them one by one.", font=self.F(8), bg=T["panel"],
-                 fg=T["muted"], wraplength=380, justify="left").pack(anchor="w", pady=(6, 0))
+            def set_gal(v):
+                self.lib.settings["gallery_style"] = v
+                self.lib.save_meta()
+                if self.book is not None and self._is_picture_book():
+                    self._layout()
+                    self.redraw()
+                refresh()
+            self._qp_chips(body, list(self.PIC_STYLES.items()), self._gallery_style(), set_gal)
+            tk.Label(body, text="A folder with only pictures opens as a gallery: click a picture to see it big, zoom out "
+                                "to see them all. Read (F6) shows them one by one.", font=self.F(8), bg=T["panel"],
+                     fg=T["muted"], wraplength=380, justify="left").pack(anchor="w", pady=(6, 0))
 
     def settings_dialog(self):
         T = self.T
@@ -37234,12 +37415,18 @@ class App:
             ("Make this file smaller", "", "compress size big pdf scans reduce", self.compress_file, b),
             ("Deleted pages (put a page back)", "", "deleted page bin restore undelete back",
              self.deleted_pages_dialog, True),
-            ("Accident / incident report (new page)", "", "accident incident injury form template",
+            ("Incident report (new page)", "", "accident incident report form template",
              lambda: self.write_page(template="incident"), b),
-            ("Daily sign-in sheet (new page)", "", "sign in attendance collected template",
-             lambda: self.write_page(template="signin"), b),
-            ("Medication record (new page)", "", "medicine medication dose template",
-             lambda: self.write_page(template="medication"), b),
+            ("Expense claim (new page)", "", "expenses claim receipts money template",
+             lambda: self.write_page(template="expenses"), b),
+            ("Timesheet (new page)", "", "hours timesheet week staff template",
+             lambda: self.write_page(template="timesheet"), b),
+            ("Visitor sign-in sheet (new page)", "", "sign in visitors office template",
+             lambda: self.write_page(template="visitors"), b),
+            ("Assignment cover sheet (new page)", "", "university assignment essay student template",
+             lambda: self.write_page(template="assignment"), b),
+            ("Module overview (new page)", "", "university module subject course credits template",
+             lambda: self.write_page(template="module"), b),
             ("Fit width", "Ctrl+0", "zoom", lambda: self.set_fit("width"), b),
             ("Fit page", "", "zoom whole page", lambda: self.set_fit("page"), b),
             ("Zoom in", "Ctrl++", "bigger", lambda: self.change_zoom(1.2), b),
@@ -37549,7 +37736,7 @@ class App:
         ("entities", "People", "People, organisations & places",
          "Everyone and everything named in your documents, and how often.", ["scope"], []),
         ("expiry", "Checks", "Expiry dates & deadlines",
-         "Dates next to words like expiry, valid until, renewal, due, deadline, vetting - expired, soon, later. "
+         "Dates next to words like expiry, valid until, renewal, due, deadline, notice - expired, soon, later. "
          "Right-click a row in the preview to be reminded.", ["scope", "people", "days"],
          [("all_dates", "All dates, not only expiry words", False), ("past", "Include long-expired dates", True)]),
         ("missing", "Checks", "Missing documents per person",
@@ -37645,20 +37832,20 @@ class App:
     REPORTS = {r[0]: {"key": r[0], "cat": r[1], "title": r[2], "desc": r[3], "filters": r[4], "adv": r[5],
                       "sub": ""} for r in REPORT_LIST}
     PACKS = OrderedDict([
-        ("quality", ("Data quality",
-                     "Forms not filled in or not signed · different details for the same person · duplicates · sums "
-                     "that don't add up · pages that can't be read.",
-                     [("incomplete", {}), ("conflicts", {}), ("duplicates", {}), ("moneycheck", {}), ("health", {})])),
-        ("childcare", ("People & forms",
-                       "Expiring dates and certificates · missing forms for each person · forms not signed · "
-                       "contact list · personal data found · hours and amounts per person.",
-                       [("expiry", {}), ("missing", {}), ("incomplete", {}), ("contacts", {}), ("privacy", {}),
-                        ("totals", {})])),
         ("office", ("Office / admin",
                     "Deadlines · actions and decisions · contacts · duplicates · sums that don't add up · "
                     "document health.",
                     [("expiry", {}), ("actions", {}), ("contacts", {}), ("duplicates", {}), ("moneycheck", {}),
                      ("health", {})])),
+        ("quality", ("Data quality",
+                     "Forms not filled in or not signed · different details for the same person · duplicates · sums "
+                     "that don't add up · pages that can't be read.",
+                     [("incomplete", {}), ("conflicts", {}), ("duplicates", {}), ("moneycheck", {}), ("health", {})])),
+        ("people", ("People & forms",
+                       "Expiring dates and certificates · missing forms for each person · forms not signed · "
+                       "contact list · personal data found · hours and amounts per person.",
+                       [("expiry", {}), ("missing", {}), ("incomplete", {}), ("contacts", {}), ("privacy", {}),
+                        ("totals", {})])),
         ("finance", ("Finance",
                      "Amounts per person and per month · sums that don't add up · unusual and round amounts · "
                      "duplicate invoices.",
@@ -37674,10 +37861,11 @@ class App:
                        "key words.",
                        [("expiry", {"all_dates": True}), ("entities", {}), ("money", {}), ("actions", {}),
                         ("keywords", {})])),
-        ("study", ("Study / research",
-                   "Key words and phrases · themes · words that go together · tone · readability · key sentences.",
-                   [("keywords", {}), ("themes", {}), ("collocates", {}), ("tone", {}), ("readability", {}),
-                    ("keysent", {})])),
+        ("study", ("Study / university",
+                   "Deadlines and due dates · key words and phrases · themes · words that go together · readability · "
+                   "key sentences.",
+                   [("expiry", {"all_dates": True}), ("keywords", {}), ("themes", {}), ("collocates", {}),
+                    ("readability", {}), ("keysent", {})])),
     ])
     # 1.7: reports grouped by what you want to know (sections and sub-sections)
     REPORT_SECTIONS = [
@@ -37698,14 +37886,14 @@ class App:
     ]
     REPORT_WORDS = {
         "expiry": "vetting garda expire expired expiring renew renewal deadline due certificate training valid until",
-        "missing": "checklist missing required forms documents consent files per child staff file",
+        "missing": "checklist missing required forms documents consent files per person staff student client file",
         "incomplete": "empty blank unsigned signature not filled",
         "privacy": "gdpr pps ppsn iban bank card personal data sensitive health",
         "duplicates": "copy copies twice duplicate same similar", "conflicts": "different phone email address clash",
         "moneycheck": "sum total wrong vat invoice add up", "health": "scanned ocr blank broken big files",
         "contacts": "phone email address parents parent guardian contact list emergency",
         "snapshot": "rows pictures exact look screenshot table row", "rows": "rows table start with lines",
-        "totals": "hours fees sum total per person child", "money": "fees amounts invoices euro payments money",
+        "totals": "hours fees sum total per person", "money": "fees amounts invoices euro payments money",
         "hours": "hours rota rotas roster shifts staff week worked timesheet",
         "pivot": "excel pivot table cross summary group", "columns": "column take out phone hours",
         "tables": "copy tables excel", "survey": "questionnaire answers likert results",
@@ -37714,8 +37902,8 @@ class App:
         "kwic": "context concordance word in context", "actions": "minutes actions decisions requests todo tasks",
         "network": "who with whom relationships", "entities": "people organisations places names",
         "dates": "timeline dates calendar", "phones": "phone numbers emails", "extract": "eircode links times data",
-        "pack": "childcare school office finance hr contracts study checks", "dashboard": "overview summary book",
-        "person": "everything about a person child staff", "find": "search name word value",
+        "pack": "office admin people finance hr contracts study university checks", "dashboard": "overview summary book",
+        "person": "everything about a person staff student client", "find": "search name word value",
         "marks": "highlights notes stamps my marks", "status": "pending done signed status",
         "compare": "difference changes two documents versions", "keysent": "summary key sentences important",
         "themes": "themes topics safety", "frequency": "how often counts words", "collocates": "phrases pairs"}
@@ -37765,9 +37953,9 @@ class App:
         ("Essentials", "#6C63FF", [
             ("contacts", "People & contacts", "Everyone with their email, phone and address - read from any table, "
                                               "form or email, with how sure", None, [],
-             "contacts phone email address people list parents staff"),
-            ("expiry", "Deadlines", "What has expired and what comes next - certificates, vetting, contracts, "
-                                    "renewals", None,
+             "contacts phone email address people list staff clients students"),
+            ("expiry", "Deadlines", "What has expired and what comes next - contracts, certificates, licences, "
+                                    "insurance, renewals", None,
              [("all_dates", "All dates, not only expiry words", False), ("past", "Also long-expired dates", True)],
              "expiry deadline renewal due vetting expired coming"),
             ("invoices", "Invoices & money", "Each invoice or receipt: from whom, number, date, due date, total - "
@@ -37790,7 +37978,7 @@ class App:
             ("pick:Emails", "Emails", "Every email address - and, if you want, whose it is and where", None, "pick",
              "mail e-mail correo"),
             ("pick:Names", "Names of people", "Every person named in your documents", None, "pick",
-             "people persons who staff children parents nombres"),
+             "people persons who staff students clients nombres"),
             ("pick:Phones", "Phone numbers", "Every phone and mobile number", None, "pick", "mobile tel telephone"),
             ("pick:Addresses", "Addresses & postcodes", "Street addresses, Eircodes and postcodes", None, "pick",
              "address eircode postcode direccion"),
@@ -37851,7 +38039,7 @@ class App:
             ("trends", "Trends & charts", "Per month, largest amounts, names - in charts", None, [],
              "charts graphs per month"),
         ]),
-        # 3.0: the reports for a centre's staff files and children's files (they existed, but could not be reached)
+        # 3.0: the reports for staff files, client files and student files (they existed, but could not be reached)
         ("People, forms & checks", "#0E9F8E", [
             ("missing", "Missing documents per person", "Who is missing which document - contract, ID, signed "
                                                         "form, certificate…", "required",
@@ -37897,7 +38085,7 @@ class App:
                    "overview": "folders", "compare": "scales", "duplicates": "blocks", "marks": "highlighter",
                    "expiry": "hourglass", "dates": "calendar", "trends": "chart", "fieldcmp": "check",
                    "conflicts": "warning", "quality": "shield", "ask": "help", "missing": "check",
-                   "pack:hr": "people", "pack:childcare": "star", "contacts": "phone", "totals": "calculator",
+                   "pack:hr": "people", "pack:people": "star", "contacts": "phone", "totals": "calculator",
                    "incomplete": "note", "privacy": "shield", "status": "tag"}
 
     def _rep_icon(self, cv, key, x, y, col, on, size=18, tags=None):
@@ -38263,7 +38451,7 @@ class App:
                 ex.pack(fill="x", pady=(6, 0))
                 tk.Label(ex, text="Try:", font=self.F(9), bg=BG, fg=T["muted"]).pack(side="left", padx=(0, 6))
                 for sample in ("Mary Ryan - phone, email", "invoices - invoice number, date, total",
-                               "total amount per month", "hours per child"):
+                               "total amount per month", "hours per person"):
                     lb = tk.Label(ex, text=sample, font=self.F(9), bg=T["panel"], fg=T["text"], padx=8, pady=2,
                                   cursor="hand2")
                     lb.pack(side="left", padx=(0, 6))
@@ -38827,7 +39015,7 @@ class App:
             self._rep_terms = None
             self._rep_terms_text = ""
             t = k
-            pack_ = "childcare"
+            pack_ = "office"
             if k.startswith("pack:"):                  # 3.0: ready-made checks straight from the list
                 t, pack_ = "pack", k.split(":", 1)[1]
             if it[4] == "pick":
@@ -39024,7 +39212,7 @@ class App:
             "type": "dashboard", "scope": "folder" if self.folder is not None else "library", "fmt": "pdf",
             "match": "any", "inc": {"Name", "Organisation", "Phone", "Email", "File"}, "kinds": {"Phone numbers", "Emails"},
             "adv": {}, "books": set(), "group": "file", "when": "any", "colors": set(), "mkinds": set(self.MARK_TYPES),
-            "fileB": None, "pack": "childcare", "days": 90, "pv_rows": "person", "pv_cols": "none", "pv_val": "count"}
+            "fileB": None, "pack": "office", "days": 90, "pv_rows": "person", "pv_cols": "none", "pv_val": "count"}
         st = getattr(self, "_rep_last", None) or {}
         for k, v in defaults.items():
             if k not in st:
@@ -39054,7 +39242,7 @@ class App:
         nq = tk.StringVar()
         ne = ttk.Entry(nav, textvariable=nq, font=self.F(10))
         ne.pack(fill="x", padx=14)
-        tk.Label(nav, text="Find a report - e.g. vetting, GDPR, hours, fees", font=self.F(8), bg=NAVB,
+        tk.Label(nav, text="Find a report - e.g. deadlines, invoices, GDPR, hours", font=self.F(8), bg=NAVB,
                  fg=T["muted"]).pack(anchor="w", padx=16, pady=(2, 6))
         nwrap = tk.Frame(nav, bg=NAVB)
         nwrap.pack(fill="both", expand=True)
@@ -39969,7 +40157,7 @@ class App:
              "inc": set(st["inc"]), "kinds": [k for k, _ in self.EXTRACT_KINDS if k in st["kinds"]],
              "only": self._rep_only.get(), "labels": {f: self.lib.label(f) for f in self.lib.folders},
              "fileB": st.get("fileB"), "fileA": self._scope_files("file")[0] if self.book and self.book.total else None,
-             "pack": st.get("pack", "childcare"), "days": int(st.get("days", 90)),
+             "pack": {"childcare": "people"}.get(st.get("pack", "office"), st.get("pack", "office")), "days": int(st.get("days", 90)),
              "themes": self._parse_themes(self.lib.settings.get("themes_text") or
                                           "\n".join(f"{k}: {v}" for k, v in DEFAULT_THEMES.items())),
              "required": [x.strip() for x in (self.lib.settings.get("required_text") or
@@ -40221,7 +40409,7 @@ class App:
 
     # ---- Start here --------------------------------------------------------------------------------------
     def _job_pack(self, P, job):
-        name, desc, parts = self.PACKS.get(P.get("pack"), self.PACKS["childcare"])
+        name, desc, parts = self.PACKS.get({"childcare": "people"}.get(P.get("pack"), P.get("pack")), self.PACKS["office"])
         blocks, kpis, alerts = [], [], []
         done = 0
         for typ, over in parts:
@@ -42305,9 +42493,9 @@ class App:
         return found
 
     ORG_RE = re.compile(r"\b((?:[A-Z][\w&'’.-]+ ){0,4}(?:Ltd|Limited|Ltd\.|plc|PLC|Inc|LLC|School|Council|Department|"
-                        r"Centre|Center|Creche|Crèche|Montessori|Hospital|Clinic|University|College|Bank|Services|"
+                        r"Centre|Center|Faculty|Council|Agency|Hospital|Clinic|University|College|Bank|Services|"
                         r"Association|Club|Group|Trust|Foundation|Agency|Authority|Board|Office|Company|Society|"
-                        r"Institute|Academy|Nursery|Pharmacy|Partners|Solicitors|Tusla|Pobal|HSE|Revenue)\b)")
+                        r"Institute|Academy|Authority|Pharmacy|Partners|Solicitors|Accountants|HSE|Revenue)\b)")
 
     def _job_network(self, P, job):
         only = [t.lower() for t in P["terms"]]
@@ -42447,7 +42635,7 @@ class App:
         return items
 
     EXPIRY_KINDS = [("garda vetting", r"garda|vetting|nvb"), ("first aid", r"first aid|\bfar\b|phecc"),
-                    ("children first", r"children first"), ("manual handling", r"manual handling"),
+                    ("manual handling", r"manual handling"),
                     ("fire safety", r"fire (?:safety|training|marshal|warden)"),
                     ("food safety", r"food (?:safety|hygiene)|haccp"), ("insurance", r"insurance"),
                     ("passport / ID", r"passport|\bid card|driving licen[cs]e"),
@@ -45761,8 +45949,8 @@ class App:
             "  BindLens © 2026 Mohammed Chahboune Kadi - free software under the GNU AGPL v3, with its source code,\n"
             "  without warranty. It collects and sends nothing. Help > Licence, privacy and legal.\n\n"
             "NEW IN 4.5\n"
-            "  BindLens is a Windows program: BindLens Setup.exe (github.com/CKMohammed/BindLens > Releases). The same\n"
-            "  books, marks and settings. To update the program, run the new installer.\n\n"
+            "  BindLens is a Windows program: BindLens Setup.exe (bindlens.com, or github.com/CKMohammed/BindLens >\n"
+            "  Releases). The same books, marks and settings. To update the program, run the new installer.\n\n"
             "NEW IN 4.4.4\n"
             "  The PIN screen can't get stuck any more (the moving colours slow down on slow computers, the PIN is\n"
             "  checked in the background, BindLens opens at most 1.5 seconds after the right PIN). A file with a\n"
@@ -45816,8 +46004,8 @@ class App:
             "  line: the original font, size and colour first - change them if you want, bold, italic.\n"
             "  A page that can't be drawn is never black: it is tried again, else it says why (Open in its own\n"
             "  program / Try again) and the reason goes in the log. Slow files say so in the status line.\n"
-            "  Reports carry no date unless Settings > Reports says so. 'People, forms & checks' replaces 'Staff &\n"
-            "  children'; File checks per person; texts made general.\n"
+            "  Reports carry no date unless Settings > Reports says so. 'People, forms & checks' for the files of\n"
+            "  staff, clients and students; File checks per person; texts made general.\n"
             "  Help > What BindLens changed in my folders: every file BindLens added, moved, renamed or made.\n\n"
             "NEW IN 4.1\n"
             "  The frame: the menu row at the top (File, Edit, Pages, View, Help - with the book and document in the\n"
@@ -45834,7 +46022,7 @@ class App:
             "  Ctrl+E then Shift+Enter: the changed text stays a mark (right-click it: edit, make final, take off).\n"
             "  Scans: iPhone photos (HEIC), pages photographed at an angle made square.\n"
             "  Right-click a page: Read aloud from here. Stop always stops the voice.\n"
-            "  Settings, Personalise, How it works… can be moved and made smaller. Icon group: Education.\n\n"
+            "  Settings, Personalise, How it works… can be moved and made smaller. Icon group: Higher education.\n\n"
             "NEW IN 4.0\n"
             "  The quick bar (slim icons on the right): Study, Read aloud, Edit the PDF's text, Scan and add,\n"
             "  highlights here, calendar… Right-click it to choose what it shows; drag an icon to move it.\n"
@@ -46081,6 +46269,11 @@ class App:
     def quick_action(self, k):
         """What each icon of the quick bar does."""
         kind = QB_ITEMS.get(k, ("", "", "", "act"))[3]
+        if getattr(self, "_home", None) is not None and k not in ("fast", "doing", "reminders", "scan"):
+            # 1.0: on Home the icons work too - Home steps aside for what needs the page (the panels slide out
+            # beside the page, which Home covers)
+            self.close_home()
+            self.root.update_idletasks()
         if kind == "panel":
             if self._qb_panel and self._qb_panel.get("k") == k:
                 self._qp_close()
@@ -46130,6 +46323,16 @@ class App:
         fr.lift()
         self._qp_slide(0)
         self._qbar_draw()
+
+    def _keep_panel_on_top(self):
+        """1.0: the cards beside the page (clock, calendar, map) come up when they move - the quick bar's panel stays
+        above them (else its calendar, under the card, did not react to clicks)."""
+        p = getattr(self, "_qb_panel", None)
+        if p and p.get("fr") is not None:
+            try:
+                p["fr"].tk.call("raise", p["fr"]._w)
+            except Exception:
+                pass
 
     def _qp_slide(self, target):
         p = self._qb_panel
@@ -46309,6 +46512,7 @@ class App:
             self.root.after(120, draw)
         cv.bind("<Configure>", draw)
         cv.bind("<Button-1>", click)
+        self._qp_cal_redraw = lambda: cv.winfo_exists() and draw()
         lk = tk.Label(body, text="Calendar settings…", font=self.F(9), bg=T["panel"], fg=self.accent, cursor="hand2")
         lk.pack(anchor="w", pady=(6, 0))
         lk.bind("<Button-1>", lambda e: self.calendar_settings())
@@ -49503,7 +49707,10 @@ class App:
         BG, BAR, INK, SUB, PINK, GOLD = "#07060F", "#0E0C1F", "#FFFFFF", "#CFC8F2", "#E8467C", "#FFC83D"
         ov = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground="#2A2550")
         self._video = ov
-        st = {"p": path, "eng": None, "job": None, "mode": "panel", "hov": None, "drag": None, "mpos": None,
+        # 1.0: it opens as you had it last time - big inside the window (the first time), or small where you left it
+        last = self.lib.settings.get("video_mode", "panel")
+        st = {"p": path, "eng": None, "job": None, "mode": last if last in ("panel", "mini") else "panel", "hov": None,
+              "drag": None, "mpos": None, "mfrac": self.lib.settings.get("video_mpos"),
               "vol": int(self.lib.settings.get("video_volume", 80)), "mute": False, "rate": 1.0,
               "full_by_us": False, "click_job": None, "started": time.time(), "tried": []}
         self._video_st = st
@@ -49522,7 +49729,13 @@ class App:
         def layout_parts():
             for w_ in (head, bar, screen):
                 w_.pack_forget()
-            if st["mode"] == "panel":
+            if st["mode"] in ("panel", "mini"):
+                # (small: its title is the handle to drag it anywhere - the video itself takes the mouse on Windows)
+                head.configure(height=38 if st["mode"] == "panel" else 24, cursor="fleur" if st["mode"] == "mini" else "")
+                if st["mode"] == "mini":
+                    lk.pack_forget()
+                elif not lk.winfo_ismapped():
+                    lk.pack(side="right", padx=6)
                 head.pack(side="top", fill="x")
             bar.configure(height=34 if st["mode"] == "mini" else 56)
             bar.pack(side="bottom", fill="x")
@@ -49533,9 +49746,13 @@ class App:
             if m == "mini":
                 W, H = max(400, self.root.winfo_width()), max(300, self.root.winfo_height())
                 mw = max(300, min(480, int(W * 0.3)))
-                mh = int(mw * 9 / 16) + 34
+                mh = int(mw * 9 / 16) + 34 + 24
                 if st["mpos"] is None:
-                    st["mpos"] = (W - mw - 28, H - mh - 44)
+                    fr_ = st.get("mfrac")
+                    if isinstance(fr_, (list, tuple)) and len(fr_) == 2:
+                        st["mpos"] = (int(fr_[0] * W), int(fr_[1] * H))
+                    else:
+                        st["mpos"] = (W - mw - 28, H - mh - 44)
                 x_, y_ = st["mpos"]
                 x_, y_ = max(0, min(W - mw, x_)), max(0, min(H - mh, y_))
                 st["mpos"] = (x_, y_)
@@ -49561,6 +49778,9 @@ class App:
                 self.toggle_fullscreen()
                 st["full_by_us"] = True
             st["mode"] = m
+            if m in ("panel", "mini"):
+                self.lib.settings["video_mode"] = m
+                self.lib.save_meta()
             layout_parts()
             place()
             draw()
@@ -49813,10 +50033,32 @@ class App:
                 st["hov"] = k
                 draw()
 
+        def drop(_e=None):
+            d = st["drag"]
+            st["drag"] = None
+            if isinstance(d, tuple) and d[0] == "move" and st["mpos"]:      # remembered for next time
+                W, H = max(400, self.root.winfo_width()), max(300, self.root.winfo_height())
+                self.lib.settings["video_mpos"] = [round(st["mpos"][0] / W, 4), round(st["mpos"][1] / H, 4)]
+                self.lib.save_meta()
+
+        def head_press(e):
+            if st["mode"] == "mini":
+                st["drag"] = ("move", e.x_root, e.y_root, st["mpos"])
+
+        def head_motion(e):
+            d = st["drag"]
+            if isinstance(d, tuple) and d[0] == "move":
+                _m, x0r, y0r, (px, py) = d
+                st["mpos"] = (px + e.x_root - x0r, py + e.y_root - y0r)
+                place()
+        for w_ in [head] + list(head.winfo_children()):
+            w_.bind("<ButtonPress-1>", head_press, add="+")
+            w_.bind("<B1-Motion>", head_motion)
+            w_.bind("<ButtonRelease-1>", drop, add="+")
         bar.bind("<ButtonPress-1>", press)
         bar.bind("<B1-Motion>", motion)
         bar.bind("<Motion>", motion)
-        bar.bind("<ButtonRelease-1>", lambda e: st.update(drag=None))
+        bar.bind("<ButtonRelease-1>", drop)
         bar.bind("<Leave>", lambda e: (st.update(hov=None), draw()) if st["drag"] is None else None)
         bar.bind("<Configure>", lambda e: draw())
         screen.bind("<Configure>", lambda e: fit())
@@ -49853,10 +50095,16 @@ class App:
                 out.append(MciVideo)
             return [k for k in out if k.__name__ not in st["tried"]]
 
-        def start():
+        def start(_wait=[0]):
             if getattr(self, "_video", None) is not ov:
                 return
             self.root.update_idletasks()
+            # 1.0: the engine is given the picture's place only once it really is on the screen (else on Windows
+            # it could open a little window of its own in a corner)
+            if (not screen.winfo_ismapped() or screen.winfo_width() < 40) and _wait[0] < 20:
+                _wait[0] += 1
+                self.root.after(50, start)
+                return
             errs = []
             for maker in engines():
                 st["tried"].append(maker.__name__)
@@ -50179,8 +50427,8 @@ class App:
             return b if b is not None and b.winfo_ismapped() else getattr(self, "btn_railadd", None)
         return [
             (None, "Welcome to BindLens",
-             "Your folders become books: read them, mark them, find anything in them. Here is where things are - it "
-             "takes half a minute."),
+             "Your folders become books - client files, invoices, contracts, the papers of your university modules: "
+             "read them, mark them, find anything in them. Here is where things are - it takes half a minute."),
             (add_book, "Click to add a book",
              "Choose a folder on your computer and it becomes a book (you can also drag a folder in). Your files stay "
              "where they are."),
