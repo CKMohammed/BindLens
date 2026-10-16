@@ -5,7 +5,7 @@ name: Build Windows installer
 on:
   push:
     branches: [main]
-    paths-ignore: ["docs/**"]       # the website (docs/) does not need a new installer
+    paths-ignore: ["docs/**", "web/**"]   # the website (docs/) and the web app's source (web/) need no new installer
   workflow_dispatch:
 
 permissions:
