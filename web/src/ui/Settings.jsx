@@ -26,6 +26,36 @@ const PRESETS = [
 
 const close = () => { panel.value = null; };
 
+// the institution's logo: made small (for the reports), and its two main colours proposed
+async function readLogo(file) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 360 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+  const g = c.getContext("2d");
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const px = g.getImageData(0, 0, c.width, c.height).data;
+  // the colours that are neither white, black nor grey, counted in buckets
+  const count = new Map();
+  for (let i = 0; i < px.length; i += 16) {
+    const [r, gr, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+    if (a < 200) continue;
+    const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b);
+    if (mx - mn < 28 || mx < 30 || mn > 235) continue;
+    const key = (r >> 4) << 8 | (gr >> 4) << 4 | (b >> 4);
+    const e = count.get(key) || [0, 0, 0, 0];
+    e[0] += r; e[1] += gr; e[2] += b; e[3]++;
+    count.set(key, e);
+  }
+  const hex = (e) => "#" + [e[0], e[1], e[2]].map(v => Math.round(v / e[3]).toString(16).padStart(2, "0")).join("");
+  const top = [...count.values()].sort((a, b) => b[3] - a[3]);
+  const c1 = top[0] ? hex(top[0]) : null;
+  // the second: the most common one that is clearly different from the first
+  const far = (e) => { const [r, g2, b] = [e[0] / e[3], e[1] / e[3], e[2] / e[3]]; const h = parseInt(c1.slice(1), 16); return Math.abs(r - (h >> 16)) + Math.abs(g2 - ((h >> 8) & 255)) + Math.abs(b - (h & 255)) > 120; };
+  const c2e = c1 ? top.find(far) : null;
+  return { logo: c.toDataURL("image/png"), c1, c2: c2e ? hex(c2e) : null };
+}
+
 // Colours: the BindLens colours of the logo, or the institution's - on the frame, the buttons and the reports
 function Colours() {
   const b = settings.value.brand || {};
@@ -46,6 +76,20 @@ function Colours() {
       </div>
       {b.on && <div class="brandform">
         <label class="small">Its name (at the top of your reports)<input class="field" value={b.name || ""} placeholder="e.g. Atlantic Technological University" onInput={(e) => set({ name: e.target.value.slice(0, 80) })} /></label>
+        <div class="row wrap" style={{ gap: 10 }}>
+          {b.logo ? <img class="brandlogo" src={b.logo} alt="Logo" /> : <span class="brandlogo empty"><Icon n="image" size={20} /></span>}
+          <button class="btn ghost small" onClick={async () => {
+            const { pickFiles } = await import("../actions.js");
+            const [f] = await pickFiles({ accept: "image/png,image/jpeg,image/webp,image/svg+xml", multiple: false });
+            if (!f) return;
+            try {
+              const r = await readLogo(f);
+              set({ logo: r.logo, ...(r.c1 ? { c1: r.c1 } : {}), ...(r.c2 ? { c2: r.c2 } : {}) });
+              toast(r.c1 ? "The logo is in, and its colours are proposed below. Change them if you like." : "The logo is in. Choose its colours below.", "ok", 5000);
+            } catch (e) { toast("BindLens could not read that picture.", "bad"); }
+          }}><Icon n="upload" size={15} />{b.logo ? "Another logo..." : "Its logo... (BindLens proposes its colours)"}</button>
+          {b.logo && <button class="btn plain small" onClick={() => set({ logo: "" })}>Take the logo off</button>}
+        </div>
         <div class="row wrap" style={{ gap: 16 }}>
           <label class="row small">Main colour <input type="color" value={b.c1 || "#00573F"} onInput={(e) => set({ c1: e.target.value })} /></label>
           <label class="row small">Second colour <input type="color" value={b.c2 || "#C9A227"} onInput={(e) => set({ c2: e.target.value })} /></label>
@@ -64,7 +108,9 @@ function Colours() {
 export function Settings() {
   const f = settings.value.frame || {};
   const colors = f.colors && f.colors.length ? f.colors : DEFAULT_FRAME;
-  const setFrame = (change) => setSetting("frame", { ...f, colors, ...change });
+  const brandFrame = !!brandOf(settings.value) && settings.value.brand.frame !== false;
+  // choosing the frame's own colours takes the institution's off the frame (they stay on the buttons and reports)
+  const setFrame = (change) => { if (brandFrame && change.colors) setSetting("brand", { ...settings.value.brand, frame: false }); setSetting("frame", { ...f, colors, ...change }); };
   const s = store.value;
   return (
     <Dialog title="Settings" icon="settings" onClose={close} cls="mid">
@@ -73,7 +119,7 @@ export function Settings() {
       <p class="small muted" style={{ marginTop: 0 }}>{brandOf(settings.value) && settings.value.brand.frame !== false ? "The frame has your institution's colours now (above). Choose other colours for it here, or untick \"The frame\" above." : "The colours that flow round the window."}</p>
       <div class="grid2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
         {PRESETS.map(p => {
-          const on = JSON.stringify(p.colors) === JSON.stringify(colors);
+          const on = !brandFrame && JSON.stringify(p.colors) === JSON.stringify(colors);
           return (
             <button key={p.name} class={"cardopt" + (on ? " on" : "")} onClick={() => setFrame({ colors: p.colors })} style={{ flexDirection: "column", gap: 8 }}>
               <span style={{ height: 22, width: "100%", borderRadius: 8, background: `linear-gradient(90deg, ${p.colors.join(",")})` }} />

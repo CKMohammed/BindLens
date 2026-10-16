@@ -878,3 +878,6 @@ textarea.ftext{padding:2px 3px;line-height:1.2}
   .comments{position:absolute;inset:0;width:auto;z-index:8}
   .keys{grid-template-columns:1fr}
 }
+.brandlogo{height:40px;max-width:140px;object-fit:contain;border-radius:6px;background:#fff;border:1px solid var(--line);padding:3px}
+.brandlogo.empty{width:40px;display:flex;align-items:center;justify-content:center;color:var(--faint)}
+.brandform label.chk{flex-direction:row;align-items:center}

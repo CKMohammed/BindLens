@@ -50,7 +50,7 @@ function toCsv(rep) {
 
 function toHtml(rep) {
   const br = brandOf(settings.value);
-  const head = br && br.reports !== false ? `<div style="border-bottom:3pt solid ${br.c1};padding:0 0 5pt;margin:0 0 10pt;display:flex"><b style="color:${br.accent};font-size:11pt;letter-spacing:.04em">${escapeHtml(br.name || "")}</b></div>` : "";
+  const head = br && br.reports !== false ? `<table style="width:100%;border-collapse:collapse;border-bottom:3pt solid ${br.c1};margin:0 0 10pt"><tr>${br.logo ? `<td style="border:0;padding:0 8pt 5pt 0;width:1%"><img src="${br.logo}" style="height:30pt"></td>` : ""}<td style="border:0;padding:0 0 5pt;vertical-align:bottom"><b style="color:${br.accent};font-size:11pt;letter-spacing:.04em">${escapeHtml(br.name || "")}</b></td></tr></table>` : "";
   let h = `${head}<h1${br && br.reports !== false ? ` style="color:${br.accent}"` : ""}>${escapeHtml(rep.title)}</h1><p style="color:#666">${escapeHtml(rep.where)} · ${fmtDate(new Date())} · BindLens</p>`;
   if (rep.pictures) {
     for (const sc of rep.pictures) {
