@@ -5,22 +5,30 @@ import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom
   STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
-import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel } from "./Viewer.jsx";
+import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel, toolLock, PAPERS } from "./Viewer.jsx";
 import { STAMPS, PEN_COLORS, HL_COLORS, stampSpec } from "./marks.js";
 import { undo, redo, allMarks, fileFor, pageOp, getDoc, call, afterEdit } from "../docs.js";
 import { uploadFiles, pickFiles, newBook, renameBook, deleteBook, renameFile, deleteFile, moveFileTo, moveFileInBook,
-  openPanel, addFromDrive, refresh, setBookColor, toggleBookLock, newSubBook, renameSub, deleteSub, moveFileToSub,
+  openPanel, addFromDrive, addFolderFromDrive, refresh, setBookColor, toggleBookLock, newSubBook, renameSub, deleteSub, moveFileToSub,
   addFolder, releaseBook, releaseFile } from "../actions.js";
 import * as FT from "../filetools.js";
 import { initials, isPaged, fmtDate, rgbToHex, BOOK_COLORS, isPhone } from "../util.js";
 import { AccountButton } from "./Home.jsx";
+import { Logo } from "./Logo.jsx";
+import { BookTile } from "./bookicons.jsx";
+import { FullButton } from "./FrameBar.jsx";
+import { Contents, ClockCal, DocSwitch, contentsOpen } from "./Reading.jsx";
 
-function T({ n, label, on, onClick, disabled, children }) {
-  return <button class={"ib" + (on ? " on" : "")} title={label} aria-label={label} onClick={onClick} disabled={disabled}><Icon n={n} />{children}</button>;
+function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
+  // a tool goes back to the arrow after one use; a double-click keeps it on (lock)
+  return <button class={"ib" + (on ? " on" : "") + (on && lock && toolLock.value ? " locked" : "")} title={label + (lock ? " - double-click: keep it on" : "")} aria-label={label}
+    onClick={onClick} disabled={disabled} onContextMenu={onContextMenu}
+    onDblClick={lock ? () => { tool.value = lock; toolLock.value = true; toast("It stays on until you choose the arrow."); } : undefined}><Icon n={n} />{children}</button>;
 }
 
 function setTool(t) {
   tool.value = tool.value === t && t !== "select" ? "select" : t;
+  toolLock.value = false;
   selectedMark.value = null;
   textSel.value = null;
 }
@@ -97,6 +105,7 @@ function TopBar({ book }) {
   const addMenu = (e) => openMenu(e, [
     { label: "Add files...", icon: "upload", run: async () => uploadFiles(book, await pickFiles()) },
     store.value.canPick && { label: "Add from my Google Drive...", icon: "drive", run: () => addFromDrive(book) },
+    store.value.canPick && { label: "A whole folder from my Drive (a new book)...", icon: "drive", run: () => addFolderFromDrive() },
     { label: "Add a folder as a sub-book...", icon: "book", run: () => addFolder(book) },
     { label: "Add pages from another PDF here...", icon: "addpage", run: () => { const f = fileFor(fileId.value); if (f && f.kind === "pdf") FT.addPagesFromPdf(f, pageNo.value + 1); else toast("Open a PDF page first."); } },
     "-",
@@ -142,15 +151,15 @@ function TopBar({ book }) {
   }
   return (
     <div class="topbar">
-      <button class="brand" onClick={goHome} title="Home"><img src={import.meta.env.BASE_URL + "icon.png"} alt="" /><b>Bind<span>Lens</span></b></button>
+      <button class="brand" onClick={goHome} title="Home"><Logo size={54} /><b>Bind<span>Lens</span></b></button>
       <T n="sidebar" label="Library (show / hide)" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
       <T n="home" label="Home" onClick={goHome} />
       <div class="tools">
         <T n="select" label="Select and move (V)" on={t === "select"} onClick={() => setTool("select")} />
-        <T n="pen" label="Pen (P)" on={t === "pen"} onClick={() => setTool("pen")} />
-        <button class={"ib" + (t === "highlight" ? " on" : "")} title="Highlighter (H) - right-click: underline, strike out" onClick={() => setTool("highlight")} onContextMenu={hlMenu}><Icon n="highlighter" /></button>
-        <button class={"ib" + (t === "text" ? " on" : "")} title="Text (T) - right-click: its style, colour and size" onClick={() => setTool("text")} onContextMenu={(e) => { e.preventDefault(); colorMenu(e); }}><Icon n="text" /></button>
-        <T n="note" label="Sticky note (N)" on={t === "note"} onClick={() => setTool("note")} />
+        <T n="pen" label="Pen (P)" on={t === "pen"} onClick={() => setTool("pen")} lock="pen" />
+        <T n="highlighter" label="Highlighter (H) - right-click: underline, strike out" on={t === "highlight"} onClick={() => setTool("highlight")} onContextMenu={hlMenu} lock="highlight" />
+        <T n="text" label="Text (T) - right-click: its style, colour and size" on={t === "text"} onClick={() => setTool("text")} onContextMenu={(e) => { e.preventDefault(); colorMenu(e); }} lock="text" />
+        <T n="note" label="Sticky note (N) - right-click: the colour of the paper" on={t === "note"} onClick={() => setTool("note")} onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ title: "Sticky note paper" }, ...PAPERS.map(([c, l]) => ({ label: l + ((o.paper || "#FFED8C") === c ? " (now)" : ""), swatch: c, run: () => { setOpt("paper", c); tool.value = "note"; } }))]); }} lock="note" />
         <button class={"ib" + (["shape", "tick", "cross"].includes(t) ? " on" : "")} title="Shapes, tick and cross" onClick={shapeMenu}><Icon n={t === "tick" ? "tick" : t === "cross" ? "cross" : o.shape === "circle" ? "circle" : o.shape === "line" ? "line" : o.shape === "arrow" ? "arrow" : "shape"} /></button>
         <button class={"ib" + (["stamp", "sign", "picture"].includes(t) ? " on" : "")} title="Stamps, signature, picture" onClick={stampMenu}><Icon n={t === "sign" ? "sign" : "stamp"} /></button>
         <T n="edit" label="Change the text of the PDF" on={t === "edit"} onClick={() => setTool("edit")} />
@@ -162,11 +171,13 @@ function TopBar({ book }) {
         <button class="ib" title="Add: files, a written page, a scan" onClick={addMenu}><Icon n="addpage" /></button>
       </div>
       <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0}><Icon n="search" size={17} /><span class="ellipsis">Find a document or a word</span><kbd>Ctrl+K</kbd></div>
+      {readMode.value && <span class="grow" />}
+      {readMode.value && <DocSwitch book={book} />}
       <button class={"btn " + (readMode.value ? "" : "ghost") + " small hide-phone"} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={17} />Read</button>
       <button class="btn small" onClick={() => openPanel("reports")}><Icon n="reports" size={17} /><span class="hide-phone">Reports</span></button>
       <span class={"savestate" + (s.error ? " bad" : "")} title={s.error || (store.value.kind === "demo" ? "The example library: nothing is saved" : "Saved in your Google Drive")}>{saveText}</span>
       <T n="print" label="Print (Ctrl+P)" onClick={() => openPanel("print")} />
-      <T n="full" label="Full screen" onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); }} />
+      <FullButton small />
       <AccountButton />
       {void curFile}
     </div>
@@ -185,8 +196,8 @@ function Rail({ book }) {
   return (
     <div class="rail">
       {books.value.map(b => (
-        <button key={b.id} class={"tab" + (b.id === book.id ? " on" : "")} style={{ background: b.color }} title={b.name}
-          onClick={() => openBook(b.id)}>{initials(b.name)}</button>
+        <button key={b.id} class={"tab" + (b.id === book.id ? " on" : "")} title={b.name}
+          onClick={() => openBook(b.id)} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={bookMeta(b.id)} size={48} /></button>
       ))}
       <button class="ib" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
     </div>
@@ -452,46 +463,20 @@ window.addEventListener("bl-read-aloud", (e) => {
 });
 window.addEventListener("keydown", (e) => { if (e.key === "Escape" && speaking) { stopReading(); aloudSig.set && aloudSig.set(false); } });
 
-function ReadingSide({ book }) {
+function ReadingLayer({ book }) {
   const [aloud, setAloud] = useState(!!speaking);
   useEffect(() => { aloudSig.set = setAloud; return () => { aloudSig.set = null; }; }, []);
   useEffect(() => () => stopReading(), []);
-  const [now, setNow] = useState(new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
-  const total = book.files.reduce((a, f) => a + (docState.value[f.id]?.pages?.length || (isPaged(f.kind) ? 1 : 0)), 0);
-  let before = 0;
-  for (const f of book.files) { if (f.id === fileId.value) { before += pageNo.value + 1; break; } before += docState.value[f.id]?.pages?.length || 1; }
-  const pct = total ? Math.round(before / total * 100) : 0;
-  return (
-    <div class="side">
-      <div class="contents">
-        <div class="tiny muted" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>Contents</div>
-        <h3 style={{ font: "italic 400 26px Georgia,serif", margin: "4px 0 10px" }}>{book.name}</h3>
-        <div class="row"><span class="big">{book.files.length}</span><span class="small muted">documents · {total} pages</span></div>
-        <div class="bar"><i style={{ width: pct + "%" }} /></div>
-        <div class="tiny muted">Page {before} of {total} · {pct}% of the book</div>
-        <button class={"btn small " + (aloud ? "" : "soft")} style={{ marginTop: 10 }} onClick={() => readAloud(book, setAloud)}>
-          <Icon n={aloud ? "pause" : "play"} size={16} />{aloud ? "Stop reading" : "Read aloud"}</button>
-      </div>
-      <FilesList book={book} />
-      <div style={{ padding: 14 }}>
-        <div class="clockcard">
-          <div class="m">{now.toLocaleDateString("en-GB", { month: "long", year: "numeric" }).toUpperCase()}</div>
-          <div class="d">{now.getDate()}</div>
-          <div class="small muted">{now.toLocaleDateString("en-GB", { weekday: "long" })}</div>
-          <div class="t">{now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
-        </div>
-      </div>
-    </div>
-  );
+  return <Contents book={book} aloud={aloud} onAloud={() => readAloud(book, setAloud)} />;
 }
 
 function Side({ book }) {
-  if (readMode.value) return <ReadingSide book={book} />;
+  if (readMode.value) return null;
   const tab = sideTab.value;
   const bookMenu = (e, b) => openMenu(e, [
     { title: b.name },
     { label: "Rename", icon: "rename", run: () => renameBook(b) },
+    { label: "Icon and colour...", icon: "palette", run: () => openPanel("bookstyle", { id: b.id }) },
     { label: "New sub-book...", icon: "plus", run: () => newSubBook(b) },
     { label: "Add a folder as a sub-book...", icon: "book", run: () => addFolder(b) },
     { label: "Save the whole book as one PDF...", icon: "download", run: () => FT.wholeBookAsPdf(b) },
@@ -515,7 +500,7 @@ function Side({ book }) {
         {books.value.map(b => (
           <button key={b.id} class={"bookrow" + (b.id === book.id ? " on" : "")} onClick={() => openBook(b.id)}
             onContextMenu={(e) => { e.preventDefault(); bookMenu(e, b); }}>
-            <span class="chip" style={{ background: b.color }}>{initials(b.name)}</span>
+            <span class="chip"><BookTile book={b} meta={bookMeta(b.id)} size={28} /></span>
             <span class="grow ellipsis">{b.name}</span><span class="n">{b.files.length}</span>
           </button>
         ))}
@@ -667,12 +652,13 @@ export function BookView() {
       <TopBar book={book} />
       <div class="main">
         <Rail book={book} />
-        {(leftOpen.value || readMode.value) && <Side book={book} />}
-        <div style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
+        {leftOpen.value && !readMode.value && <Side book={book} />}
+        <div class={"vhost" + (readMode.value && contentsOpen.value && !narrow.value ? " withcontents" : "")} style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
           <Viewer book={book} />
           {book.files.length > 0 && <PageBar book={book} />}
+          {readMode.value && <ClockCal />}
         </div>
-        <RRail />
+        {readMode.value && <ReadingLayer book={book} />}
       </div>
     </div>
   );

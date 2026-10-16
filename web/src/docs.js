@@ -174,6 +174,13 @@ export async function editMark(file, page, i, change) {
   afterEdit(file.id);
 }
 
+export async function copyMark(file, page, i) {
+  const d = await getDoc(file);
+  const n = await call("copyAnnot", d.key, page, i);
+  afterEdit(file.id);
+  return n;
+}
+
 export async function deleteMark(file, page, i) {
   const d = await getDoc(file);
   await call("deleteAnnot", d.key, page, i);

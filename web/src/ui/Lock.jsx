@@ -1,4 +1,5 @@
 // Locked with a PIN: on a shared computer, nobody opens BindLens without the four digits.
+import { Logo } from "./Logo.jsx";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { locked, settings, store, setSetting, toast } from "../state.js";
 import { sha256 } from "../util.js";
@@ -35,7 +36,7 @@ export function Lock() {
   return (
     <div class="lock">
       <div style={{ textAlign: "center" }}>
-        <img src={import.meta.env.BASE_URL + "icon.png"} alt="" style={{ width: 64, height: 64, borderRadius: 16, boxShadow: "0 0 0 2px #F2C85A" }} />
+        <Logo size={68} />
         <div class="clock" style={{ marginTop: 14 }}>{now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
         <div style={{ opacity: .8 }}>{now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
         <p style={{ marginTop: 18, fontWeight: 700 }}>{bad ? "That PIN is not right. Try again." : "Type your PIN"}</p>

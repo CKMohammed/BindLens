@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
 import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook } from "../state.js";
+  currentBook, readMode } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -15,17 +15,31 @@ import { openPanel } from "../actions.js";
 import { engineStarted } from "../engine/client.js";
 import { Icon } from "./icons.jsx";
 import { Pip } from "./Gallery.jsx";
+import { FrameBar, frameBarOn } from "./FrameBar.jsx";
+import { Logo } from "./Logo.jsx";
+import { mix } from "../util.js";
 
 export const DEFAULT_FRAME = ["#7C5CFF", "#FF3D9A", "#F0562A", "#F2C85A", "#3E7BFF"];
 
-function Frame() {
+function frameVars() {
+  // the frame's colours, and the same colours very soft for the lava backgrounds (Home, sign-in, reading mode)
   const f = settings.value.frame || {};
   const c = f.colors && f.colors.length >= 2 ? f.colors : DEFAULT_FRAME;
   const style = {};
-  for (let i = 0; i < 5; i++) style["--c" + (i + 1)] = c[i % c.length];
+  for (let i = 0; i < 5; i++) {
+    style["--c" + (i + 1)] = c[i % c.length];
+    style["--l" + (i + 1)] = mix(c[i % c.length], "#FFFFFF", 0.74);
+  }
   style["--speed"] = (f.speed || 22) + "s";
+  // the bar of the browser on a phone (and of the installed app) in the frame's colour
+  try { const m = document.querySelector('meta[name="theme-color"]'); if (m && m.content !== c[0]) m.content = c[0]; } catch (e) {}
+  return style;
+}
+
+function Frame() {
+  const f = settings.value.frame || {};
   return (
-    <div class={"frame" + (f.still ? " still" : "")} style={style}>
+    <div class={"frame" + (f.still ? " still" : "")}>
       <div class="lava" /><div class="lava b" />
     </div>
   );
@@ -76,17 +90,18 @@ function Start() {
   const backMs = (() => { try { return !!MS_CLIENT_ID && localStorage.getItem("bl_cloud") === "onedrive" && !!back; } catch (e) { return false; } })();
   useEffect(() => { loadGoogle().catch(() => {}); engineStarted().catch(() => {}); }, []);
   const busy = phase.value === "loading";
+  const from = (() => { try { return new URLSearchParams(location.search).get("start") || ""; } catch (e) { return ""; } })();   // from bindlens.com
   return (
     <div class="start">
       <div class="card">
-        <img class="logo" src={import.meta.env.BASE_URL + "icon.png"} alt="" />
+        <Logo size={96} />
         <h1>Bind<span>Lens</span> Web</h1>
         <p>Your documents, bound into books. Read, mark and find anything, from any computer or phone. Everything is saved in your own Google Drive{MS_CLIENT_ID ? " or OneDrive" : ""}.</p>
         {busy ? <><div class="spinner" /><p class="small">Opening your library...</p></> : <>
-          <button class="gbtn" onClick={() => startWith(backMs ? new OneDriveStore() : new DriveStore())}>
+          <button class={"gbtn" + (from === "google" ? " callout" : "")} onClick={() => startWith(backMs ? new OneDriveStore() : new DriveStore())}>
             {backMs ? <MS /> : <G />}{back ? <span>Continue as {back}</span> : <span>Sign in with Google</span>}
           </button>
-          {MS_CLIENT_ID && !back && <div style={{ marginTop: 10 }}><button class="gbtn ms" onClick={() => startWith(new OneDriveStore())}><MS /><span>Sign in with Microsoft (OneDrive)</span></button></div>}
+          {MS_CLIENT_ID && !back && <div style={{ marginTop: 10 }}><button class={"gbtn ms" + (from === "microsoft" ? " callout" : "")} onClick={() => startWith(new OneDriveStore())}><MS /><span>Sign in with Microsoft (OneDrive)</span></button></div>}
           {back && <div style={{ marginTop: 10 }}><button class="btn plain small" onClick={() => { try { localStorage.removeItem("bl_email"); localStorage.removeItem("bl_signed_in"); localStorage.removeItem("bl_cloud"); localStorage.removeItem("bl_ms"); } catch (e) {} location.reload(); }}>Use another account</button></div>}
           <div class="or">or</div>
           <button class="btn ghost" onClick={() => startWith(new DemoStore())}>Try it with an example library</button>
@@ -144,12 +159,16 @@ export function App() {
   }, []);
 
   const ready = phase.value === "ready";
+  const lava = !ready || view.value !== "book" || readMode.value;
+  const still = !!(settings.value.frame || {}).still;
   return (
-    <div class="shell">
+    <div class={"shell" + (ready && frameBarOn() ? " withbar" : "")} style={frameVars()}>
       <Frame />
-      <div class="window">
+      <div class="titlebar" aria-hidden="true"><span>Bind<b>Lens</b></span></div>
+      <div class={"window" + (lava ? " lavabg" : "") + (still ? " stillbg" : "")}>
         {!ready ? <Start /> : view.value === "book" ? <BookView /> : <Home />}
       </div>
+      {ready && <FrameBar />}
       {ready && panel.value && <Panels />}
       {ready && <Pip />}
       {ready && locked.value && <Lock />}

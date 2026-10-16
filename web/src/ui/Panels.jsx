@@ -22,10 +22,11 @@ const Deleted = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Del
 const Protect = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Protect })));
 const Welcome = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Welcome })));
 const Legal = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Legal })));
+const BookStyle = lazy(() => import("./BookStyle.jsx").then(m => ({ default: m.BookStyle })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
-  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal };
+  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal, bookstyle: BookStyle };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

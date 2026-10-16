@@ -5,6 +5,8 @@ import { wordsOf, getDoc, call } from "../docs.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openPanel, newBook, uploadFiles, pickFiles, signOut, continueReading } from "../actions.js";
 import { searchHits, scrollTo } from "./Viewer.jsx";
+import { BookTile } from "./bookicons.jsx";
+import { bookMeta } from "../state.js";
 import { escapeHtml, isPaged, initials } from "../util.js";
 
 const ACTIONS = [
@@ -159,7 +161,7 @@ export function Find() {
                 {head}
                 <button class={"res" + (i === on ? " on" : "")} onMouseEnter={() => setOn(i)} onClick={() => choose(it)}>
                   <span class="ico" style={{ background: it.type === "action" ? "var(--accent-soft)" : color, color: it.type === "action" ? "var(--accent)" : "#fff" }}>
-                    {it.type === "action" ? <Icon n={it.a.icon} size={16} /> : it.type === "book" ? initials(it.b.name) : <Icon n={fileIcon(it.f.kind)} size={16} />}
+                    {it.type === "action" ? <Icon n={it.a.icon} size={16} /> : it.type === "book" ? <BookTile book={it.b} meta={bookMeta(it.b.id)} size={30} /> : <Icon n={fileIcon(it.f.kind)} size={16} />}
                   </span>
                   <span class="grow" style={{ minWidth: 0 }}>
                     {it.type === "word" ? <>

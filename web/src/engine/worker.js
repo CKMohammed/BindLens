@@ -55,6 +55,10 @@ function describeAnnot(a, i) {
   try { o.modified = +a.getModificationDate(); } catch (e) {}
   if (type === "FreeText") { const st = styleOf(a); if (st) o.style = st; try { o.size = a.getDefaultAppearance().size; } catch (e) {} }
   if (type === "Square" || type === "Circle") { try { const ic = a.getInteriorColor(); if (ic && ic.length) o.fill = colorOf(ic); } catch (e) {} }
+  if (type === "Line") try { o.line = a.getLine(); } catch (e) {}
+  if (type === "FreeText" && o.subject === "Sticky note") try { o.paper = colorOf(a.getColor()); } catch (e) {}
+  const rot = rotOf(a);
+  if (rot && Math.abs(rot.deg || 0) > 0.05) { o.rot = rot.deg; o.rw = rot.w; o.rh = rot.h; }
   return o;
 }
 
@@ -198,12 +202,17 @@ function wrapLines(font, text, size, width) {
 }
 
 function stickyAppearance(d, a) {
+  // a sticky note like the app's: coloured paper with a soft shadow, a darker strip at the top, a piece of tape
+  // and the bottom corner folded
   let r = a.getRect();
-  const size = 12, lead = 15, pad = 9;
+  const size = 12, lead = 15, pad = 10, sh = 3;
+  let paper = [1, 0.93, 0.55];
+  try { const c = a.getColor(); if (c && c.length === 3) paper = c; } catch (e) {}
+  const dark = paper.map(v => Math.max(0, v * 0.84));
   const f = new mupdf.Font("Helvetica");
   const w = r[2] - r[0];
-  const lines = wrapLines(f, a.getContents(), size, w - pad * 2);
-  const need = pad * 2 + 6 + lines.length * lead;
+  const lines = wrapLines(f, a.getContents(), size, w - pad * 2 - sh);
+  const need = pad * 2 + 8 + sh + lines.length * lead;
   if (r[3] - r[1] < need) { r = [r[0], r[1], r[2], r[1] + need]; a.setRect(r); }
   const h = r[3] - r[1];
   const font = d.pdf.addSimpleFont(new mupdf.Font("Helvetica"), "Latin");
@@ -211,13 +220,37 @@ function stickyAppearance(d, a) {
   const fd = d.pdf.newDictionary();
   fd.put("F", font);
   res.put("Font", fd);
-  let cs = "q 1 0.93 0.55 rg 0 0 " + w + " " + h + " re f ";
-  cs += "1 0.86 0.36 rg 0 " + (h - 7) + " " + w + " 7 re f ";
-  cs += "0.86 0.75 0.3 RG 0.6 w 0.3 0.3 " + (w - 0.6) + " " + (h - 0.6) + " re S Q\n";
-  cs += "BT /F " + size + " Tf 0.16 0.14 0.3 rg " + lead + " TL 1 0 0 1 " + pad + " " + (h - pad - 6 - size) + " Tm ";
+  const gs = d.pdf.newDictionary();
+  const g1 = d.pdf.newDictionary(); g1.put("ca", 0.16); gs.put("S", g1);
+  const g2 = d.pdf.newDictionary(); g2.put("ca", 0.55); gs.put("T", g2);
+  res.put("ExtGState", gs);
+  const pw = w - sh, fold = Math.min(14, pw / 6, h / 5);
+  const n = (v) => v.toFixed(2);
+  let cs = "q /S gs 0 0 0 rg " + sh + " 0 " + n(pw) + " " + n(h - sh) + " re f Q\n";
+  cs += "q " + paper.map(n).join(" ") + " rg 0 " + sh + " m " + n(pw - fold) + " " + sh + " l " + n(pw) + " " + n(sh + fold) + " l " + n(pw) + " " + n(h) + " l 0 " + n(h) + " l h f ";
+  cs += dark.map(n).join(" ") + " rg 0 " + n(h - 6) + " " + n(pw) + " 6 re f ";
+  cs += n(pw - fold) + " " + sh + " m " + n(pw - fold) + " " + n(sh + fold) + " l " + n(pw) + " " + n(sh + fold) + " l h f Q\n";
+  cs += "q /T gs 1 1 1 rg " + n(pw / 2 - 17) + " " + n(h - 9) + " 34 9 re f Q\n";
+  cs += "BT /F " + size + " Tf 0.16 0.14 0.3 rg " + lead + " TL 1 0 0 1 " + pad + " " + n(h - pad - 8 - size) + " Tm ";
   for (const [i, l] of lines.entries()) cs += (i ? "T* " : "") + pdfString(l) + " Tj ";
   cs += "ET\n";
   a.setAppearance(null, null, mupdf.Matrix.identity, [0, 0, w, h], res, cs);
+}
+
+// plain words on the page: the box grows to fit all the lines (after a new size or new words); new words: as wide
+// as their longest line, as when they were written
+function fitPlain(a, words) {
+  let r = a.getRect();
+  const size = a.getDefaultAppearance().size || 12;
+  if (words) {
+    const f = new mupdf.Font("Helvetica");
+    const w = Math.max(...String(a.getContents() || "").split("\n").map(l => textWidth(f, l, size))) + 10;
+    r = [r[0], r[1], r[0] + Math.max(20, w), r[3]];
+    a.setRect(r);
+  }
+  const lines = wrapLines(new mupdf.Font("Helvetica"), a.getContents(), size, Math.max(10, r[2] - r[0] - 4));
+  const need = lines.length * size * 1.25 + 6;
+  if (r[3] - r[1] < need - 0.5) a.setRect([r[0], r[1], r[2], r[1] + need]);
 }
 
 // a text box with a style (outline, label, solid colour, dashed, marker): its own look, kept by any PDF program
@@ -406,6 +439,80 @@ function render(d, pageIndex, scale, annots = true) {
   const px = new Uint8ClampedArray(pix.getPixels());
   pix.destroy?.();
   return { w, h, px };
+}
+
+// ---- turning, sizing: the look's own matrix is turned and the box round it grows to fit; BLRot keeps the angle
+// and the size before turning (so the words of a turned text box can still be changed, and it is turned again)
+const BOXY = new Set(["FreeText", "Square", "Circle", "Stamp"]);
+const GEO = new Set(["moveBy", "rotateBy", "resize", "stamp"]);
+function nums(o) { const out = []; for (let i = 0; i < o.length; i++) out.push(o.get(i).asNumber()); return out; }
+function rotOf(a) {
+  try { const v = a.getObject().get("BLRot"); if (!v.isNull()) return JSON.parse(v.asString()); } catch (e) {}
+  return null;
+}
+function apN(a) {
+  const ap = a.getObject().get("AP");
+  if (!ap || ap.isNull()) return null;
+  const n = ap.get("N");
+  return !n || n.isNull() || !n.isStream() ? null : n;
+}
+function rawDate(d, a) {
+  const t = new Date(), z = (n) => String(n).padStart(2, "0");
+  try { a.getObject().put("M", d.pdf.newString(`D:${t.getUTCFullYear()}${z(t.getUTCMonth() + 1)}${z(t.getUTCDate())}${z(t.getUTCHours())}${z(t.getUTCMinutes())}${z(t.getUTCSeconds())}Z`)); } catch (e) {}
+}
+function writeRect(page, a, r) {
+  const inv = mupdf.Matrix.invert(page.getTransform());
+  const tp = (x, y) => [inv[0] * x + inv[2] * y + inv[4], inv[1] * x + inv[3] * y + inv[5]];
+  const p1 = tp(r[0], r[1]), p2 = tp(r[2], r[3]);
+  a.getObject().put("Rect", [Math.min(p1[0], p2[0]), Math.min(p1[1], p2[1]), Math.max(p1[0], p2[0]), Math.max(p1[1], p2[1])]);
+}
+function unturnedRect(page, cx, cy, w, h) {
+  // w, h are in the PDF's own units: on a page turned a quarter they are the other way round on the screen
+  const m = page.getTransform();
+  const q = Math.abs(m[1]) > Math.abs(m[0]);
+  const W = q ? h : w, H = q ? w : h;
+  return [cx - W / 2, cy - H / 2, cx + W / 2, cy + H / 2];
+}
+function rotateTo(d, a, deg, fresh, centre) {
+  const obj = a.getObject();
+  const ap = apN(a);
+  if (!ap) return;
+  const bbox = nums(ap.get("BBox"));
+  const mo = ap.get("Matrix");
+  const Mc = !mo || mo.isNull() ? [1, 0, 0, 1, 0, 0] : nums(mo);
+  const R = nums(obj.get("Rect"));
+  let st = fresh ? null : rotOf(a);
+  if (!st || !st.m) {
+    const tb = mupdf.Rect.transform(bbox, Mc);
+    const kx = (R[2] - R[0]) / ((tb[2] - tb[0]) || 1), ky = (R[3] - R[1]) / ((tb[3] - tb[1]) || 1);
+    st = { m: mupdf.Matrix.concat(Mc, mupdf.Matrix.scale(kx, ky)), w: R[2] - R[0], h: R[3] - R[1] };
+  }
+  deg = ((((deg + 180) % 360) + 360) % 360) - 180;
+  const tb = mupdf.Rect.transform(bbox, st.m);
+  const cx = (tb[0] + tb[2]) / 2, cy = (tb[1] + tb[3]) / 2;
+  const M = mupdf.Matrix.concat(mupdf.Matrix.concat(mupdf.Matrix.concat(st.m, mupdf.Matrix.translate(-cx, -cy)), mupdf.Matrix.rotate(-deg)), mupdf.Matrix.translate(cx, cy));
+  const nb = mupdf.Rect.transform(bbox, M);
+  const rx = centre ? centre[0] : (R[0] + R[2]) / 2, ry = centre ? centre[1] : (R[1] + R[3]) / 2;
+  const W = nb[2] - nb[0], H = nb[3] - nb[1];
+  ap.put("Matrix", M);
+  obj.put("Rect", [rx - W / 2, ry - H / 2, rx + W / 2, ry + H / 2]);
+  obj.put("BLRot", d.pdf.newString(JSON.stringify({ deg: Math.round(deg * 10) / 10, m: st.m, w: st.w, h: st.h })));
+}
+const SKIP_COPY = new Set(["P", "Popup", "NM", "IRT", "Subtype", "Type", "Parent"]);
+function deepCopy(d, v) {
+  if (v.isIndirect()) {
+    const r = v.resolve();
+    if (r.isStream()) {
+      const dict = d.pdf.newDictionary();
+      r.forEach((x, k) => { if (k !== "Length") dict.put(k, deepCopy(d, x)); });
+      return d.pdf.addRawStream(v.readRawStream(), dict);
+    }
+    if (r.isDictionary() && r.get("Type").isName && !r.get("Type").isNull() && r.get("Type").asName() === "Page") return v;
+    return deepCopy(d, r);
+  }
+  if (v.isArray()) { const arr = d.pdf.newArray(); for (let i = 0; i < v.length; i++) arr.push(deepCopy(d, v.get(i))); return arr; }
+  if (v.isDictionary()) { const dict = d.pdf.newDictionary(); v.forEach((x, k) => dict.put(k, deepCopy(d, x))); return dict; }
+  return v;
 }
 
 const api = {
@@ -618,49 +725,110 @@ const api = {
     const d = get(key);
     return op(d, "Change a mark", () => {
       const { page: p, a } = annotAt(d, page, i);
+      const type = a.getType();
+      let subject = "";
+      try { subject = a.getSubject(); } catch (e) {}
+      const rot = rotOf(a);
+      const turned = rot && Math.abs(rot.deg || 0) > 0.05 ? rot : null;
+      const boxy = BOXY.has(type);
+      // moving or turning a box, a text or a stamp (and making a stamp bigger): written straight into the PDF,
+      // so its look stays exactly as it is (MuPDF would draw a plain one again)
+      const geo = Object.keys(change).every(k => GEO.has(k) && (k !== "stamp" || !change.stamp));
+      if (boxy && geo && (type === "Stamp" || !change.resize)) {
+        if (change.moveBy) moveRaw(p, a, change.moveBy[0], change.moveBy[1]);
+        if (change.resize) {
+          const b = a.getBounds(), n = change.resize;
+          const s = (n[2] - n[0]) / ((b[2] - b[0]) || 1);
+          writeRect(p, a, n);
+          if (rot && rot.m) { rot.m = mupdf.Matrix.concat(rot.m, mupdf.Matrix.scale(s, s)); rot.w *= s; rot.h *= s; a.getObject().put("BLRot", d.pdf.newString(JSON.stringify(rot))); }
+        }
+        if (change.rotateBy) rotateTo(d, a, (rot?.deg || 0) + change.rotateBy, !rot);
+        rawDate(d, a);
+        p.update();
+        return true;
+      }
       // a stamp, a signature or a picture keeps its own look: take its picture before anything changes
       // (any change makes MuPDF draw a plain "Draft" stamp instead), and put it back at the end
-      const isStamp = a.getType() === "Stamp";
+      const isStamp = type === "Stamp";
       const look = isStamp ? a.toDisplayList() : null;
       let shift = [0, 0];
+      let moveBy = change.moveBy, resize = change.resize, scaled = !!change.resize, keepAt = null;
+      if (turned && boxy && !isStamp) {
+        // a turned box is changed as it was before turning it, then turned again
+        const b = a.getBounds();
+        let cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, w = rot.w, h = rot.h;
+        if (moveBy) { cx += moveBy[0]; cy += moveBy[1]; moveBy = null; }
+        if (resize) {
+          const s = (resize[2] - resize[0]) / ((b[2] - b[0]) || 1);
+          w *= s; h *= s; cx = (resize[0] + resize[2]) / 2; cy = (resize[1] + resize[3]) / 2; resize = null;
+        }
+        a.setRect(unturnedRect(p, cx, cy, w, h));
+        const inv = mupdf.Matrix.invert(p.getTransform());
+        keepAt = [inv[0] * cx + inv[2] * cy + inv[4], inv[1] * cx + inv[3] * cy + inv[5]];   // turned again round here
+      }
       a.setModificationDate(new Date());
       if (change.contents != null) a.setContents(change.contents);
       if (change.color) {
-        if (a.getType() === "FreeText") {
+        if (type === "FreeText") {
           const da = a.getDefaultAppearance();
           a.setDefaultAppearance(da.font || "Helv", da.size || 12, change.color);
         } else a.setColor(change.color);
       }
+      if (change.paper && type === "FreeText") try { a.setColor(change.paper); } catch (e) {}
       if (change.rect) a.setRect(change.rect);
-      if (change.moveBy) {
-        const [dx, dy] = change.moveBy;
-        const t = a.getType();
+      if (moveBy) {
+        const [dx, dy] = moveBy;
         if (a.hasQuadPoints()) a.setQuadPoints(a.getQuadPoints().map(q => q.map((v, j) => v + (j % 2 ? dy : dx))));
         else if (a.hasInkList()) a.setInkList(a.getInkList().map(s => s.map(([x, y]) => [x + dx, y + dy])));
         else if (a.hasLine()) { const [p1, p2] = a.getLine(); a.setLine([p1[0] + dx, p1[1] + dy], [p2[0] + dx, p2[1] + dy]); }
         else if (a.hasVertices()) a.setVertices(a.getVertices().map(([x, y]) => [x + dx, y + dy]));
-        else if (t === "Stamp") {
+        else if (isStamp) {
           const r = a.getRect();
           a.setRect([r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy]);
           shift = [dx, dy];
         }
         else { const r = a.getRect(); a.setRect([r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy]); }
       }
-      if (change.fill !== undefined && (a.getType() === "Square" || a.getType() === "Circle")) {
+      if (resize) {
+        // bigger or smaller: a box to its new size, a drawing or a line stretched to it
+        const o = a.getBounds(), n = resize;
+        const sx = (n[2] - n[0]) / ((o[2] - o[0]) || 1), sy = (n[3] - n[1]) / ((o[3] - o[1]) || 1);
+        const map = ([x, y]) => [n[0] + (x - o[0]) * sx, n[1] + (y - o[1]) * sy];
+        if (a.hasInkList()) a.setInkList(a.getInkList().map(s => s.map(map)));
+        else if (a.hasLine()) { const [p1, p2] = a.getLine(); a.setLine(map(p1), map(p2)); }
+        else if (a.hasVertices()) a.setVertices(a.getVertices().map(map));
+        else if (!a.hasQuadPoints()) a.setRect(n);
+      }
+      if (change.line && a.hasLine()) a.setLine(change.line[0], change.line[1]);
+      if (change.rotateBy && !boxy) {
+        // a drawing or a line turns round its middle
+        const b = a.getBounds();
+        const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+        const t = change.rotateBy * Math.PI / 180, cs = Math.cos(t), sn = Math.sin(t);
+        const turn = ([x, y]) => [cx + (x - cx) * cs - (y - cy) * sn, cy + (x - cx) * sn + (y - cy) * cs];
+        if (a.hasInkList()) a.setInkList(a.getInkList().map(s => s.map(turn)));
+        else if (a.hasLine()) { const [p1, p2] = a.getLine(); a.setLine(turn(p1), turn(p2)); }
+        else if (a.hasVertices()) a.setVertices(a.getVertices().map(turn));
+      }
+      if (change.fill !== undefined && (type === "Square" || type === "Circle")) {
         if (change.fill) a.setInteriorColor(change.fill); else a.setInteriorColor([]);
       }
-      if (change.style && a.getType() === "FreeText") {
+      if (change.style && type === "FreeText") {
         const was = styleOf(a) || {};
         const st = { ...was, ...change.style };
         a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(st)));
         try { a.setSubject(st.style === "plain" && !st.fill && !st.line ? "" : "Text box"); } catch (e) {}
       }
-      if (change.size && a.getType() === "FreeText") {
+      if (change.size && type === "FreeText") {
         const da = a.getDefaultAppearance();
-        a.setDefaultAppearance(da.font || "Helv", change.size, da.color || [0, 0, 0]);
+        const size = Math.max(4, Math.min(200, change.size));
+        a.setDefaultAppearance(da.font || "Helv", size, da.color || [0, 0, 0]);
+        if (!scaled && subject !== "Sticky note") {
+          // bigger letters, a bigger box
+          const r = a.getRect(), q = size / (da.size || 12);
+          a.setRect([r[0], r[1], r[0] + (r[2] - r[0]) * q, r[1] + (r[3] - r[1]) * q]);
+        }
       }
-      const type = a.getType();
-      let subject = "";
       try { subject = a.getSubject(); } catch (e) {}
       // stamps, signatures and pictures keep their own look when they move; sticky notes are drawn again
       if (type === "Stamp") {
@@ -676,9 +844,46 @@ const api = {
         a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(st)));
         boxAppearance(d, a, st);
       }
-      else a.update();
+      else {
+        if (type === "FreeText" && (change.size || change.contents != null || change.resize)) fitPlain(a, change.contents != null && !change.resize);
+        a.update();
+      }
+      // turned before (or turned now): turn the new look
+      if (boxy && !isStamp && (turned || change.rotateBy)) rotateTo(d, a, (turned?.deg || 0) + (change.rotateBy || 0), true, keepAt);
       p.update();
       return true;
+    });
+  },
+
+  // a copy of a mark, a little lower and to the right (its look and all)
+  copyAnnot(key, page, i) {
+    const d = get(key);
+    return op(d, "Copy a mark", () => {
+      const { page: p, a } = annotAt(d, page, i);
+      const src = a.getObject();
+      const b = p.createAnnotation(a.getType());
+      b.update();                               // its own first look, then everything of the mark is written over it
+      const obj = b.getObject();
+      src.forEach((v, k) => { if (!SKIP_COPY.has(String(k)) && k !== "AP") obj.put(k, deepCopy(d, v)); });
+      // its look through MuPDF's own call (written straight in, MuPDF would draw a plain one again later)
+      const N = apN(a) && src.get("AP").get("N");
+      if (N) {
+        const mo = N.get("Matrix");
+        const res = N.get("Resources");
+        b.setAppearance(null, null, !mo || mo.isNull() ? mupdf.Matrix.identity : nums(mo), nums(N.get("BBox")),
+          !res || res.isNull() ? d.pdf.newDictionary() : deepCopy(d, res), N.readStream());
+        obj.put("Rect", deepCopy(d, src.get("Rect")));
+      }
+      p.update();
+      const list = p.getAnnotations();
+      const n = list.length - 1;
+      const c = list[n];
+      if (c.hasInkList()) { c.setInkList(c.getInkList().map(s => s.map(([x, y]) => [x + 14, y + 14]))); c.update(); }
+      else if (c.hasLine()) { const [p1, p2] = c.getLine(); c.setLine([p1[0] + 14, p1[1] + 14], [p2[0] + 14, p2[1] + 14]); c.update(); }
+      else if (c.hasQuadPoints()) { c.setQuadPoints(c.getQuadPoints().map(q => q.map(v => v + 14))); c.update(); }
+      else moveRaw(p, c, 14, 14);
+      p.update();
+      return n;
     });
   },
 

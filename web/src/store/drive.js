@@ -345,7 +345,7 @@ export class DriveStore {
   folderLink(bookId) { return `https://drive.google.com/drive/folders/${bookId || this.rootId}`; }
 
   // "Add from Drive": the Google picker, for files the user already has in their Drive
-  async pick(multiple = true) {
+  async pick(multiple = true, opts = {}) {
     await new Promise((res, rej) => {
       if (window.google?.picker) return res();
       const s = document.createElement("script");
@@ -356,12 +356,18 @@ export class DriveStore {
     });
     if (!this.token || Date.now() > this.expires) await this.signIn(true);
     return new Promise((resolve) => {
-      const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
+      // folders: only folders are shown, and a folder can be chosen; or the files inside one folder
+      let view;
+      if (opts.folders) view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER);
+      else {
+        view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
+        if (opts.parent) view = view.setParent(opts.parent);
+      }
       let b = new google.picker.PickerBuilder()
         .addView(view)
         .setOAuthToken(this.token)
         .setAppId(APP_ID)
-        .setTitle("Add from your Google Drive")
+        .setTitle(opts.title || "Add from your Google Drive")
         .setCallback((data) => {
           if (data.action === google.picker.Action.PICKED) resolve(data.docs.map(d => ({ id: d.id, name: d.name, mime: d.mimeType })));
           else if (data.action === google.picker.Action.CANCEL) resolve([]);
@@ -374,5 +380,18 @@ export class DriveStore {
 
   async meta(id) {
     return this.norm(await this.json(`${API}/files/${id}?fields=${FIELDS}`));
+  }
+
+  // what is inside a folder of the Drive, when Google lets BindLens see it (with the "drive.file" permission
+  // BindLens sees only what you chose or made with it, so this can come back empty)
+  async inside(folderId) {
+    const out = [];
+    let page = null;
+    do {
+      const r = await this.json(`${API}/files?q=${this.q(`'${folderId}' in parents and trashed=false`)}&fields=nextPageToken,files(${FIELDS})&pageSize=1000&spaces=drive${page ? "&pageToken=" + page : ""}`);
+      for (const f of r.files || []) out.push({ ...this.norm(f), parent: folderId });
+      page = r.nextPageToken;
+    } while (page);
+    return out;
   }
 }

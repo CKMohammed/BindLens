@@ -1,9 +1,9 @@
 // The book: every document of the folder, one after another, as pages you scroll through - and the marks on them.
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
-import { signal } from "@preact/signals";
+import { signal, effect } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
   readMode, visibleFiles, subView, fitPage } from "../state.js";
-import { getDoc, onDocChange, call, addMark, editMark, deleteMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
+import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { confirm, openMenuAt, openMenu } from "./dialogs.jsx";
@@ -16,7 +16,65 @@ export const searchHits = signal(null);    // {query, list:[{fileId, page, quads
 export const selectedMark = signal(null);  // {fileId, page, i, rect, type, contents, color}
 export const textSel = signal(null);       // {fileId, page, quads, text}
 export const scrollTo = signal(null);      // {fileId, page, y?} - ask the viewer to go there
+export const toolLock = signal(false);     // a double-click on a tool keeps it on (otherwise it goes back to the arrow)
+// another tool chosen: the chosen mark is let go (its bar would cover the page)
+effect(() => { const t = tool.value; if (t !== "select" && t !== "eraser") selectedMark.value = null; });
 const PT = 96 / 72;
+
+// after a mark is put on the page the tool goes back to the arrow, as in the app, and the new mark is chosen -
+// ready to move, turn or resize. The pen, the brush and the highlighter go back a moment after the last stroke.
+let backTimer = null;
+let pinching = false;           // two fingers on the pages: they zoom, they do not draw
+async function placed(file, page, i, select = true) {
+  clearTimeout(backTimer);
+  if (!toolLock.value) tool.value = "select";
+  if (select && typeof i === "number" && i >= 0) await reselect(file, page, i);
+}
+function placedLater() {
+  clearTimeout(backTimer);
+  if (toolLock.value) return;
+  backTimer = setTimeout(() => { if (!toolLock.value && ["pen", "whitebrush", "highlight"].includes(tool.value)) tool.value = "select"; }, 1400);
+}
+async function reselect(file, page, i) {
+  const list = await marksOn(file, page);
+  const m = list.find(x => x.i === i);
+  selectedMark.value = m ? { fileId: file.id, page, ...m } : null;
+}
+export { reselect };
+
+// which handles a mark gets: boxes, drawings, texts and stamps can be resized and turned; a line has its two ends
+const FLAT = new Set(["Highlight", "Underline", "StrikeOut", "Squiggly", "Text", "Polygon", "PolyLine"]);
+function isPlainText(m) { return m.type === "FreeText" && m.subject !== "Sticky note" && !(m.style && (m.style.style && m.style.style !== "plain" || m.style.fill || m.style.line)); }
+function handlesOf(m) {
+  if (!m || FLAT.has(m.type)) return { list: [], rotate: false };
+  if (m.type === "Line") return { list: [], ends: true, rotate: false };
+  if (m.rot || m.type === "Stamp") return { list: ["nw", "ne", "se", "sw"], rotate: true };
+  if (isPlainText(m)) return { list: ["nw", "ne", "se", "sw", "e", "w"], rotate: true };
+  return { list: ["nw", "n", "ne", "e", "se", "s", "sw", "w"], rotate: true };
+}
+function resizedRect(dr, p, shift) {
+  const m = dr.m, o = m.rect, h = dr.h;
+  const ow = o[2] - o[0] || 1, oh = o[3] - o[1] || 1;
+  if (m.rot) {
+    // a turned mark grows and shrinks round its middle
+    const cx = (o[0] + o[2]) / 2, cy = (o[1] + o[3]) / 2;
+    const s = Math.max(0.15, Math.hypot(p[0] - cx, p[1] - cy) / (Math.hypot(dr.start[0] - cx, dr.start[1] - cy) || 1));
+    return { s, rect: [cx - ow / 2 * s, cy - oh / 2 * s, cx + ow / 2 * s, cy + oh / 2 * s] };
+  }
+  let [x0, y0, x1, y1] = o;
+  if (h.includes("w")) x0 = Math.min(p[0], o[2] - 6);
+  if (h.includes("e")) x1 = Math.max(p[0], o[0] + 6);
+  if (h.includes("n")) y0 = Math.min(p[1], o[3] - 6);
+  if (h.includes("s")) y1 = Math.max(p[1], o[1] + 6);
+  const keep = h.length === 2 && (m.type === "Stamp" || shift || isPlainText(m));
+  if (keep) {
+    const s = Math.max(0.1, Math.max((x1 - x0) / ow, (y1 - y0) / oh));
+    const w = ow * s, hh = oh * s;
+    if (h.includes("w")) x0 = o[2] - w; else x1 = o[0] + w;
+    if (h.includes("n")) y0 = o[3] - hh; else y1 = o[1] + hh;
+  }
+  return { s: (x1 - x0) / ow, rect: [x0, y0, x1, y1] };
+}
 
 function setDoc(id, change) {
   docState.value = { ...docState.value, [id]: { ...(docState.value[id] || {}), ...change } };
@@ -161,7 +219,7 @@ async function quickMark(file, page, t, p, o) {
   const strokes = t === "tick" ? [[[x - s, y], [x - s / 3, y + s * 0.7], [x + s, y - s * 0.9]]]
     : [[[x - s * 0.8, y - s * 0.8], [x + s * 0.8, y + s * 0.8]], [[x + s * 0.8, y - s * 0.8], [x - s * 0.8, y + s * 0.8]]];
   const own = o.quickOwn !== false;
-  await addMark(file, page, { type: "Ink", ink: strokes, color: own ? (t === "tick" ? [0.1, 0.6, 0.25] : [0.85, 0.15, 0.15]) : rgb(o.pen), width: Math.max(1.6, s * 0.29), subject: t === "tick" ? "Tick" : "Cross" });
+  return addMark(file, page, { type: "Ink", ink: strokes, color: own ? (t === "tick" ? [0.1, 0.6, 0.25] : [0.85, 0.15, 0.15]) : rgb(o.pen), width: Math.max(1.6, s * 0.29), subject: t === "tick" ? "Tick" : "Cross" });
 }
 
 // right-click on a page: put a mark right there, or do something with the page
@@ -175,6 +233,9 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     openMenuAt(e.clientX, e.clientY, [
       { title: m.subject || m.type },
       (m.type === "FreeText" || m.type === "Text") && { label: "Change the words...", icon: "rename", run: () => setEdit({ x: m.rect[0], y: m.rect[1], w: m.rect[2] - m.rect[0], h: m.rect[3] - m.rect[1], kind: "change", value: m.contents, size: 12, m }) },
+      !FLAT.has(m.type) && !white && { label: "A copy of it", icon: "copy", run: () => copySelected() },
+      handlesOf(m).rotate && { label: "Turn it a quarter", icon: "rotate", run: async () => { await editMark(file, page, m.i, { rotateBy: 90 }); await reselect(file, page, m.i); } },
+      m.rot && { label: "Put it straight again", icon: "undo", run: async () => { await editMark(file, page, m.i, { rotateBy: -m.rot }); await reselect(file, page, m.i); } },
       white && { label: "Erase the text under it for good...", icon: "eraser", run: async () => {
         if (!(await confirm("Erase the text under it for good?", "The words and pictures under it are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true }))) return;
         const doc = await getDoc(file); await call("eraseArea", doc.key, page, m.rect, false, m.i); afterEdit(file.id, "pages"); selectedMark.value = null;
@@ -185,7 +246,7 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     return;
   }
   const ts = textSel.value;
-  const at = (fn) => async () => { if (readOnly) { await ensureWritable(file); return; } await fn(); };
+  const at = (fn) => async () => { if (readOnly) { await ensureWritable(file); return; } const n = await fn(); if (typeof n === "number" && n >= 0) await reselect(file, page, n); };
   const spec = stampSpec(o.stamp);
   const { fmtDate } = await import("../util.js");
   openMenuAt(e.clientX, e.clientY, [
@@ -253,7 +314,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       if (m) {
         selectedMark.value = { fileId: file.id, page, ...m };
         textSel.value = null;
-        if (!touch) setDrag({ kind: "move", start: p, dx: 0, dy: 0, m });
+        if (!touch) setDrag({ kind: "move", start: p, dx: 0, dy: 0, m, ghost: snap(m.rect) });
         return;
       }
       selectedMark.value = null;
@@ -264,11 +325,13 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     }
     if (readOnly) { await ensureWritable(file); return; }
     if (t === "highlight") {
+      clearTimeout(backTimer);
       el.setPointerCapture(e.pointerId);
       setDrag({ kind: "hl", start: p });
       return;
     }
     if (t === "pen" || t === "whitebrush") {
+      clearTimeout(backTimer);
       el.setPointerCapture(e.pointerId);
       setInk([p]);
       return;
@@ -279,7 +342,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       return;
     }
     if (t === "tick" || t === "cross") {
-      await quickMark(file, page, t, p, o);
+      await placed(file, page, await quickMark(file, page, t, p, o), false);
       return;
     }
     if (t === "text") {
@@ -289,13 +352,13 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     }
     if (t === "note") {
       e.preventDefault();
-      setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12 });
+      setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12, paper: o.paper || "#FFED8C" });
       return;
     }
     if (t === "stamp") {
       const spec = stampSpec(o.stamp);
       const w = spec.w || 150, h = spec.h || 46;
-      await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" });
+      await placed(file, page, await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" }));
       return;
     }
     if (t === "sign") {
@@ -303,14 +366,14 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       if (!sig) { openPanel("signature"); return; }
       const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0));
       const w = 160, h = 160 * sig.h / sig.w;
-      await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" });
+      await placed(file, page, await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }));
       return;
     }
     if (t === "picture") {
       const pic = o.picture;
       if (!pic) { toast("Choose a picture first (the stamp menu)."); return; }
       const w = 160, h = 160 * pic.h / pic.w;
-      await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: pic.bytes, subject: "Picture" });
+      await placed(file, page, await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: pic.bytes, subject: "Picture" }));
       return;
     }
     if (t === "edit") {
@@ -337,11 +400,24 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
   const move = async (e) => {
     const el = ref.current;
     if (!el) return;
+    if (pinching) { if (ink) setInk(null); if (box) setBox(null); if (drag) setDrag(null); return; }
     const p = ptOf(e, el, k);
     if (ink) { setInk([...ink, p]); return; }
     if (box) { setBox([box[0], box[1], p[0], p[1]]); return; }
     if (drag) {
       if (drag.kind === "move") setDrag({ ...drag, dx: p[0] - drag.start[0], dy: p[1] - drag.start[1] });
+      else if (drag.kind === "resize") setDrag({ ...drag, res: resizedRect(drag, p, e.shiftKey) });
+      else if (drag.kind === "end") setDrag({ ...drag, pt: p });
+      else if (drag.kind === "rotate") {
+        const a = (Math.atan2(p[1] - drag.c[1], p[0] - drag.c[0]) - drag.a0) * 180 / Math.PI;
+        let total = (drag.m.rot || 0) + a;
+        if (e.shiftKey) total = Math.round(total / 15) * 15;
+        else { const near = Math.round(total / 45) * 45; if (Math.abs(total - near) < 4) total = near; }
+        total = ((total + 540) % 360) - 180;
+        let delta = total - (drag.m.rot || 0);
+        delta = ((delta + 540) % 360) - 180;
+        setDrag({ ...drag, delta, total });
+      }
       else if (drag.kind === "text" || drag.kind === "hl") {
         if (Math.hypot(p[0] - drag.start[0], p[1] - drag.start[1]) < 2) return;
         if (selBusy.current) return;          // one question to the engine at a time while the mouse moves
@@ -357,6 +433,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
 
   const up = async (e) => {
     const el = ref.current;
+    if (pinching) return;
     if (ink) {
       const pts = ink;
       setInk(null);
@@ -364,6 +441,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         if (t === "whitebrush") await addMark(file, page, { type: "Ink", ink: [pts], color: [1, 1, 1], width: o.brush || 14, subject: "White brush" });
         else await addMark(file, page, { type: "Ink", ink: [pts], color: rgb(o.pen), width: o.width || 2 });
       }
+      placedLater();
       return;
     }
     if (box) {
@@ -372,7 +450,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       if (Math.abs(x1 - x0) < 3 && Math.abs(y1 - y0) < 3) return;
       const r = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
       if (t === "whitebox") {
-        await addMark(file, page, { type: "Square", rect: r, color: [1, 1, 1], fill: [1, 1, 1], width: 0, subject: "White box" });
+        await placed(file, page, await addMark(file, page, { type: "Square", rect: r, color: [1, 1, 1], fill: [1, 1, 1], width: 0, subject: "White box" }));
         return;
       }
       if (t === "redact") {
@@ -381,6 +459,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         const doc = await getDoc(file);
         await call("eraseArea", doc.key, page, r, false, -1);
         afterEdit(file.id, "pages");
+        placed(file, page, -1, false);
         return;
       }
       if (t === "crop") {
@@ -394,8 +473,10 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         return;
       }
       const shape = o.shape || "rect";
-      if (shape === "line" || shape === "arrow") await addMark(file, page, { type: "Line", a: [x0, y0], b: [x1, y1], color: rgb(o.pen), width: o.width || 2, arrow: shape === "arrow" });
-      else await addMark(file, page, { type: shape === "circle" ? "Circle" : "Square", rect: r, color: rgb(o.pen), width: o.width || 2, fill: o.fill ? rgb(mix(o.pen, "#ffffff", 0.78)) : null });
+      let n;
+      if (shape === "line" || shape === "arrow") n = await addMark(file, page, { type: "Line", a: [x0, y0], b: [x1, y1], color: rgb(o.pen), width: o.width || 2, arrow: shape === "arrow" });
+      else n = await addMark(file, page, { type: shape === "circle" ? "Circle" : "Square", rect: r, color: rgb(o.pen), width: o.width || 2, fill: o.fill ? rgb(mix(o.pen, "#ffffff", 0.78)) : null });
+      await placed(file, page, n);
       return;
     }
     if (drag) {
@@ -403,10 +484,34 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       setDrag(null);
       if (dr.kind === "move") {
         if (Math.abs(dr.dx) > 1 || Math.abs(dr.dy) > 1) {
-          await editMark(file, page, dr.m.i, { moveBy: [dr.dx, dr.dy], stamp: null });
           const r = dr.m.rect;
           selectedMark.value = { ...selectedMark.value, rect: [r[0] + dr.dx, r[1] + dr.dy, r[2] + dr.dx, r[3] + dr.dy] };
+          await editMark(file, page, dr.m.i, { moveBy: [dr.dx, dr.dy], stamp: null });
+          await reselect(file, page, dr.m.i);
         }
+        return;
+      }
+      if (dr.kind === "resize") {
+        const res = dr.res;
+        if (!res || Math.abs(res.s - 1) < 0.005 && res.rect.every((v, j) => Math.abs(v - dr.m.rect[j]) < 0.5)) return;
+        const ch = { resize: res.rect };
+        if (isPlainText(dr.m) && (dr.h.length === 2 || dr.m.rot)) ch.size = Math.round((dr.m.size || 12) * res.s * 10) / 10;
+        selectedMark.value = { ...selectedMark.value, rect: res.rect, rw: dr.m.rw && dr.m.rw * res.s, rh: dr.m.rh && dr.m.rh * res.s };
+        await editMark(file, page, dr.m.i, ch);
+        await reselect(file, page, dr.m.i);
+        return;
+      }
+      if (dr.kind === "rotate") {
+        if (Math.abs(dr.delta || 0) < 0.3) return;
+        await editMark(file, page, dr.m.i, { rotateBy: dr.delta });
+        await reselect(file, page, dr.m.i);
+        return;
+      }
+      if (dr.kind === "end") {
+        if (!dr.pt) return;
+        const L = dr.m.line;
+        await editMark(file, page, dr.m.i, { line: dr.h === "a" ? [dr.pt, L[1]] : [L[0], dr.pt] });
+        await reselect(file, page, dr.m.i);
         return;
       }
       if (dr.kind === "hl") {
@@ -422,6 +527,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
           const kind = o.hlKind || "Highlight";
           await addMark(file, page, { type: kind, quads: s.quads, color: kind === "Highlight" ? rgb(o.color) : rgb(o.pen) });
         }
+        placedLater();
         return;
       }
       if (dr.kind === "text") {
@@ -451,19 +557,50 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       await call("replaceText", doc.key, page, [l.bbox.x - 0.5, l.bbox.y, l.bbox.x + l.bbox.w + 0.5, l.bbox.y + l.bbox.h],
         [{ x: l.x, y: l.y, text: v, size: l.size, family: l.family, bold: l.bold, italic: l.italic, color: l.color }]);
       afterEdit(file.id, "pages");
+      placed(file, page, -1, false);
       return;
     }
-    if (!v.trim()) return;
+    if (!v.trim()) { if (ed.kind === "text" || ed.kind === "note") placed(file, page, -1, false); return; }
     const lines = v.split("\n");
     if (ed.kind === "text") {
       const size = ed.size;
       const wpt = Math.max(...lines.map(l => l.length)) * size * 0.56 + 8;
       const hpt = lines.length * size * 1.25 + 6;
       const style = o.textStyle && o.textStyle !== "plain" ? { style: o.textStyle } : null;
-      await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + wpt + (style ? 12 : 0), ed.y + hpt + (style ? 8 : 0)], text: v, size, color: rgb(o.textColor || "#1E1C2B"), style });
+      await placed(file, page, await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + wpt + (style ? 12 : 0), ed.y + hpt + (style ? 8 : 0)], text: v, size, color: rgb(o.textColor || "#1E1C2B"), style }));
     } else if (ed.kind === "note") {
-      await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + ed.w, ed.y + Math.max(ed.h, lines.length * 16 + 14)], text: v, size: 12, color: [0.15, 0.13, 0.3], fill: [1, 0.93, 0.55], subject: "Sticky note" });
+      await placed(file, page, await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + ed.w, ed.y + Math.max(ed.h, lines.length * 16 + 14)], text: v, size: 12, color: [0.15, 0.13, 0.3], fill: rgb(o.paper || "#FFED8C"), subject: "Sticky note" }));
     }
+  };
+
+  // a picture of the mark as it is now, to move, turn or resize while the mouse is down
+  const snap = (r) => {
+    try {
+      const c = ref.current?.parentElement?.querySelector("canvas");
+      if (!c || !c.width) return null;
+      const sc = c.width / (pw * k * PT), pad = 2;
+      const x = Math.max(0, (r[0] - pad) * k * PT * sc), y = Math.max(0, (r[1] - pad) * k * PT * sc);
+      const w = Math.min(c.width - x, (r[2] - r[0] + pad * 2) * k * PT * sc), h = Math.min(c.height - y, (r[3] - r[1] + pad * 2) * k * PT * sc);
+      if (w < 2 || h < 2 || w * h > 6e6) return null;
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(w); cv.height = Math.round(h);
+      cv.getContext("2d").drawImage(c, x, y, w, h, 0, 0, cv.width, cv.height);
+      return cv.toDataURL();
+    } catch (err) { return null; }
+  };
+  const grab = (e, kind, h) => {
+    if (e.button && e.button !== 0) return;
+    e.stopPropagation(); e.preventDefault();
+    const el = ref.current;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    const p = ptOf(e, el, k);
+    const m = selectedMark.value;
+    if (!m || readOnly) return;
+    const r = m.rect, c = [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2];
+    const base = { kind, h, start: p, m, ghost: kind === "end" ? null : snap(r) };
+    if (kind === "move") setDrag({ ...base, dx: 0, dy: 0 });
+    else if (kind === "rotate") setDrag({ ...base, c, a0: Math.atan2(p[1] - c[1], p[0] - c[0]), delta: 0, total: m.rot || 0 });
+    else setDrag(base);
   };
 
   const toPx = (v) => v * k * PT;
@@ -489,11 +626,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         <div key={i + ":" + j} class={"hit" + (hits.cur && hits.cur.fileId === file.id && hits.cur.page === page && hits.cur.n === h.n ? " cur" : "")} style={S(quadRect(q))} />
       )))}
       {ts && ts.fileId === file.id && ts.page === page && ts.quads.map((q, i) => <div key={i} class="sel" style={{ ...S(quadRect(q)), background: ts.temp ? (o.color + "88") : undefined }} />)}
-      {isSel && (() => {
-        const r = sel.rect;
-        const dx = drag && drag.kind === "move" ? drag.dx : 0, dy = drag && drag.kind === "move" ? drag.dy : 0;
-        return <div class="selbox" style={S([r[0] - 2 + dx, r[1] - 2 + dy, r[2] + 2 + dx, r[3] + 2 + dy])} />;
-      })()}
+      {isSel && !edit && <SelFrame sel={sel} drag={drag} toPx={toPx} grab={grab} readOnly={readOnly} />}
       {ink && (
         <svg class="inkpath" width={toPx(pw)} height={toPx(ph)}>
           <polyline points={ink.map(p => toPx(p[0]) + "," + toPx(p[1])).join(" ")} fill="none" stroke={t === "whitebrush" ? "#ffffff" : o.pen} stroke-width={(t === "whitebrush" ? o.brush || 14 : o.width || 2) * k * PT} stroke-linecap="round" stroke-linejoin="round" style={t === "whitebrush" ? { filter: "drop-shadow(0 0 1px #9a98a8)" } : null} />
@@ -528,6 +661,54 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
   );
 }
 
+// the chosen mark: a frame with handles round it (the corners to resize, the round knob above to turn it,
+// the two ends of a line), and while the mouse is down a picture of it that follows
+function SelFrame({ sel, drag, toPx, grab, readOnly }) {
+  const H = handlesOf(sel);
+  const r = sel.rect;
+  let cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2;
+  let w = sel.rot ? (sel.rw || r[2] - r[0]) : r[2] - r[0], h = sel.rot ? (sel.rh || r[3] - r[1]) : r[3] - r[1];
+  let deg = sel.rot || 0;
+  // the picture of the mark while it moves: its box, how much it is turned and how big
+  let g = { x0: r[0], y0: r[1], x1: r[2], y1: r[3], turn: 0 };
+  const dk = drag && drag.m && drag.m.i === sel.i ? drag.kind : null;
+  if (dk === "move") { cx += drag.dx; cy += drag.dy; g = { x0: r[0] + drag.dx, y0: r[1] + drag.dy, x1: r[2] + drag.dx, y1: r[3] + drag.dy, turn: 0 }; }
+  if (dk === "resize" && drag.res) {
+    const n = drag.res.rect;
+    if (sel.rot) { w *= drag.res.s; h *= drag.res.s; } else { w = n[2] - n[0]; h = n[3] - n[1]; }
+    cx = (n[0] + n[2]) / 2; cy = (n[1] + n[3]) / 2;
+    g = { x0: n[0], y0: n[1], x1: n[2], y1: n[3], turn: 0 };
+  }
+  if (dk === "rotate") { deg = drag.total; g = { ...g, turn: drag.delta }; }
+  const pad = 3;
+  const frame = { left: toPx(cx - w / 2) - pad + "px", top: toPx(cy - h / 2) - pad + "px", width: toPx(w) + pad * 2 + "px", height: toPx(h) + pad * 2 + "px",
+    transform: deg ? `rotate(${deg}deg)` : undefined };
+  const busy = dk && dk !== "end";
+  const L = sel.line && (dk === "move" ? sel.line.map(q => [q[0] + drag.dx, q[1] + drag.dy]) : sel.line);
+  const ends = H.ends && L && !readOnly ? [["a", dk === "end" && drag.h === "a" && drag.pt ? drag.pt : L[0]], ["b", dk === "end" && drag.h === "b" && drag.pt ? drag.pt : L[1]]] : null;
+  return (
+    <>
+      {busy && drag.ghost && (
+        <img class="markghost" src={drag.ghost} alt="" style={{ left: toPx(g.x0 - 2) + "px", top: toPx(g.y0 - 2) + "px", width: toPx(g.x1 - g.x0 + 4) + "px", height: toPx(g.y1 - g.y0 + 4) + "px",
+          transform: g.turn ? `rotate(${g.turn}deg)` : undefined }} />
+      )}
+      {!ends && (
+        <div class={"selframe" + (busy ? " busy" : "") + (readOnly ? " ro" : "")} style={frame} onPointerDown={(e) => grab(e, "move")}>
+          {!readOnly && H.list.map(x => <i key={x} class={"hd " + x} onPointerDown={(e) => grab(e, "resize", x)} />)}
+          {!readOnly && H.rotate && <span class="rk" title="Turn it (Shift: in steps of 15°)" onPointerDown={(e) => grab(e, "rotate")}><Icon n="rotate" size={13} /></span>}
+          {dk === "rotate" && <b class="selbadge">{Math.round(drag.total)}°</b>}
+          {dk === "resize" && drag.res && <b class="selbadge">{Math.round(drag.res.s * 100)}%</b>}
+        </div>
+      )}
+      {ends && <>
+        <svg class="inkpath" style={{ overflow: "visible" }} width="1" height="1"><line x1={toPx(ends[0][1][0])} y1={toPx(ends[0][1][1])} x2={toPx(ends[1][1][0])} y2={toPx(ends[1][1][1])} stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4" /></svg>
+        <div class="selline" style={{ left: toPx(Math.min(ends[0][1][0], ends[1][1][0])) - 6 + "px", top: toPx(Math.min(ends[0][1][1], ends[1][1][1])) - 6 + "px", width: toPx(Math.abs(ends[1][1][0] - ends[0][1][0])) + 12 + "px", height: toPx(Math.abs(ends[1][1][1] - ends[0][1][1])) + 12 + "px" }} onPointerDown={(e) => grab(e, "move")} />
+        {ends.map(([key, pt]) => <i key={key} class="hd end" style={{ left: toPx(pt[0]) - 7 + "px", top: toPx(pt[1]) - 7 + "px" }} onPointerDown={(e) => grab(e, "end", key)} />)}
+      </>}
+    </>
+  );
+}
+
 function InlineEdit({ ed, k, onDone }) {
   const ref = useRef();
   const done = useRef(false);
@@ -538,7 +719,7 @@ function InlineEdit({ ed, k, onDone }) {
   return (
     <textarea ref={ref} class="inlineedit" defaultValue={ed.value}
       style={{ left: px(ed.x) + "px", top: px(ed.y) + "px", width: px(ed.w) + "px", minHeight: px(ed.h) + "px",
-        fontSize: px(ed.size) + "px", background: note ? "#FFF1A8" : undefined }}
+        fontSize: px(ed.size) + "px", background: note ? (ed.paper || "#FFF1A8") : undefined }}
       placeholder={ed.kind === "note" ? "Write a note..." : ed.kind === "text" ? "Type here..." : ""}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
@@ -731,12 +912,101 @@ export function Viewer({ book }) {
   // first open: the page you were on
   useEffect(() => { if (fileId.value) scrollTo.value = { fileId: fileId.value, page: pageNo.value }; }, [book.id]);
 
-  // keep the same page in view when the zoom changes
+  // keep the same page in view when the zoom changes (after a pinch: the very point under the fingers)
   const prevK = useRef(k);
+  const anchor = useRef(null);
   useLayoutEffect(() => {
-    if (prevK.current !== k && fileId.value) goto(fileId.value, pageNo.value);
+    const el = scroller.current;
+    const inner = el && el.querySelector(".pages-in");
+    if (inner) { inner.style.transform = ""; inner.style.transformOrigin = ""; }
+    const a = anchor.current;
+    anchor.current = null;
+    if (prevK.current !== k && a && el) {
+      const pg = el.querySelector(`[data-file="${a.fileId}"][data-page="${a.page}"]`);
+      if (pg) {
+        el.scrollTop = pg.offsetTop + a.fy * pg.offsetHeight - a.ay;
+        el.scrollLeft = pg.offsetLeft + a.fx * pg.offsetWidth - a.ax;
+      }
+    } else if (prevK.current !== k && fileId.value) goto(fileId.value, pageNo.value);
     prevK.current = k;
   }, [k]);
+
+  // zoom with two fingers (a phone, a tablet, a touchpad) or Ctrl + the mouse wheel, round the point you pinch:
+  // the pages grow at once as a picture, and are drawn sharp again when you stop
+  const kRef = useRef(k);
+  kRef.current = k;
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    let g = null;                 // the pinch going on: {s (scale so far), ax, ay (point in the scroller), timer}
+    const inner = () => el.querySelector(".pages-in");
+    const begin = (cx, cy) => {
+      const r = el.getBoundingClientRect();
+      const ax = cx - r.left, ay = cy - r.top;
+      const inn = inner();
+      if (inn) inn.style.transformOrigin = `${el.scrollLeft + ax - inn.offsetLeft}px ${el.scrollTop + ay - inn.offsetTop}px`;
+      // the page under the fingers, and where on it
+      let a = null;
+      for (const pg of el.querySelectorAll(".page[data-file]")) {
+        const b = pg.getBoundingClientRect();
+        if (cy >= b.top - 9 && cy <= b.bottom + 9) { a = { fileId: pg.getAttribute("data-file"), page: Number(pg.getAttribute("data-page")), fx: (cx - b.left) / b.width, fy: (cy - b.top) / b.height, ax, ay }; break; }
+      }
+      g = { s: 1, ax, ay, a, timer: null };
+    };
+    const show = () => { const inn = inner(); if (inn && g) inn.style.transform = `scale(${g.s})`; };
+    const commit = () => {
+      if (!g) return;
+      const z0 = zoom.value;
+      const z = Math.max(0.3, Math.min(5, z0 * g.s));
+      anchor.current = g.a;
+      g = null;
+      if (Math.abs(z - z0) < 0.005) { const inn = inner(); if (inn) inn.style.transform = ""; return; }
+      zoom.value = z;
+    };
+    const limit = (s) => { const z0 = zoom.value; return Math.max(0.3 / z0, Math.min(5 / z0, s)); };
+    const wheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (!g) begin(e.clientX, e.clientY);
+      g.s = limit(g.s * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0022)));
+      show();
+      clearTimeout(g.timer);
+      g.timer = setTimeout(commit, 180);
+    };
+    let t0 = null;               // two fingers: their distance at the start
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const tstart = (e) => {
+      if (e.touches.length === 2) {
+        pinching = true;
+        t0 = dist(e.touches);
+        begin((e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2);
+      }
+    };
+    const tmove = (e) => {
+      if (e.touches.length !== 2 || !t0 || !g) return;
+      e.preventDefault();
+      g.s = limit(dist(e.touches) / t0);
+      show();
+    };
+    const tend = (e) => { if (e.touches.length === 0) pinching = false; if (t0 && e.touches.length < 2) { t0 = null; commit(); } };
+    // Safari on a Mac sends its own pinch
+    const gs = (e) => { e.preventDefault(); begin(e.clientX, e.clientY); };
+    const gc = (e) => { e.preventDefault(); if (!g) begin(e.clientX, e.clientY); g.s = limit(e.scale); show(); };
+    const ge = (e) => { e.preventDefault(); commit(); };
+    el.addEventListener("wheel", wheel, { passive: false });
+    el.addEventListener("touchstart", tstart, { passive: true });
+    el.addEventListener("touchmove", tmove, { passive: false });
+    el.addEventListener("touchend", tend);
+    el.addEventListener("touchcancel", tend);
+    el.addEventListener("gesturestart", gs);
+    el.addEventListener("gesturechange", gc);
+    el.addEventListener("gestureend", ge);
+    return () => {
+      el.removeEventListener("wheel", wheel); el.removeEventListener("touchstart", tstart); el.removeEventListener("touchmove", tmove);
+      el.removeEventListener("touchend", tend); el.removeEventListener("touchcancel", tend);
+      el.removeEventListener("gesturestart", gs); el.removeEventListener("gesturechange", gc); el.removeEventListener("gestureend", ge);
+    };
+  }, [files.length > 0]);
 
   const [drop, setDrop] = useState(false);
 
@@ -757,6 +1027,7 @@ export function Viewer({ book }) {
   }
 
   return (
+    <>
     <div class="pages" ref={scroller} onScroll={onScroll}
       onDragOver={(e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); setDrop(true); } }}
       onDragLeave={(e) => { if (e.target === e.currentTarget) setDrop(false); }}
@@ -773,9 +1044,10 @@ export function Viewer({ book }) {
           </div>
         ))}
       </div>
-      <MarkBar k={k} />
       {drop && <div class="dropzone">Drop to add to "{book.name}"</div>}
     </div>
+    <MarkBar k={k} />
+    </>
   );
 }
 
@@ -793,6 +1065,20 @@ function EmptyButtons({ book }) {
   );
 }
 
+// the paper of a sticky note
+const PAPERS = [["#FFED8C", "Yellow"], ["#FFD1E0", "Pink"], ["#CCE8FF", "Blue"], ["#CCF2CC", "Green"], ["#E4D9FF", "Lilac"], ["#FFDDB3", "Orange"]];
+export { PAPERS };
+function rgbHex(c) { return "#" + c.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join(""); }
+async function copySelected() {
+  const sel = selectedMark.value;
+  if (!sel) return;
+  const f = fileFor(sel.fileId);
+  if (!f) return;
+  const n = await copyMark(f, sel.page, sel.i);
+  await reselect(f, sel.page, n);
+  toast("A copy - drag it where you want it.");
+}
+
 // the small bar for the selected mark: colour, style, change the words, take it off
 const TEXT_STYLES = [["plain", "Plain"], ["outline", "Outline"], ["label", "Label"], ["solid", "Solid"], ["dashed", "Dashed"], ["marker", "Marker"]];
 function MarkBar() {
@@ -806,6 +1092,8 @@ function MarkBar() {
     FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Note", Square: white ? "White box" : "Box", Circle: "Circle", Line: "Line",
     Stamp: sel.subject || "Stamp" };
   const isText = sel.type === "FreeText" && sel.subject !== "Sticky note";
+  const sticky = sel.type === "FreeText" && sel.subject === "Sticky note";
+  const turnable = handlesOf(sel).rotate;
   const refresh = async () => {
     const { marksOn } = await import("../docs.js");
     const m = (await marksOn(file, sel.page)).find(x => x.i === sel.i);
@@ -838,11 +1126,17 @@ function MarkBar() {
           afterEdit(file.id, "pages");
           selectedMark.value = null;
         }}><Icon n="eraser" size={16} />Erase the text under it for good</button>
-      </> : sel.type !== "Stamp" && colors.map(c => (
+      </> : sel.type !== "Stamp" && !(sel.type === "FreeText" && sel.subject === "Sticky note") && colors.map(c => (
         <button key={c} class="swatch" style={{ background: c, border: 0, width: 20, height: 20 }} title="Colour"
           onClick={async () => { await editMark(file, sel.page, sel.i, { color: hexToRgb(c) }); refresh(); }} />
       ))}
       {isText && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={16} />Style</button>}
+      {sticky && <span class="row" style={{ gap: 3 }} title="The colour of the paper">{PAPERS.map(([c, l]) => (
+        <button key={c} class={"paperdot" + (sel.paper && rgbHex(sel.paper) === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={l + " paper"}
+          onClick={async () => { await editMark(file, sel.page, sel.i, { paper: hexToRgb(c) }); refresh(); }} />))}</span>}
+      {turnable && <button class="ib" title="Turn it a quarter (or drag the round knob above it)" onClick={async () => { await editMark(file, sel.page, sel.i, { rotateBy: 90 }); refresh(); }}><Icon n="rotate" /></button>}
+      {turnable && sel.rot ? <button class="btn plain small" title="Put it straight again" onClick={async () => { await editMark(file, sel.page, sel.i, { rotateBy: -sel.rot }); refresh(); }}>Straight</button> : null}
+      {!white && <button class="ib" title="A copy of it (Ctrl+D)" onClick={() => copySelected()}><Icon n="copy" /></button>}
       {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title="Fill it with a light colour, or not"
         onClick={async () => { await editMark(file, sel.page, sel.i, { fill: sel.fill ? null : hexToRgb(mix(sel.color ? "#" + sel.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "#E03131", "#ffffff", 0.78)) }); refresh(); }}>{sel.fill ? "No fill" : "Fill"}</button>}
       <span class="sep" />
@@ -861,6 +1155,15 @@ window.addEventListener("keydown", async (e) => {
     if (f) { await deleteMark(f, sel.page, sel.i); selectedMark.value = null; }
   }
   if (e.key === "Escape") { selectedMark.value = null; textSel.value = null; }
+  if (sel && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") { e.preventDefault(); copySelected(); }
+  if (sel && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // move the chosen mark a little (Shift: more)
+    e.preventDefault();
+    const f = fileFor(sel.fileId);
+    const st = e.shiftKey ? 10 : 1;
+    const dx = e.key === "ArrowLeft" ? -st : e.key === "ArrowRight" ? st : 0, dy = e.key === "ArrowUp" ? -st : e.key === "ArrowDown" ? st : 0;
+    if (f) { await editMark(f, sel.page, sel.i, { moveBy: [dx, dy], stamp: null }); await reselect(f, sel.page, sel.i); }
+  }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && textSel.value?.text) {
     navigator.clipboard?.writeText(textSel.value.text);
     toast("Copied.");

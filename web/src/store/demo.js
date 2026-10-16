@@ -23,15 +23,17 @@ export class DemoStore {
     const r = await fetch(this.base + "manifest.json");
     const m = await r.json();
     const now = new Date().toISOString();
+    const looks = {};                    // some example books show their own icon (as you can choose in "Icon and colour")
     for (const b of m.books) {
       const id = "b-" + uid();
       this.books.push({ id, name: b.name, modified: now });
+      if (b.icon) looks[id] = { icon: b.icon, tstyle: b.tstyle || "3d" };
       for (const f of b.files) {
         this.files.push({ id: "f-" + uid(), name: f.name, mime: f.mime, size: f.size, modified: now, md5: "", book: id,
           parent: id, path: f.path });
       }
     }
-    this.settings = m.settings || {};
+    this.settings = { ...(m.settings || {}), books: looks };
   }
 
   placeOf(id) {

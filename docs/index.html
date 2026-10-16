@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BindLens</title>
-<meta name="description" content="BindLens turns your folders into books you can read, mark and search - on your own computer, with nothing sent anywhere. Free for Windows.">
+<meta name="description" content="BindLens turns your folders into books you can read, mark, search and report on - in your browser with your own Google Drive (BindLens Web), or on your own computer with nothing sent anywhere (free for Windows).">
 <style>
 /* the fonts are on this site (no font service is asked for anything) - SIL Open Font License, see fonts/ */
 @font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage-grotesque-latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
@@ -251,6 +251,68 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
   .nav a:not(.btn){display:none}
   .app .bar i:nth-child(n+3){display:none}
 }
+
+/* ---------- the first screen in two: BindLens Web on the right (70 %, gold frame), the Windows app on the left (30 %) */
+.door{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:clamp(16px,2vw,28px);align-items:stretch;
+  min-height:calc(100vh - 2 * var(--fw) - 100px);padding-block:8px 48px;width:min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px)));
+  margin-inline:calc((min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px))) - 100%) / -2)}
+.door-web{order:2;position:relative;border-radius:28px;overflow:hidden;padding:clamp(16px,3.2vw,48px) clamp(16px,3cm,113px);display:flex;align-items:center;
+  background:
+    radial-gradient(60% 70% at 12% 8%,rgba(124,92,255,.55),transparent 62%),
+    radial-gradient(50% 60% at 92% 18%,rgba(255,92,170,.38),transparent 64%),
+    radial-gradient(55% 60% at 80% 100%,rgba(242,200,90,.30),transparent 60%),
+    radial-gradient(45% 50% at 0% 100%,rgba(56,140,255,.30),transparent 60%),
+    #120F1C;
+  box-shadow:0 30px 80px -30px rgba(124,92,255,.6),inset 0 0 0 1px rgba(255,255,255,.06)}
+.door-web::before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,rgba(124,92,255,.18),rgba(255,92,170,.14),rgba(242,200,90,.16),rgba(56,140,255,.14),rgba(124,92,255,.18));
+  filter:blur(60px);animation:doorturn 40s linear infinite;pointer-events:none}
+@keyframes doorturn{to{transform:rotate(360deg)}}
+.goldframe{position:relative;width:100%;border-radius:20px;padding:clamp(22px,3.4vw,52px);
+  background:linear-gradient(160deg,rgba(20,18,28,.78),rgba(14,12,20,.86));backdrop-filter:blur(6px);
+  box-shadow:0 0 0 2px var(--gold),0 0 0 7px rgba(212,175,55,.14),0 0 0 8px rgba(242,200,90,.55),0 24px 60px -20px rgba(0,0,0,.6),inset 0 0 40px rgba(242,200,90,.08)}
+.goldframe .gc{position:absolute;width:26px;height:26px;border:2px solid var(--gold-l);pointer-events:none}
+.goldframe .gc.tl{left:10px;top:10px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.goldframe .gc.tr{right:10px;top:10px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.goldframe .gc.bl{left:10px;bottom:10px;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.goldframe .gc.br{right:10px;bottom:10px;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.web-in{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-width:640px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font:700 .8rem var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
+.kicker .dot{width:8px;height:8px;border-radius:50%;background:#5BC07A;box-shadow:0 0 0 4px rgba(91,192,122,.18)}
+.door-web h1{font-size:clamp(2.3rem,4.6vw,4rem);letter-spacing:-.035em;font-weight:800;margin:14px 0 0;line-height:1.04}
+.door-web h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.5) 64%,rgba(124,92,255,.5) 90%,transparent 90%)}
+.door-web .lede{margin-top:18px}
+.signin{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.gsign,.msign{display:inline-flex;align-items:center;gap:12px;border-radius:999px;padding:.85em 1.5em;font:700 1.02rem var(--f-body);text-decoration:none}
+.gsign{background:#fff;color:#1F1F1F!important;box-shadow:0 0 0 2px rgba(242,200,90,.8),0 14px 34px -12px rgba(124,92,255,.9);transition:transform .15s}
+.gsign:hover{transform:translateY(-2px)}
+.msign{background:rgba(255,255,255,.06);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line);cursor:default}
+.msign i{font-style:normal;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-l);border:1px solid var(--gold-d);border-radius:999px;padding:1px 7px}
+.trylink{margin-top:16px;color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1.5px solid var(--violet-l);padding-bottom:2px}
+.trylink:hover{color:var(--gold-l);border-color:var(--gold-l)}
+.shelf{display:flex;align-items:flex-end;gap:5px;margin-top:34px;padding:0 10px 0;border-bottom:7px solid #6B4A2E;border-radius:2px;
+  box-shadow:0 10px 18px -8px rgba(0,0,0,.6)}
+.shelf i{width:30px;height:var(--h);border-radius:5px 5px 2px 2px;background:linear-gradient(90deg,color-mix(in srgb,var(--c),#000 28%),var(--c) 40%,color-mix(in srgb,var(--c),#fff 22%) 60%,color-mix(in srgb,var(--c),#000 22%));
+  font:700 .62rem var(--f-display);color:rgba(255,255,255,.92);writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 6px 0 -3px rgba(242,200,90,.75),inset 0 -6px 0 -3px rgba(242,200,90,.75);font-style:normal;letter-spacing:.04em;transition:transform .25s}
+.shelf i:hover{transform:rotate(180deg) translateY(8px)}
+.door-web .fine{margin-top:22px;color:var(--muted);font-size:.86rem;max-width:56ch}
+.door-web .fine a{color:var(--gold-l)}
+.door-app{order:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:clamp(18px,2.4vw,34px);border-radius:28px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));box-shadow:inset 0 0 0 1px var(--line)}
+.door-app .kicker{color:var(--muted)}
+.door-app .laptop{color:var(--gold-l);opacity:.85}
+.door-app h2{font-size:clamp(1.7rem,2.5vw,2.3rem);letter-spacing:-.03em;line-height:1.08;margin:0}
+.door-app p{color:var(--muted);margin:0}
+.door-app .btn{align-self:flex-start;margin-top:6px}
+.door-app small{color:var(--muted);font-size:.82rem}
+.door-app .more{color:var(--gold-l);font-weight:700;text-decoration:none;margin-top:8px}
+@media (max-width:900px){
+  .door{grid-template-columns:minmax(0,1fr);width:auto;margin-inline:0;min-height:0}
+  .door-web{order:1;padding:14px}
+  .door-app{order:2}
+  .goldframe{padding:26px 20px}
+}
+@media (prefers-reduced-motion:reduce){.door-web::before{animation:none}}
 </style>
 <link rel="icon" href="img/icon.png">
 </head>
@@ -269,62 +331,53 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
       <a href="#faq">Questions</a>
       <a href="#watch">Watch</a>
       <a href="#install">Install</a>
+      <a class="btn ghost" href="/app/?start=google">Sign in</a>
       <a class="btn" href="#download">Download</a>
     </nav>
   </header>
 
   <main id="top">
-    <div class="hero">
-      <div>
-        <h1>Your documents, <em>bound into books.</em></h1>
-        <p class="lede">Choose a folder. Every PDF, Word file, spreadsheet and photo in it becomes one book you can read, mark and search. Your files stay where they are, and nothing leaves your computer.</p>
-        <div class="cta">
-          <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-            Download for Windows
-          </a>
-          <a class="btn ghost" href="#watch">Watch the 2-minute video</a>
-        </div>
-        <div class="facts">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>No account</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>No cloud</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>Windows 10 and 11</span>
-        </div>
-      </div>
-
-      <div class="frame" role="img" aria-label="The BindLens window: a client proposal with a highlighted line, a sticky note, a tick, a clock and the next deadline, inside a frame of slowly flowing colours.">
-        <div class="app">
-          <div class="bar"><i>File</i><i>Edit</i><i>Pages</i><i>View</i><i>Help</i><span class="doc">Clients · Proposal</span><span class="win">&#8211; &#9633; &#10005;</span></div>
-          <div class="body">
-            <div class="rail">
-              <div style="background:#F08A4B">CL</div>
-              <div style="background:#E9A13B">CO</div>
-              <div style="background:#6C8CF5">IN</div>
-              <div style="background:#9A93A8">PR</div>
-              <div style="background:#5BB9C9">TH</div>
-              <div style="background:#E06C9F">TX</div>
+    <!-- the first screen, in two: BindLens Web (70 %, in a gold frame) and the app for Windows (30 %, quiet) -->
+    <div class="door">
+      <section class="door-web" aria-labelledby="webh">
+        <div class="goldframe">
+          <span class="gc tl" aria-hidden="true"></span><span class="gc tr" aria-hidden="true"></span><span class="gc bl" aria-hidden="true"></span><span class="gc br" aria-hidden="true"></span>
+          <div class="web-in">
+            <span class="kicker"><i class="dot" aria-hidden="true"></i>BindLens Web &middot; in your browser</span>
+            <h1 id="webh">Your documents, <em>bound into books.</em></h1>
+            <p class="lede">Every folder becomes a book you can read, mark, search and report on - from any computer, tablet or phone. Your files stay in your own Google Drive.</p>
+            <div class="signin">
+              <a class="gsign" href="/app/?start=google">
+                <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.5z"/></svg>
+                Sign in with Google
+              </a>
+              <span class="msign" aria-disabled="true" title="OneDrive is coming soon">
+                <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>
+                Microsoft (OneDrive) <i>soon</i>
+              </span>
             </div>
-            <div class="sheet">
-              <h4>Proposal - Harbour Cafe website</h4>
-              <div class="ln" style="width:92%"></div>
-              <div class="ln hl" style="width:88%"></div>
-              <div class="ln" style="width:64%"></div>
-              <div class="ln u" style="width:78%"></div>
-              <div class="ln" style="width:90%"></div>
-              <div class="ln" style="width:52%"></div>
-              <div class="ln" style="width:84%"></div>
-              <div class="ln" style="width:70%"></div>
-              <div class="note">Send the quote by 20 October</div>
-              <div class="tick" aria-hidden="true">&#10003;</div>
-              <div class="pill">&#8249; &nbsp;7 / 24&nbsp; &#8250; &nbsp; 103%</div>
+            <a class="trylink" href="/app/?demo=1">Try it first with an example library <span aria-hidden="true">&rarr;</span></a>
+            <div class="shelf" aria-hidden="true">
+              <i style="--c:#E06C9F;--h:78px">Clients</i><i style="--c:#8E6CF0;--h:92px">Contracts</i><i style="--c:#5B8DEF;--h:70px">Invoices</i><i style="--c:#F08A4B;--h:86px">Lectures</i>
+              <i style="--c:#45B07C;--h:96px">Thesis</i><i style="--c:#E9A13B;--h:74px">Taxes</i><i style="--c:#5BB9C9;--h:84px">Staff</i>
             </div>
-            <div class="side">
-              <div class="card"><div class="clock"></div><small>Sunday 11 October</small></div>
-              <div class="card next"><b>Next:</b> Office lease renewal - in 45 days</div>
-            </div>
+            <p class="fine">BindLens sees only the files it makes or that you give it, in a folder called BindLens in your Drive. We have no servers: nothing goes to us. <a href="/app/privacy.html">Privacy</a> &middot; <a href="/app/terms.html">Terms</a></p>
           </div>
         </div>
-      </div>
+      </section>
+
+      <aside class="door-app" aria-labelledby="apph">
+        <svg class="laptop" viewBox="0 0 64 44" width="64" height="44" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="4" width="44" height="28" rx="3"/><path d="M3 38h58l-4 4H7z"/><path d="M27 18l4 4 7-8"/></svg>
+        <span class="kicker">BindLens for Windows</span>
+        <h2 id="apph">Nothing leaves your laptop.</h2>
+        <p>The same books, on your own computer. No account, no internet, no cloud.</p>
+        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Download for Windows
+        </a>
+        <small>Free &middot; Windows 10 and 11 &middot; open source (AGPL-3.0)</small>
+        <a class="more" href="#watch">See the app <span aria-hidden="true">&darr;</span></a>
+      </aside>
     </div>
 
     <section id="watch">
@@ -502,7 +555,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap}
 
   <footer>
     <span>© 2026 Mohammed Chahboune Kadi · BindLens is free software under the GNU AGPL v3.</span>
-    <nav aria-label="Footer"><a href="#privacy">Privacy</a><a href="#faq">Licence</a><a href="https://github.com/CKMohammed/BindLens">Source code</a><a href="#download">Download</a></nav>
+    <nav aria-label="Footer"><a href="#privacy">Privacy (app)</a><a href="/app/privacy.html">Privacy (BindLens Web)</a><a href="/app/terms.html">Terms (BindLens Web)</a><a href="#faq">Licence</a><a href="https://github.com/CKMohammed/BindLens">Source code</a><a href="#download">Download</a></nav>
   </footer>
   <p style="color:var(--muted);font-size:.85rem;padding-bottom:32px">This website sets no cookies, has no analytics and loads nothing from other sites (its fonts are here, under the SIL Open Font License).</p>
 </div>

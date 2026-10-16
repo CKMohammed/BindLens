@@ -5,9 +5,12 @@ import { greeting, fmtDate, mix, initials } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, openPanel, continueReading,
-  addFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook } from "../actions.js";
+  addFromDrive, addFolderFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook } from "../actions.js";
 import { needsCount } from "../reports/dates.js";
 import { indexLibrary, indexed } from "../docs.js";
+import { BookTile } from "./bookicons.jsx";
+import { Logo } from "./Logo.jsx";
+import { FullButton } from "./FrameBar.jsx";
 import { BOOK_COLORS } from "../util.js";
 
 function hashOf(s) { let h = 0; for (const c of s) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h; }
@@ -29,40 +32,12 @@ export function AccountButton() {
   );
 }
 
-function Frame() {
-  return (
-    <svg class="pic" viewBox="0 0 54 66" aria-hidden="true">
-      <rect x="2" y="2" width="50" height="62" rx="3" fill="#2B2440" />
-      <rect x="7" y="7" width="40" height="52" rx="2" fill="#F3EFFA" />
-      <circle cx="20" cy="22" r="5" fill="#F2C85A" />
-      <path d="M8 56 L22 36 L31 47 L37 40 L46 56Z" fill="#7C5CFF" opacity=".8" />
-    </svg>
-  );
-}
-
-function Vase() {
-  return (
-    <svg class="plant" viewBox="0 0 44 70" aria-hidden="true">
-      <path d="M22 40 C18 24 14 14 8 6 M22 40 C24 22 28 12 36 4 M22 40 C22 26 22 16 22 2" stroke="#8A6A1E" stroke-width="1.6" fill="none" />
-      <circle cx="8" cy="6" r="3.5" fill="#F2C85A" /><circle cx="36" cy="4" r="3.5" fill="#FF8A3D" /><circle cx="22" cy="2" r="3" fill="#E06C9F" />
-      <path d="M13 40h18c2 8 2 18-3 28H16c-5-10-5-20-3-28z" fill="#6C5CFF" />
-      <path d="M13 40h18v4H13z" fill="#8E7FFF" />
-    </svg>
-  );
-}
-
-function Stack() {
-  return (
-    <div class="stack" aria-hidden="true">
-      {[["#C9B8E8", 74], ["#E8C8A0", 66], ["#A8D5C2", 70], ["#F3B7C8", 60]].map(([c, w], i) => <i key={i} style={{ background: c, width: w + "px" }} />)}
-    </div>
-  );
-}
-
 function addItems() {
   return [
     { label: "New empty book...", icon: "plus", run: () => newBook().then(b => b && openBook(b.id)) },
     { label: "Add a folder... (a book with all its files)", icon: "book", run: () => addFolder() },
+    store.value.canPick && { label: "A whole folder from my Google Drive...", icon: "drive", run: () => addFolderFromDrive() },
+    store.value.canPick && { label: "Files from my Google Drive...", icon: "drive", run: () => addFromDrive() },
     { label: "Add documents... (each one becomes a book)", icon: "upload", run: () => addDocsAsBooks() },
     { label: "Add documents as one book...", icon: "upload", run: async () => { const fs = await pickFiles(); if (!fs.length) return; const b = await newBook(); if (b) uploadFiles(books.value.find(x => x.id === b.id), fs); } },
     books.value.length > 0 && { label: "Add files to the book I was in...", icon: "addpage", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); } },
@@ -79,6 +54,7 @@ function Spine({ b, h, onHover, lean }) {
     { label: "New sub-book...", icon: "plus", run: () => newSubBook(b) },
     { label: "Save the whole book as one PDF...", icon: "download", run: async () => (await import("../filetools.js")).wholeBookAsPdf(b) },
     { label: "Rename", icon: "rename", run: () => renameBook(b) },
+    { label: "Icon and colour...", icon: "palette", run: () => openPanel("bookstyle", { id: b.id }) },
     { label: bookMeta(b.id).locked ? "Open it without the PIN" : "Lock it with the PIN", icon: "lock", run: () => toggleBookLock(b) },
     { title: "Colour" },
     ...BOOK_COLORS.slice(0, 8).map(c => ({ label: c === b.color ? "This colour" : "", swatch: c, run: () => setBookColor(b, c) })),
@@ -89,19 +65,59 @@ function Spine({ b, h, onHover, lean }) {
     store.value.kind !== "onedrive" && { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
   ];
-  const w = 40 + Math.min(18, b.files.length * 2);
+  const w = 42 + Math.min(20, b.files.length * 2.5);
+  const m = bookMeta(b.id);
+  const c = m.color || b.color;
+  const [out, setOut] = useState(false);
+  const open = () => { setOut(true); setTimeout(() => openBook(b.id), 260); };
   return (
-    <button ref={ref} class={"spine" + (lean ? " lean" : "")} title={b.name}
-      style={{ height: h + "px", width: w + "px", background: `linear-gradient(90deg, ${mix(b.color, "#000000", 0.08)}, ${b.color} 30%, ${mix(b.color, "#ffffff", 0.08)} 70%, ${mix(b.color, "#000000", 0.12)})`,
+    <button ref={ref} class={"spine" + (lean ? " lean" : "") + (out ? " out" : "")} title={b.name}
+      style={{ height: h + "px", width: w + "px", "--sc": c, "--h": h + "px",
+        background: `linear-gradient(90deg, ${mix(c, "#000000", 0.32)} 0%, ${mix(c, "#000000", 0.08)} 9%, ${mix(c, "#ffffff", 0.22)} 26%, ${c} 46%, ${mix(c, "#000000", 0.1)} 80%, ${mix(c, "#000000", 0.34)} 100%)`,
         outline: drop ? "3px solid var(--accent)" : "" }}
-      onClick={() => openBook(b.id)}
+      onClick={open}
       onMouseEnter={() => onHover(b)} onFocus={() => onHover(b)} onMouseLeave={() => onHover(null)}
       onContextMenu={(e) => { e.preventDefault(); openMenu({ clientX: e.clientX, clientY: e.clientY, preventDefault() {}, stopPropagation() {} }, menuItems()); }}
       onDragOver={(e) => { e.preventDefault(); setDrop(true); }} onDragLeave={() => setDrop(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDrop(false); uploadFiles(b, [...e.dataTransfer.files], { open: false }); }}>
-      <i class="b1" /><span class="t">{b.name}</span><i class="b2" />
-      {bookMeta(b.id).locked && <span class="cnt">🔒</span>}
+      <i class="b1" /><i class="b1 two" /><span class="t">{b.name}</span><i class="b2 two" /><i class="b2" />
+      {m.icon && m.icon !== "letters" ? <span class="medal"><BookTile book={b} meta={{ ...m, tstyle: "flat", color: mix(c, "#000000", 0.25) }} size={Math.round(w * 0.62)} /></span> : null}
+      {m.locked && <span class="cnt">🔒</span>}
     </button>
+  );
+}
+
+function LyingBooks({ seed = 0 }) {
+  const cols = [["#3E7BFF", "#E9A13B", "#8E6CF0"], ["#E06C9F", "#4CC38A", "#F08A4B"], ["#5B8DEF", "#C9A227", "#3FB28F"]][seed % 3];
+  return (
+    <div class="lying" aria-hidden="true">
+      {cols.map((c, i) => <i key={i} style={{ background: `linear-gradient(${mix(c, "#ffffff", 0.18)}, ${c} 45%, ${mix(c, "#000000", 0.22)})`, width: 70 - i * 7 + (seed % 2) * 6 + "px", marginLeft: (i % 2) * 6 + "px" }} />)}
+    </div>
+  );
+}
+
+function Bookend() {
+  return <svg class="bookend" viewBox="0 0 26 64" aria-hidden="true"><path d="M3 64V6a4 4 0 0 1 4-4h2v58h17v4z" fill="#C9A227" /><path d="M3 64V6a4 4 0 0 1 4-4h2v58h17v4z" fill="none" stroke="#8A6A1E" stroke-width="1.2" /></svg>;
+}
+
+function Hourglass() {
+  return (
+    <svg class="hourglass" viewBox="0 0 40 64" aria-hidden="true">
+      <rect x="4" y="2" width="32" height="5" rx="2" fill="#8B5E3C" /><rect x="4" y="57" width="32" height="5" rx="2" fill="#8B5E3C" />
+      <path d="M9 7h22c0 12-8 15-8 25s8 13 8 25H9c0-12 8-15 8-25S9 19 9 7z" fill="rgba(255,255,255,.55)" stroke="#E8D9C5" stroke-width="1.5" />
+      <path class="sand-top" d="M12 12h16c-1 7-6 10-8 14-2-4-7-7-8-14z" fill="#F2C85A" /><path class="sand-bot" d="M12 55h16c-2-8-6-10-8-14-2 4-6 6-8 14z" fill="#F2C85A" />
+    </svg>
+  );
+}
+
+function TopDecor() {
+  return (
+    <div class="topdecor" aria-hidden="true">
+      <svg class="globe" viewBox="0 0 60 70"><path d="M30 64v-6M18 66h24" stroke="#8A6A1E" stroke-width="3" stroke-linecap="round" /><path d="M50 30a20 20 0 0 1-30 17" stroke="#C9A227" stroke-width="3" fill="none" /><circle cx="30" cy="30" r="18" fill="#5AA9E6" /><path d="M20 20c6 2 6 8 12 8s6 6 2 10M36 14c-2 4 2 6 6 6" stroke="#3FB28F" stroke-width="5" fill="none" stroke-linecap="round" /><circle cx="24" cy="22" r="5" fill="rgba(255,255,255,.35)" /></svg>
+      <span class="grow" />
+      <svg class="lamp" viewBox="0 0 60 70"><path d="M16 66h28" stroke="#3A2E2A" stroke-width="5" stroke-linecap="round" /><path d="M30 64V36l12-14" stroke="#3A2E2A" stroke-width="3.5" fill="none" stroke-linecap="round" /><path d="M30 8l20 6-6 18-22-8z" fill="#E9A13B" /><path d="M24 26l18 6" stroke="#B8892A" stroke-width="2" /><ellipse class="glow" cx="33" cy="34" rx="12" ry="6" fill="#FFE9A8" opacity=".55" /></svg>
+      <Plant />
+    </div>
   );
 }
 
@@ -153,6 +169,8 @@ export function Home() {
   const lastBook = last && all.find(b => b.id === last.book);
   const lastFile = lastBook && lastBook.files.find(f => f.id === last.file);
   const now = new Date();
+  const longest = Math.max(1, ...shelves.map(r => r.length + 1));
+  const caseW = phone ? 0 : Math.min(width - 20, Math.max(520, longest * 62 + 260));
 
   return (
     <div class="home"
@@ -161,6 +179,7 @@ export function Home() {
       onDrop={async (e) => { e.preventDefault(); setDrag(false); const fs = [...e.dataTransfer.files]; if (fs.length) uploadFiles(null, fs); }}>
       <div class="home-in">
         <div class="home-top">
+          <Logo size={58} />
           <div>
             <h1>{greeting()}</h1>
             <div class="date">{fmtDate(now, true)}</div>
@@ -170,27 +189,34 @@ export function Home() {
             <Icon n="search" /><span>Find a document, a word, an action...</span><kbd>Ctrl+K</kbd>
           </div>
           {needs > 0 && <button class="needs" onClick={() => openPanel("dates")}><i />{needs} {needs === 1 ? "date needs" : "dates need"} you</button>}
+          <FullButton />
           <AccountButton />
         </div>
 
-        <div class="shelfwall" ref={wallRef}>
-          {shelves.map((row, si) => (
-            <div class="shelf" key={si}>
-              <div class="rowbooks">
-                <div class="decor left">{si % 2 === 0 ? <Plant /> : <Frame />}</div>
-                <div class="booksrun">
-                  {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.72 : 1) * (156 + (hashOf(b.name) % 46))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
-                  {si === addAt && <button class="addspine" title="New book" onClick={(e) => openMenu(e, addItems())}>+</button>}
+        <div class="bookcase-wrap" ref={wallRef}>
+          <div class="bookcase" style={{ width: caseW ? caseW + "px" : undefined }}>
+            <div class="bc-crown"><TopDecor /></div>
+            <div class="bc-body">
+              {shelves.map((row, si) => (
+                <div class="bc-shelf" key={si}>
+                  <div class="bc-back">
+                    {si % 3 === 1 && <div class="bc-deco left"><LyingBooks seed={si} /></div>}
+                    <div class="booksrun">
+                      {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.74 : 1) * Math.min(208, Math.max(150 + (hashOf(b.name) % 40), b.name.length * 7.6 + 64))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
+                      {si === addAt && <button class="addspine" title="Add a book" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={22} /><span>Add</span></button>}
+                    </div>
+                    <div class="bc-deco right">{si % 3 === 0 ? <><LyingBooks seed={si + 3} /><Bookend /></> : si % 3 === 1 ? <Hourglass /> : <Plant />}</div>
+                  </div>
+                  <div class="bc-board" />
                 </div>
-                <div class="decor right">{si % 2 === 0 ? <Stack /> : <Vase />}</div>
-              </div>
-              <div class="board" />
+              ))}
             </div>
-          ))}
+            <div class="bc-base"><i /><i /></div>
+          </div>
         </div>
 
         <div class="hovername">
-          {hover ? <>{hover.name} <span class="muted small">· {hover.files.length} file{hover.files.length === 1 ? "" : "s"} · click to open</span></>
+          {hover ? <>{hover.name} <span class="muted small">· {hover.files.length} file{hover.files.length === 1 ? "" : "s"} · click to take it out</span></>
             : !all.length ? <span class="muted">Your library is empty. Make a book, then add your documents to it.</span> : ""}
         </div>
 
@@ -216,7 +242,10 @@ export function Home() {
           <button class="qa" onClick={() => openPanel("scan")}><Icon n="camera" />Scan</button>
           <button class="qa" onClick={() => { if (!books.value.length) { toast("Make a book first."); return; } if (!settings.value.last) openBook(books.value[0].id); openPanel("study"); }}><Icon n="star" />Study cards</button>
           <button class="qa" onClick={(e) => openMenu(e, addItems())}><Icon n="upload" />Add</button>
-          {store.value.canPick && <button class="qa" onClick={() => addFromDrive()}><Icon n="drive" />From Drive</button>}
+          {store.value.canPick && <button class="qa" onClick={(e) => openMenu(e, [
+            { label: "A whole folder (it becomes a book)...", icon: "book", run: () => addFolderFromDrive() },
+            { label: "Some files...", icon: "upload", run: () => addFromDrive() },
+          ])}><Icon n="drive" />From Drive</button>}
           <button class="qa" onClick={() => openPanel("settings")}><Icon n="palette" />Frame colours</button>
         </div>
       </div>

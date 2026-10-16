@@ -94,6 +94,81 @@ export async function addFromDrive(book) {
   }
 }
 
+// "A whole folder from my Drive": the folder becomes a book with all its files (its folders become sub-books).
+// Google lets BindLens open only what you choose: if it cannot see inside the folder, the folder opens in the
+// picker and you choose its files (select them all).
+const FOLDER_MIME = "application/vnd.google-apps.folder";
+const SKIP_MIME = new Set(["application/vnd.google-apps.shortcut", "application/vnd.google-apps.form", "application/vnd.google-apps.site", "application/vnd.google-apps.map"]);
+export async function addFolderFromDrive() {
+  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? "With OneDrive, add a folder from your computer (Add a folder)." : "Sign in with Google to add folders from your Drive."); return; }
+  try {
+    const folders = (await store.value.pick(true, { folders: true, title: "Choose a folder from your Google Drive - it becomes a book" })).filter(p => p.mime === FOLDER_MIME);
+    for (const fo of folders) await importDriveFolder(fo);
+  } catch (e) {
+    toast("Could not open your Drive: " + e.message, "bad", 6000);
+  }
+}
+
+async function walkDrive(id, path, depth, out) {
+  const items = await store.value.inside(id);
+  for (const it of items) {
+    if (it.mime === FOLDER_MIME) { if (depth < 8) await walkDrive(it.id, path ? path + "/" + it.name : it.name, depth + 1, out); }
+    else if (!SKIP_MIME.has(it.mime)) out.push({ file: it, path });
+    if (out.length > 2000) break;
+  }
+  return out;
+}
+
+async function importDriveFolder(fo) {
+  let tree = [];
+  try { tree = await walkDrive(fo.id, "", 0, []); } catch (e) { tree = []; }
+  if (!tree.length) {
+    const ok = await confirm(`Choose the files of "${fo.name}"`,
+      `Google lets BindLens open only the files you choose (that keeps the rest of your Drive private). In the next window "${fo.name}" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select.`,
+      { ok: "Choose the files" });
+    if (!ok) return;
+    const picked = (await store.value.pick(true, { parent: fo.id, title: `"${fo.name}": select all the files (Ctrl+A), then Select` })).filter(p => p.mime !== FOLDER_MIME && !SKIP_MIME.has(p.mime));
+    if (!picked.length) return;
+    for (const p of picked) tree.push({ file: await store.value.meta(p.id), path: "" });
+  }
+  const made = await newBook(fo.name);
+  if (!made) return;
+  const subs = new Map();
+  let n = 0;
+  toast(`Adding ${tree.length} file${tree.length === 1 ? "" : "s"} from "${fo.name}"...`);
+  for (const { file, path } of tree) {
+    let parent = made.id;
+    try {
+      if (path) {
+        // the folders inside become sub-books
+        let acc = "";
+        for (const part of path.split("/")) {
+          acc = acc ? acc + "/" + part : part;
+          if (!subs.has(acc)) {
+            const s = await store.value.createSub(cleanName(part), parent);
+            const sub = { id: s.id, name: cleanName(part), path: acc };
+            subs.set(acc, sub);
+            books.value = books.value.map(b => b.id === made.id ? { ...b, subs: [...(b.subs || []), sub] } : b);
+          }
+          parent = subs.get(acc).id;
+        }
+      }
+      const cur = books.value.find(b => b.id === made.id);
+      const taken = cur.files.filter(x => (x.parent || made.id) === parent).map(x => x.name);
+      const f = await store.value.copy(file, parent, uniqueName(file.name, taken));
+      f.parent = parent;
+      addFileToBook(made.id, f);
+      n++;
+      if (n % 5 === 0 && n < tree.length) toast(`"${fo.name}": ${n} of ${tree.length} files added...`);
+    } catch (e) {
+      toast(`Could not add ${file.name}: ${e.message}`, "bad", 5000);
+    }
+  }
+  logChange("Added a folder from your Drive", `${fo.name} (${n} files)`, made.name);
+  toast(`"${made.name}" is ready: ${n} file${n === 1 ? "" : "s"} from your Drive.`, "ok");
+  openBook(made.id);
+}
+
 export async function renameBook(book) {
   const name = await ask("Rename the book", { value: book.name, ok: "Rename" });
   if (!name || name === book.name) return;

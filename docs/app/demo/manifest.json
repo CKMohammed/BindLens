@@ -21,7 +21,9 @@
      "mime": "application/pdf",
      "size": 2282
     }
-   ]
+   ],
+   "icon": "people",
+   "tstyle": "3d"
   },
   {
    "name": "Contracts",
@@ -38,7 +40,9 @@
      "mime": "application/pdf",
      "size": 2274
     }
-   ]
+   ],
+   "icon": "contract",
+   "tstyle": "3d"
   },
   {
    "name": "Home manuals",
@@ -49,7 +53,9 @@
      "mime": "application/pdf",
      "size": 1825
     }
-   ]
+   ],
+   "icon": "home",
+   "tstyle": "3d"
   },
   {
    "name": "Insurance",
@@ -66,7 +72,9 @@
      "mime": "application/pdf",
      "size": 1854
     }
-   ]
+   ],
+   "icon": "shield",
+   "tstyle": "3d"
   },
   {
    "name": "Invoices 2026",
@@ -83,7 +91,9 @@
      "mime": "application/pdf",
      "size": 1849
     }
-   ]
+   ],
+   "icon": "invoice",
+   "tstyle": "3d"
   },
   {
    "name": "Lecture notes",
@@ -100,7 +110,9 @@
      "mime": "application/pdf",
      "size": 1635
     }
-   ]
+   ],
+   "icon": "lecture",
+   "tstyle": "3d"
   },
   {
    "name": "Meeting notes",
@@ -117,7 +129,9 @@
      "mime": "application/pdf",
      "size": 2299
     }
-   ]
+   ],
+   "icon": "letters",
+   "tstyle": "flat"
   },
   {
    "name": "Projects",
@@ -134,7 +148,9 @@
      "mime": "application/pdf",
      "size": 2953
     }
-   ]
+   ],
+   "icon": "target",
+   "tstyle": "3d"
   },
   {
    "name": "Research papers",
@@ -151,7 +167,9 @@
      "mime": "application/pdf",
      "size": 2001
     }
-   ]
+   ],
+   "icon": "microscope",
+   "tstyle": "3d"
   },
   {
    "name": "Summer photos",
@@ -186,7 +204,9 @@
      "mime": "image/jpeg",
      "size": 17381
     }
-   ]
+   ],
+   "icon": "camera",
+   "tstyle": "3d"
   },
   {
    "name": "Taxes 2025",
@@ -209,7 +229,9 @@
      "mime": "application/pdf",
      "size": 1847
     }
-   ]
+   ],
+   "icon": "yr:2025",
+   "tstyle": "3d"
   },
   {
    "name": "Thesis",
@@ -226,7 +248,9 @@
      "mime": "application/pdf",
      "size": 1997
     }
-   ]
+   ],
+   "icon": "thesis",
+   "tstyle": "light"
   }
  ]
 }
