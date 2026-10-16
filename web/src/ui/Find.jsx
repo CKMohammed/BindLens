@@ -23,6 +23,15 @@ const ACTIONS = [
   { label: "Frame colours", icon: "palette", words: "frame colours colors personalise customize look theme", run: () => openPanel("settings") },
   { label: "Lock with a PIN", icon: "lock", words: "lock pin password", run: () => { if (settings.value.pin) locked.value = true; else openPanel("pin"); } },
   { label: "Settings", icon: "settings", words: "settings options", run: () => openPanel("settings") },
+  { label: "Next deadline", icon: "bell", words: "next deadline due soon date renewal expiry", run: async () => {
+    const { allDeadlines, needs } = await import("../reports/dates.js");
+    const list = (await allDeadlines(null, true)).filter(x => x.days >= 0);
+    const it = list[0];
+    if (!it) { openPanel("dates"); return; }
+    const b = books.value.find(x => x.id === it.bookId), f = b && b.files.find(x => x.id === it.fileId);
+    if (b && f) goToWord(b, f, it.page, it.line.slice(0, 40)); else openPanel("dates");
+    void needs;
+  } },
   { label: "Help", icon: "help", words: "help how to guide", run: () => openPanel("help") },
   { label: "The tour (how BindLens works)", icon: "sparkle", words: "tour welcome start introduction what is", run: () => openPanel("welcome") },
   { label: "Licence, privacy and legal", icon: "info", words: "licence license privacy legal agpl source code terms", run: () => openPanel("legal") },

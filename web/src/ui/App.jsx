@@ -83,7 +83,7 @@ function Start() {
           <div class="or">or</div>
           <button class="btn ghost" onClick={() => startWith(new DemoStore())}>Try it with an example library</button>
           {errorText.value && <p class="small" style={{ color: "var(--bad)", marginTop: 16 }}>{errorText.value}</p>}
-          <p class="fine">BindLens sees only the files it makes or that you give it, in a folder called <b>BindLens</b> in your Drive. Nothing goes to our servers: we have none. <a href="/" target="_blank">bindlens.com</a></p>
+          <p class="fine">BindLens sees only the files it makes or that you give it, in a folder called <b>BindLens</b> in your Drive. Nothing goes to our servers: we have none. <a href={import.meta.env.BASE_URL + "privacy.html"} target="_blank" rel="noopener">Privacy</a> · <a href={import.meta.env.BASE_URL + "terms.html"} target="_blank" rel="noopener">Terms</a> · <a href="/" target="_blank">bindlens.com</a></p>
         </>}
       </div>
     </div>

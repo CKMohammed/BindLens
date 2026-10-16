@@ -1,5 +1,5 @@
 // Reports: choose what you want, where to look - and get the rows, exactly as they are in your documents.
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange,
   STATUSES, setStatus } from "../state.js";
 import { parseDatesAt } from "../reports/patterns.js";
@@ -14,7 +14,10 @@ function visibleCols(columns, rows) {
   return columns.map((c, j) => j).filter(j => rows.some(r => (r.cells[j] || "").toString().trim() !== ""));
 }
 
+function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+
 function asSheets(rep) {
+  if (rep.pictures) return [{ name: rep.title, rows: [["Name or value", "Where", "The row"], ...rep.pictures.flatMap(sc => sc.items.map(it => [sc.title, it.title, it.text || ""]))] }];
   if (rep.tables) return rep.tables.map(t => ({ name: t.title, rows: [...(t.header ? [t.header] : []), ...t.rows] }));
   const cols = visibleCols(rep.columns, rep.rows);
   return [{ name: rep.title, rows: [cols.map(j => rep.columns[j]), ...rep.rows.map(r => cols.map(j => r.cells[j] ?? ""))] }];
@@ -47,6 +50,17 @@ function toCsv(rep) {
 
 function toHtml(rep) {
   let h = `<h1>${escapeHtml(rep.title)}</h1><p style="color:#666">${escapeHtml(rep.where)} · ${fmtDate(new Date())} · BindLens</p>`;
+  if (rep.pictures) {
+    for (const sc of rep.pictures) {
+      h += `<h3>${escapeHtml(sc.title)}</h3>`;
+      if (!sc.items.length) h += "<p>Not found.</p>";
+      for (const it of sc.items) {
+        h += `<p style="margin:8pt 0 2pt;color:#555;font-size:8pt">${escapeHtml(it.title)}</p>`;
+        h += it.png ? `<p style="margin:0"><img src="data:image/png;base64,${b64(it.png)}" style="width:${Math.min(780, Math.round(it.w || 500))}px"></p>` : `<p>${escapeHtml(it.text || "")}</p>`;
+      }
+    }
+    return h;
+  }
   for (const s of asSheets(rep)) {
     if (rep.tables) h += `<h3>${escapeHtml(s.name)}</h3>`;
     h += "<table>" + s.rows.map((r, i) => "<tr>" + r.map(c => (i === 0 ? "<th>" : "<td>") + escapeHtml(c) + (i === 0 ? "</th>" : "</td>")).join("") + "</tr>").join("") + "</table>";
@@ -76,7 +90,27 @@ function rowMenu(e, cells, go, onGo) {
   ]);
 }
 
+function Pic({ png, w }) {
+  const [u, setU] = useState(null);
+  useEffect(() => { const x = URL.createObjectURL(new Blob([png], { type: "image/png" })); setU(x); return () => URL.revokeObjectURL(x); }, [png]);
+  return u ? <img src={u} alt="" style={{ width: w ? Math.round(w * 1.25) + "px" : undefined, maxWidth: "100%", display: "block", border: "1px solid var(--line)", borderRadius: 6, background: "#fff" }} /> : null;
+}
+
 function RowsTable({ rep, onGo }) {
+  if (rep.pictures) {
+    return rep.pictures.map((sc, i) => (
+      <div key={i} style={{ marginBottom: 18 }}>
+        <div class="row" style={{ marginBottom: 6 }}><b class="grow">{sc.title}</b><span class="tiny muted">{sc.items.length} row{sc.items.length === 1 ? "" : "s"}</span></div>
+        {!sc.items.length && <p class="muted small">Not found.</p>}
+        {sc.items.map((it, k) => (
+          <div key={k} style={{ marginBottom: 10, cursor: "pointer" }} title="Double-click to open the page" onDblClick={() => onGo(it.go)}>
+            <div class="tiny muted" style={{ marginBottom: 3 }}>{it.title}</div>
+            {it.png ? <Pic png={it.png} w={it.w} /> : <div class="small">{it.text}</div>}
+          </div>
+        ))}
+      </div>
+    ));
+  }
   if (rep.tables) {
     if (!rep.tables.length) return <p class="muted">No tables found here.</p>;
     return rep.tables.map((t, i) => (
@@ -101,7 +135,7 @@ function RowsTable({ rep, onGo }) {
         <tbody>
           {rep.rows.map((r, k) => (
             <tr key={k} class="click" title="Double-click to open the page · right-click for more" onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
-              {cols.map(j => <td key={j}>{rep.columns[j] === "When" && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : r.cells[j]}</td>)}
+              {cols.map(j => <td key={j}>{rep.columns[j] === "When" && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : rep.id === "compare" && j === 0 ? <span class={"chipst " + (r.cells[0] === "Changed" ? "warn" : r.cells[0].includes("first") ? "bad" : "ok")}>{r.cells[j]}</span> : r.cells[j]}</td>)}
             </tr>
           ))}
         </tbody>
@@ -110,7 +144,7 @@ function RowsTable({ rep, onGo }) {
   );
 }
 
-export function Reports() {
+export function Reports({ compare }) {
   const [pick, setPick] = useState(null);
   const [scope, setScope] = useState(currentBook.value ? "book" : "all");
   const [q, setQ] = useState("");
@@ -122,6 +156,22 @@ export function Reports() {
   const toggleSome = (id) => { const n = some.includes(id) ? some.filter(x => x !== id) : [...some, id]; setSome(n); setSetting("repBooks", n); };
   const book = currentBook.value;
   const file = currentFile.value;
+  useEffect(() => {
+    if (!compare) return;
+    (async () => {
+      const { compareDocs } = await import("../reports/run.js");
+      const find = (id) => { for (const b of books.value) { const f = b.files.find(x => x.id === id); if (f) return { book: b, file: f }; } return null; };
+      const a = find(compare.a), b2 = find(compare.b);
+      if (!a || !b2) return;
+      setBusy({ n: 0, of: 2, name: a.file.name });
+      try {
+        const r = await compareDocs(a, b2);
+        setRep({ ...r, title: `Compare: ${a.file.name} and ${b2.file.name}`, where: a.book.id === b2.book.id ? `Book: ${a.book.name}` : `${a.book.name} and ${b2.book.name}`, id: "compare" });
+        if (r.same) toast("The two documents have the same lines.", "ok");
+      } catch (e) { toast("Could not compare them: " + e.message, "bad"); }
+      setBusy(null);
+    })();
+  }, [compare?.a, compare?.b]);
 
   const run = async (id = pick?.id, sc = scope, qq = q) => {
     const def = REPORTS.find(r => r.id === id);
@@ -158,11 +208,12 @@ export function Reports() {
 
   const saveInBook = async (e) => {
     openMenu(e, [
-      { title: "Save the Excel file in..." },
+      { title: rep.pictures ? "Save the PDF in..." : "Save the Excel file in..." },
       ...books.value.map(b => ({ label: b.name, swatch: b.color, run: async () => {
-        const bytes = await toXlsx(rep);
-        const name = uniqueName(`${rep.title.replace(/[\\/:*?"<>|]/g, " ")} - ${fmtDate(new Date())}.xlsx`, b.files.map(f => f.name));
-        const f = await store.value.create(b.id, name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        const pdf = !!rep.pictures;
+        const bytes = pdf ? await call("htmlToPdf", toHtml(rep), PDF_CSS, 842, 595, 30) : await toXlsx(rep);
+        const name = uniqueName(`${rep.title.replace(/[\\/:*?"<>|]/g, " ")} - ${fmtDate(new Date())}.${pdf ? "pdf" : "xlsx"}`, b.files.map(f => f.name));
+        const f = await store.value.create(b.id, name, pdf ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes, pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         addFileToBook(b.id, f);
         logChange("Saved the report", name, b.name);
         toast(`Saved "${name}" in "${b.name}".`, "ok");
@@ -171,7 +222,7 @@ export function Reports() {
   };
 
   const shown = REPORTS.filter(r => !filter || (r.title + " " + r.desc).toLowerCase().includes(filter.toLowerCase()));
-  const count = rep ? (rep.tables ? rep.tables.reduce((a, t) => a + t.rows.length, 0) : rep.rows.length) : 0;
+  const count = rep ? (rep.pictures ? rep.pictures.reduce((a, sc) => a + sc.items.length, 0) : rep.tables ? rep.tables.reduce((a, t) => a + t.rows.length, 0) : rep.rows.length) : 0;
 
   return (
     <Dialog title={rep ? rep.title : "Reports"} icon="reports" onClose={close} cls="wide"

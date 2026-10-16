@@ -1133,6 +1133,29 @@ const api = {
 
 
   // the whole document with marks drawn in (for printing a copy of a non-PDF, or a picture of a page)
+  // strips of a page (a table's header and a row), one under the other, as they look: one PNG
+  clip(key, page, rects, scale = 2) {
+    const d = get(key);
+    const p = d.doc.loadPage(page);
+    const W = Math.max(1, Math.round((rects[0][2] - rects[0][0]) * scale));
+    const bands = rects.map(r => {
+      const bbox = [Math.round(r[0] * scale), Math.round(r[1] * scale), Math.round(r[0] * scale) + W, Math.round(r[3] * scale)];
+      const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, bbox, false);
+      pix.clear(255);
+      const dev = new mupdf.DrawDevice(mupdf.Matrix.scale(scale, scale), pix);
+      p.run(dev, mupdf.Matrix.identity);
+      dev.close();
+      return pix;
+    });
+    const H = bands.reduce((a, b) => a + b.getHeight(), 0);
+    const out = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, W, H], false);
+    const all = out.getPixels();
+    let off = 0;
+    for (const b of bands) { const px = b.getPixels(); all.set(px.subarray(0, Math.min(px.length, all.length - off)), off); off += px.length; }
+    const u8 = out.asPNG().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
   pagePng(key, page, scale) {
     const d = get(key);
     const p = d.doc.loadPage(page);

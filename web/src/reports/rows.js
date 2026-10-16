@@ -28,6 +28,9 @@ export function pageRows(words) {
     r.chunks = chunks;
     r.text = chunks.map(c => c.t).join("   ");
     r.y = Math.min(...r.ws.map(w => w.y0));
+    r.y1 = Math.max(...r.ws.map(w => w.y1));
+    r.x0 = Math.min(...r.ws.map(w => w.x0));
+    r.x1 = Math.max(...r.ws.map(w => w.x1));
     r.size = size;
   }
   return rows;
@@ -99,8 +102,9 @@ export function pageTables(words, ctx = {}) {
       let body = run;
       if (looksHeader(run[0], run[1])) { header = cellsOf(run[0], cols); body = run.slice(1); }
       else if (ctx.header && ctx.header.length === cols.length && i === 0) header = ctx.header; // a table going on from the page before
-      const t = { header, rows: body.map(r => cellsOf(r, cols)), y: run[0].y };
-      for (const r of body) { r.cells = cellsOf(r, cols); r.header = header; }
+      const t = { header, rows: body.map(r => cellsOf(r, cols)), y: run[0].y,
+        x0: Math.min(...run.map(r => r.x0)), x1: Math.max(...run.map(r => r.x1)), headerRow: header && run[0] !== body[0] ? run[0] : null };
+      for (const r of body) { r.cells = cellsOf(r, cols); r.header = header; r.table = t; }
       if (header) { run[0].isHeader = true; ctx.header = header; }
       tables.push(t);
       i = j;

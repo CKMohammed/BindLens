@@ -1,7 +1,8 @@
 // Photos as a gallery and a slideshow; videos big, or small in a corner while you read.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { signal } from "@preact/signals";
-import { panel, currentBook, books, toast } from "../state.js";
+import { panel, currentBook, books, toast, settings, setSetting } from "../state.js";
+import { openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { blobUrl } from "./Viewer.jsx";
 import { download } from "../util.js";
@@ -29,7 +30,7 @@ export function Gallery({ fileId: fid }) {
   }, [i]);
   useEffect(() => {
     if (!play) return;
-    const t = setInterval(() => setI(x => (x + 1) % items.length), 3500);
+    const t = setInterval(() => setI(x => (x + 1) % items.length), (settings.value.slideSecs || 3.5) * 1000);
     return () => clearInterval(t);
   }, [play, items.length]);
   useEffect(() => {
@@ -55,6 +56,7 @@ export function Gallery({ fileId: fid }) {
       <div class="gtop">
         <b class="grow ellipsis">{cur.f.name} <span style={{ opacity: .6, fontWeight: 400 }}>· {i + 1} of {items.length}{!book ? " · " + cur.b.name : ""}</span></b>
         <button class="ib" title={play ? "Stop the slideshow (space)" : "Slideshow (space)"} onClick={() => setPlay(!play)}><Icon n={play ? "pause" : "play"} /></button>
+        <button class="ib" title="Slideshow - how fast" onClick={(e) => openMenu(e, [{ title: "Slideshow - how fast" }, ...[[2, "Quick (2 seconds)"], [3.5, "Normal (3.5 seconds)"], [6, "Slow (6 seconds)"], [10, "Very slow (10 seconds)"]].map(([v, l]) => ({ label: ((settings.value.slideSecs || 3.5) === v ? "✓ " : "") + l, run: () => { setSetting("slideSecs", v); } }))])}><Icon n="clock" /></button>
         {cur.f.kind === "video" && <button class="ib" title="Play in a corner while you read" onClick={() => { pip.value = { file: cur.f, src: u }; close(); }}><Icon n="pip" /></button>}
         <button class="ib" title="Download" onClick={async () => { const r = await fetch(u); download(await r.blob(), cur.f.name); }}><Icon n="download" /></button>
         <button class="ib" title="Full screen" onClick={() => document.documentElement.requestFullscreen?.()}><Icon n="full" /></button>

@@ -152,7 +152,7 @@ const HELP = [
   ["select", "Change a mark", "With the arrow, click a mark to choose it: drag it, give it another colour or take it off (Delete). Double-click a text or a sticky note to change its words."],
   ["edit", "Change the text", "The pencil with a line changes the words of the PDF itself, in the same size and a similar font. Click a line, type, press Enter."],
   ["search", "Find", "Ctrl+K finds a book, a document, a word inside any document, or something to do. The Search tab in the Library finds a word in this book and shows every place."],
-  ["reports", "Reports", "Reports take out the rows as they are: names, emails, phones, addresses, dates, amounts, and every table with its columns. Copy them, download them for Excel, or save them in a book."],
+  ["reports", "Reports", "Reports take out the rows as they are: names, emails, phones, addresses, dates, amounts, and every table with its columns. Rows with a name or value gives every row that has it, with its own columns; Rows as they look shows them as pictures, exactly as in the file. Copy them, download them for Excel or PDF, or save them in a book. Right-click a row for a reminder or the status of its file."],
   ["clock", "What needs you", "The dates in your documents that need something: renewals, due dates, 'valid until', deadlines. Add them to Google Calendar or Outlook with a click."],
   ["camera", "Scan", "On a phone, take photos of paper; on a computer, choose photos. BindLens straightens the page and makes a PDF in your book."],
   ["print", "Print", "Print opens the document in a new tab of your browser, where you print it with your printer."],

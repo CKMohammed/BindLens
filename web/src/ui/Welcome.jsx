@@ -63,7 +63,8 @@ export function Legal() {
         <li>You can take BindLens's access away at any time in your Google Account, under Security, Third-party access.</li>
       </ul>
       <h3 style={{ margin: "16px 0 6px" }}>No warranty</h3>
-      <p class="small" style={{ marginBottom: 0 }}>BindLens is given as it is, without any warranty, as the AGPL says. Keep copies of the documents that matter: Google Drive also keeps earlier versions of your files for about 30 days.</p>
+      <p class="small">BindLens is given as it is, without any warranty, as the AGPL says. Keep copies of the documents that matter: Google Drive also keeps earlier versions of your files for about 30 days.</p>
+      <p class="small" style={{ marginBottom: 0 }}><a href={import.meta.env.BASE_URL + "privacy.html"} target="_blank" rel="noopener">Privacy (full page)</a> · <a href={import.meta.env.BASE_URL + "terms.html"} target="_blank" rel="noopener">Terms of use</a></p>
     </Dialog>
   );
 }

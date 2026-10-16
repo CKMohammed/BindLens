@@ -302,6 +302,10 @@ function fileMenu(e, book, f) {
     pdf && { label: "Copy with a password...", icon: "lock", run: () => openPanel("protect", { fileId: f.id }) },
     pdf && { label: "Read-only copy...", icon: "lock", run: () => openPanel("protect", { fileId: f.id, readOnly: true }) },
     { label: "Earlier versions...", icon: "clock", run: () => openPanel("versions", { fileId: f.id }) },
+    isPaged(f.kind) && f.kind !== "image" && { label: "Compare with another document", icon: "copy", sub: [
+      ...book.files.filter(x => x.id !== f.id && isPaged(x.kind) && x.kind !== "image").map(x => ({ label: x.name, icon: fileIcon(x.kind), run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) })),
+      ...books.value.filter(b2 => b2.id !== book.id && b2.files.some(x => isPaged(x.kind) && x.kind !== "image")).map(b2 => ({ label: b2.name, swatch: b2.color, sub: b2.files.filter(x => isPaged(x.kind) && x.kind !== "image").map(x => ({ label: x.name, icon: fileIcon(x.kind), run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) })) })),
+    ] },
     { label: "Print...", icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
     { label: "Send by email...", icon: "mail", run: () => FT.sendFile(f) },
     { label: "Download a copy", icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
