@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal, effect } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
-  readMode, visibleFiles, subView, fitPage, bookMeta } from "../state.js";
+  readMode, visibleFiles, subView, fitPage, bookMeta, commentsOpen } from "../state.js";
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
@@ -232,6 +232,7 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     const white = (m.type === "Square" && m.subject === "White box") || (m.type === "Ink" && m.subject === "White brush");
     openMenuAt(e.clientX, e.clientY, [
       { title: m.subject || m.type },
+      m.type === "Text" && m.num > 0 && { label: "Open the comment", icon: "comment", run: () => { commentsOpen.value = { focus: m.num, fileId: file.id }; } },
       (m.type === "FreeText" || m.type === "Text") && { label: "Change the words...", icon: "rename", run: () => setEdit({ x: m.rect[0], y: m.rect[1], w: m.rect[2] - m.rect[0], h: m.rect[3] - m.rect[1], kind: "change", value: m.contents, size: 12, m }) },
       !FLAT.has(m.type) && !white && { label: "A copy of it", icon: "copy", run: () => copySelected() },
       handlesOf(m).rotate && { label: "Turn it a quarter", icon: "rotate", run: async () => { await editMark(file, page, m.i, { rotateBy: 90 }); await reselect(file, page, m.i); } },
@@ -254,6 +255,7 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     { title: "Here" },
     { label: "Text here...", icon: "text", run: at(() => setEdit({ x: p[0], y: p[1] - 8, w: 220, h: 26, kind: "text", value: "", size: o.textSize || 12 })) },
     { label: "Sticky note here...", icon: "note", run: at(() => setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12 })) },
+    { label: "A comment here...", icon: "comment", run: () => { if (readOnly) { ensureWritable(file); return; } commentsOpen.value = { draft: { fileId: file.id, page, x: p[0], y: p[1] } }; } },
     { label: "Tick here", icon: "tick", run: at(() => quickMark(file, page, "tick", p, o)) },
     { label: "Cross here", icon: "cross", run: at(() => quickMark(file, page, "cross", p, o)) },
     { label: `Stamp here (${spec.text})`, icon: "stamp", run: at(() => { const w = spec.w || 150, h = spec.h || 46; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" }); }) },
@@ -348,6 +350,13 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     if (t === "text") {
       e.preventDefault();
       setEdit({ x: p[0], y: p[1] - 8, w: 220, h: 26, kind: "text", value: "", size: o.textSize || 12 });
+      return;
+    }
+    if (t === "comment") {
+      e.preventDefault();
+      if (readOnly) { toast("Comments go on PDFs. Right-click the page to make a PDF copy."); return; }
+      commentsOpen.value = { draft: { fileId: file.id, page, x: p[0], y: p[1] } };
+      if (!toolLock.value) tool.value = "select";
       return;
     }
     if (t === "note") {
@@ -709,6 +718,50 @@ function SelFrame({ sel, drag, toPx, grab, readOnly }) {
   );
 }
 
+// a form: its boxes can be filled in on the page itself - type in a box, tick a box, choose from a list
+function FormLayer({ file, page, k, v }) {
+  const [fields, setFields] = useState([]);
+  const [ver, setVer] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    getDoc(file).then(d => call("formFields", d.key, page)).then(list => { if (alive) setFields(list || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, [file.id, page, v, ver]);
+  if (!fields.length) return null;
+  const px = (x) => x * k * PT;
+  const set = async (f, value) => {
+    const d = await getDoc(file);
+    await call("setField", d.key, page, f.i, value);
+    afterEdit(file.id, "marks");
+    setVer(x => x + 1);
+  };
+  const live = tool.value === "select";
+  return (
+    <div class={"formlayer" + (live ? "" : " off")}>
+      {fields.map(f => {
+        const [x0, y0, x1, y1] = f.rect;
+        const st = { left: px(x0) + "px", top: px(y0) + "px", width: px(x1 - x0) + "px", height: px(y1 - y0) + "px" };
+        const fs = Math.max(9, Math.min(px(y1 - y0) * 0.62, 16 * k * PT));
+        if (f.ro) return null;
+        if (f.type === "text") {
+          const Tag = f.multi ? "textarea" : "input";
+          return <Tag key={f.i + ":" + f.value} class="ff ftext" style={{ ...st, fontSize: fs + "px" }} defaultValue={f.value} title={f.name} maxLength={f.max || undefined}
+            onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Enter" && !f.multi) e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.value = f.value; e.currentTarget.blur(); } }}
+            onBlur={(e) => { if (e.currentTarget.value !== f.value) set(f, e.currentTarget.value); }} />;
+        }
+        if (f.type === "checkbox" || f.type === "radiobutton") return <button key={f.i} class={"ff fchk" + (f.on ? " on" : "")} style={st} title={f.name} onPointerDown={(e) => e.stopPropagation()} onClick={() => set(f, !f.on)} aria-label={f.name} />;
+        if (f.type === "combobox" || f.type === "listbox") return (
+          <select key={f.i + ":" + f.value} class="ff fsel" style={{ ...st, fontSize: fs + "px" }} defaultValue={f.value} title={f.name} onPointerDown={(e) => e.stopPropagation()} onChange={(e) => set(f, e.currentTarget.value)}>
+            {!f.options.includes(f.value) && <option value={f.value}>{f.value}</option>}
+            {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>);
+        if (f.type === "signature") return <button key={f.i} class="ff fsig" style={st} onPointerDown={(e) => e.stopPropagation()} onClick={() => { tool.value = "sign"; toast("Click inside the box to put your signature there."); }}>Sign here</button>;
+        return null;
+      })}
+    </div>
+  );
+}
+
 function InlineEdit({ ed, k, onDone }) {
   const ref = useRef();
   const done = useRef(false);
@@ -750,6 +803,7 @@ function DocBlock({ book, file, k, maxW }) {
           {st.status === "ready" && <PageCanvas file={file} page={i} w={p.w} h={p.h} k={k} v={st.v || 0} />}
           {st.status !== "ready" && <div class="loading">Opening {file.name}...</div>}
           {st.status === "ready" && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
+          {st.status === "ready" && st.form && !st.readOnly && <FormLayer file={file} page={i} k={k} v={st.v || 0} />}
           <span class="num">{i + 1}</span>
         </div>
       ))}
@@ -843,7 +897,7 @@ export function Viewer({ book }) {
         try {
           const d = await getDoc(f);
           if (!alive) return;
-          setDoc(f.id, { status: "ready", pages: d.pages, readOnly: d.readOnly, isPDF: d.isPDF, md5: f.md5 || f.modified, v: (docState.value[f.id]?.v || 0) + 1 });
+          setDoc(f.id, { status: "ready", pages: d.pages, readOnly: d.readOnly, isPDF: d.isPDF, form: !!d.form, md5: f.md5 || f.modified, v: (docState.value[f.id]?.v || 0) + 1 });
         } catch (e) {
           setDoc(f.id, { status: "error", error: String(e.message || e) });
         }

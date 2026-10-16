@@ -59,8 +59,16 @@ function describeAnnot(a, i) {
   if (type === "FreeText" && o.subject === "Sticky note") try { o.paper = colorOf(a.getColor()); } catch (e) {}
   const rot = rotOf(a);
   if (rot && Math.abs(rot.deg || 0) > 0.05) { o.rot = rot.deg; o.rw = rot.w; o.rh = rot.h; }
+  if (type === "Text") {
+    // a comment (with a name and a date) and the replies to it ("IRT", as Acrobat writes them)
+    try { const obj = a.getObject(); o.num = obj.isIndirect() ? obj.asIndirect() : -1; if (!obj.get("IRT").isNull()) o.reply = true; if (!obj.get("BLDone").isNull()) o.done = true; } catch (e) {}
+  }
   return o;
 }
+
+function annotNum(a) { try { const o = a.getObject(); return o.isIndirect() ? o.asIndirect() : -1; } catch (e) { return -1; } }
+function findByNum(p, num) { return p.getAnnotations().find(a => annotNum(a) === num) || null; }
+const PINK = [1, 0.52, 0.76], DONE = [0.18, 0.55, 0.34];
 
 function loadPDFPage(d, page) {
   if (!d.pdf) throw new Error("Marks can only go on PDF pages");
@@ -561,7 +569,40 @@ const api = {
     docs.set(key, d);
     let outline = [];
     try { outline = flatOutline(doc.loadOutline()); } catch (e) {}
-    return { pages: pageSizes(doc), isPDF: !!pdf, outline, canUndo: false };
+    // a form to fill in (text boxes, ticks, choices)?
+    let form = false;
+    try { const f = pdf && pdf.getTrailer().get("Root").get("AcroForm").get("Fields"); form = !!(f && f.isArray() && f.length > 0); } catch (e) {}
+    return { pages: pageSizes(doc), isPDF: !!pdf, outline, canUndo: false, form };
+  },
+
+  // the fields of a form on a page
+  formFields(key, page) {
+    const d = get(key);
+    if (!d.pdf) return [];
+    const p = loadPDFPage(d, page);
+    return p.getWidgets().map((w, i) => {
+      const t = w.getFieldType();
+      let options = null;
+      if (t === "combobox" || t === "listbox") try { options = w.getOptions(); } catch (e) { options = []; }
+      let on = false;
+      if (t === "checkbox" || t === "radiobutton") { const v = w.getValue(); on = !!v && v !== "Off"; }
+      return { i, type: t, name: w.getName(), value: w.getValue(), on, rect: w.getRect(), ro: w.isReadOnly(),
+        multi: t === "text" && w.isMultiline(), options, max: t === "text" ? w.getMaxLen() : 0 };
+    });
+  },
+
+  setField(key, page, i, value) {
+    const d = get(key);
+    return op(d, "Fill in the form", () => {
+      const w = loadPDFPage(d, page).getWidgets()[i];
+      if (!w) return false;
+      const t = w.getFieldType();
+      if (t === "text") w.setTextValue(String(value ?? ""));
+      else if (t === "combobox" || t === "listbox") w.setChoiceValue(String(value ?? ""));
+      else if (t === "checkbox" || t === "radiobutton") { const v = w.getValue(); const on = !!v && v !== "Off"; if (!!value !== on) w.toggle(); }
+      try { w.update(); } catch (e) {}
+      return true;
+    });
   },
 
   close(key) {
@@ -714,7 +755,97 @@ const api = {
     const d = get(key);
     if (!d.pdf) return [];
     const p = d.pdf.loadPage(page);
-    return p.getAnnotations().map(describeAnnot).filter(a => annotTypesWeShow.has(a.type));
+    return p.getAnnotations().map(describeAnnot).filter(a => annotTypesWeShow.has(a.type) && !a.reply);
+  },
+
+  // ---- comments: a note with your name and the date; colleagues reply; Resolve ticks it
+  comments(key) {
+    const d = get(key);
+    if (!d.pdf) return [];
+    const out = [], byNum = new Map(), replies = [];
+    const n = d.doc.countPages();
+    for (let i = 0; i < n; i++) {
+      const p = d.pdf.loadPage(i);
+      for (const a of p.getAnnotations()) {
+        if (a.getType() !== "Text") continue;
+        const o = describeAnnot(a, 0);
+        const c = { page: i, num: o.num, rect: o.rect, author: o.author, contents: o.contents, modified: o.modified || 0, done: !!o.done };
+        if (o.reply) { try { const irt = a.getObject().get("IRT"); c.parent = irt.isIndirect() ? irt.asIndirect() : -1; } catch (e) { c.parent = -1; } replies.push(c); }
+        else { c.replies = []; out.push(c); byNum.set(c.num, c); }
+      }
+    }
+    for (const r of replies) { const p = byNum.get(r.parent); if (p) p.replies.push(r); }
+    for (const c of out) c.replies.sort((x, y) => x.modified - y.modified);
+    return out;
+  },
+
+  addComment(key, page, x, y, text, author) {
+    const d = get(key);
+    return op(d, "Comment", () => {
+      const p = loadPDFPage(d, page);
+      const a = p.createAnnotation("Text");
+      a.setRect([x - 10, y - 10, x + 10, y + 10]);
+      a.setContents(text);
+      try { a.setIcon("Comment"); } catch (e) {}
+      a.setColor(PINK);
+      if (author) a.setAuthor(author);
+      try { a.setSubject("Comment"); } catch (e) {}
+      a.setModificationDate(new Date());
+      a.update();
+      return annotNum(a);
+    });
+  },
+
+  replyComment(key, page, num, text, author) {
+    const d = get(key);
+    return op(d, "Reply", () => {
+      const p = loadPDFPage(d, page);
+      const parent = findByNum(p, num);
+      if (!parent) throw new Error("The comment is no longer there");
+      const a = p.createAnnotation("Text");
+      a.setRect(parent.getRect());
+      a.setContents(text);
+      try { a.setIcon("Comment"); } catch (e) {}
+      a.setColor(PINK);
+      if (author) a.setAuthor(author);
+      a.setModificationDate(new Date());
+      const o = a.getObject();
+      o.put("IRT", d.pdf.newIndirect(num));
+      o.put("RT", d.pdf.newName("R"));
+      try { a.setFlags(a.getFlags() | 2); } catch (e) {}     // hidden on the page: the comment's own pin is there
+      a.update();
+      return true;
+    });
+  },
+
+  resolveComment(key, page, num, on) {
+    const d = get(key);
+    return op(d, on ? "Resolve" : "Open again", () => {
+      const p = loadPDFPage(d, page);
+      const a = findByNum(p, num);
+      if (!a) throw new Error("The comment is no longer there");
+      const o = a.getObject();
+      if (on) o.put("BLDone", true); else o.delete("BLDone");
+      try { a.setIcon(on ? "Check" : "Comment"); } catch (e) {}
+      a.setColor(on ? DONE : PINK);
+      a.update();
+      return true;
+    });
+  },
+
+  deleteComment(key, page, num) {
+    const d = get(key);
+    return op(d, "Delete a comment", () => {
+      const p = loadPDFPage(d, page);
+      for (const a of [...p.getAnnotations()]) {
+        if (a.getType() !== "Text") continue;
+        const n = annotNum(a);
+        let irt = -2;
+        try { const r = a.getObject().get("IRT"); if (!r.isNull()) irt = r.isIndirect() ? r.asIndirect() : -2; } catch (e) {}
+        if (n === num || irt === num) p.deleteAnnotation(a);
+      }
+      return true;
+    });
   },
 
   allAnnots(key) {
@@ -729,7 +860,7 @@ const api = {
       let st = null;
       for (const [k, a] of list.entries()) {
         const o = describeAnnot(a, k);
-        if (!annotTypesWeShow.has(o.type)) continue;
+        if (!annotTypesWeShow.has(o.type) || o.reply) continue;
         o.page = i;
         if (o.quads && o.quads.length) {
           // the words under a highlight

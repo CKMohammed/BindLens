@@ -1,6 +1,6 @@
 // The quick icons on the frame itself (the strip of colours on the right of the window), as in the Windows app.
 import { useEffect, useState } from "preact/hooks";
-import { readMode, view, settings, setSetting, books, openBook, toast, narrow, currentBook } from "../state.js";
+import { readMode, view, settings, setSetting, books, openBook, toast, narrow, currentBook, commentsOpen } from "../state.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { openPanel, continueReading } from "../actions.js";
@@ -26,6 +26,7 @@ export function FrameBar() {
       <B n="table" t="Reports" run={() => openPanel("reports")} />
       <B n="camera" t="Scan" run={() => openPanel("scan", currentBook.value ? { book: currentBook.value.id } : {})} />
       <B n="edit" t="Write a page or a document" run={() => openPanel("write", currentBook.value ? { book: currentBook.value.id } : {})} />
+      {inBook && <B n="comment" t="Comments: notes with your name, colleagues reply (C to add one)" on={!!commentsOpen.value} run={() => { commentsOpen.value = commentsOpen.value ? null : {}; }} />}
       {inBook && <B n="read" t={readMode.value ? "Leave reading mode" : "Reading mode"} on={readMode.value} run={() => { readMode.value = !readMode.value; }} />}
       <span class="grow" />
       <B n="more" t="More: gallery, study cards, colours, PIN, help" run={(e) => openMenu(e, [

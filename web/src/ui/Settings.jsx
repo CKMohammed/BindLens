@@ -9,6 +9,7 @@ import { DEFAULT_FRAME, AURORA_FRAME } from "./App.jsx";
 import { idb } from "../idb.js";
 import { pinHash } from "./Lock.jsx";
 import { signOut } from "../actions.js";
+import { brandOf } from "../util.js";
 
 const PRESETS = [
   { name: "BindLens", colors: DEFAULT_FRAME },
@@ -25,6 +26,41 @@ const PRESETS = [
 
 const close = () => { panel.value = null; };
 
+// Colours: the BindLens colours of the logo, or the institution's - on the frame, the buttons and the reports
+function Colours() {
+  const b = settings.value.brand || {};
+  const set = (ch) => setSetting("brand", { ...b, ...ch });
+  const br = brandOf(settings.value);
+  return (
+    <>
+      <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>Colours</h3>
+      <div class="grid2">
+        <button class={"cardopt brandopt" + (!b.on ? " on" : "")} onClick={() => set({ on: false })}>
+          <span class="bo-sw">{["#111218", "#FF85C2", "#FFC83D"].map(c => <i key={c} style={{ background: c }} />)}</span>
+          <span><b>BindLens</b><small>The colours of the logo: ink, pink and gold</small></span>
+        </button>
+        <button class={"cardopt brandopt" + (b.on ? " on" : "")} onClick={() => set({ on: true, c1: b.c1 || "#00573F", c2: b.c2 || "#C9A227" })}>
+          <span class="bo-sw">{[b.c1 || "#00573F", b.c2 || "#C9A227"].map((c, i) => <i key={i} style={{ background: c }} />)}</span>
+          <span><b>Your institution's colours</b><small>Your college's or company's colours on the frame, the buttons and the reports</small></span>
+        </button>
+      </div>
+      {b.on && <div class="brandform">
+        <label class="small">Its name (at the top of your reports)<input class="field" value={b.name || ""} placeholder="e.g. Atlantic Technological University" onInput={(e) => set({ name: e.target.value.slice(0, 80) })} /></label>
+        <div class="row wrap" style={{ gap: 16 }}>
+          <label class="row small">Main colour <input type="color" value={b.c1 || "#00573F"} onInput={(e) => set({ c1: e.target.value })} /></label>
+          <label class="row small">Second colour <input type="color" value={b.c2 || "#C9A227"} onInput={(e) => set({ c2: e.target.value })} /></label>
+          {br && br.accent.toLowerCase() !== (b.c1 || "").toLowerCase() && <span class="tiny muted">Buttons and words use it a little darker, so they read well: <i class="bo-dot" style={{ background: br.accent }} /></span>}
+        </div>
+        <div class="row wrap" style={{ gap: 18 }}>
+          <label class="chk small"><input type="checkbox" checked={b.frame !== false} onChange={(e) => set({ frame: e.target.checked })} />The frame</label>
+          <label class="chk small"><input type="checkbox" checked={b.ui !== false} onChange={(e) => set({ ui: e.target.checked })} />Buttons and highlights</label>
+          <label class="chk small"><input type="checkbox" checked={b.reports !== false} onChange={(e) => set({ reports: e.target.checked })} />Reports (PDF): its name and colours at the top</label>
+        </div>
+      </div>}
+    </>
+  );
+}
+
 export function Settings() {
   const f = settings.value.frame || {};
   const colors = f.colors && f.colors.length ? f.colors : DEFAULT_FRAME;
@@ -32,8 +68,9 @@ export function Settings() {
   const s = store.value;
   return (
     <Dialog title="Settings" icon="settings" onClose={close} cls="mid">
-      <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>The frame round the window</h3>
-      <p class="small muted" style={{ marginTop: 0 }}>The only thing you personalise in BindLens Web: the colours that flow round the window.</p>
+      <Colours />
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>The frame round the window</h3>
+      <p class="small muted" style={{ marginTop: 0 }}>{brandOf(settings.value) && settings.value.brand.frame !== false ? "The frame has your institution's colours now (above). Choose other colours for it here, or untick \"The frame\" above." : "The colours that flow round the window."}</p>
       <div class="grid2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
         {PRESETS.map(p => {
           const on = JSON.stringify(p.colors) === JSON.stringify(colors);
@@ -57,7 +94,7 @@ export function Settings() {
         <label class="row small">Speed
           <input type="range" min="6" max="60" value={66 - (f.speed || 22)} onInput={(e) => setFrame({ speed: 66 - Number(e.target.value) })} />
         </label>
-        <button class="btn plain small" onClick={() => setSetting("frame", {})}>Back to the BindLens colours</button>
+        <button class="btn plain small" onClick={() => { setSetting("frame", {}); }}>Back to the BindLens colours</button>
       </div>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>View</h3>
@@ -66,6 +103,14 @@ export function Settings() {
         {installPrompt.value && <button class="btn soft small" onClick={installApp}><Icon n="download" size={16} />Install BindLens as an app</button>}
       </div>
       <Doing />
+
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>Notifications and offline</h3>
+      <label class="chk small"><input type="checkbox" checked={!!settings.value.notify} onChange={async (e) => {
+        const n = await import("../notify.js");
+        if (e.target.checked) { if (await n.turnOn()) { setSetting("notify", true); setTimeout(() => { n.startNotifications(); n.checkNow(); }, 300); toast("BindLens tells you what needs you today and tomorrow.", "ok"); } }
+        else setSetting("notify", false);
+      }} />Tell me what needs me today and tomorrow (a notification on this computer or phone, while BindLens is open or installed as an app)</label>
+      <p class="small muted" style={{ margin: "8px 0 0" }}>BindLens works without a network too, once it has been opened here: the documents you opened are kept in this browser, and what you change offline goes up to your {s.cloud || "Drive"} when the network is back.</p>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>PIN</h3>
       <div class="row wrap">
@@ -171,6 +216,18 @@ const HELP = [
   ["grid", "Pages and copies", "Right-click a file: save some pages as a new PDF, split it into single pages, add pages from another PDF, a watermark, make it smaller, a copy with a password or read-only. The book's menu saves the whole book as one PDF."],
   ["clock", "Earlier versions", "Google Drive keeps the versions of a file. Right-click it, Earlier versions: open a copy of one, or go back to it. Pages you take out are kept too (Deleted pages)."],
   ["edit", "Edit a written page", "A page written in BindLens opens in Write again: Pages button, Edit this written page."],
+  ["addpage", "Add pages", "Add (top bar) > Pages to this document: blank, lined, squared or dotted paper the size of your page; pages from a file (PDF, photos, Word, Excel, PowerPoint); pages of another document; a written page; a scan. Choose where: after this page, before it, at the start or the end."],
+  ["word", "Write it in Google Docs", "In Add pages, Google Docs, Sheets or Slides open in a window beside BindLens. Write, come back, press Add these pages: they go into the PDF where you chose. Later, the page's menu opens it in Google again and brings its pages anew."],
+  ["template", "Templates", "Add > New book from a template: an employee or student file, a client, a project, a thesis... with its sub-books and a checklist of the documents it needs."],
+  ["checklist", "Checklist", "The Checklist tab of a book: the documents it needs. Tick one and say which document it is; BindLens suggests the document when its name fits."],
+  ["task", "Tasks", "Things to do, for you or a colleague, with a date: on Home (Tasks) or about a page (the Pages button). Dated ones come up in What needs you; Send it by email gives it to a colleague."],
+  ["comment", "Comments", "The comments icon on the frame: Comment, then click on the page. A note with your name and the date; colleagues reply under it and Resolve ticks it. They are PDF comments, inside the PDF."],
+  ["share", "Share a book", "Right-click a book on Home > Share with a colleague: Google Drive shares its folder and sends them an email. They open it with Add > A book shared with me; what one marks, the others see."],
+  ["form", "Forms", "A PDF form shows its boxes softly lit: type in them, tick them, choose from a list - on the page itself. A signature box asks for your signature."],
+  ["filter", "Find with filters", "Ctrl+K, then the filters under the box: a book, a kind of file, a status, when it changed. With no words, it lists the documents that fit."],
+  ["hourglass", "Countdowns", "On Home, What needs you > Count down: the days to an audit, exams, the end of a contract. From What needs you, the hourglass counts down to any date found in your documents."],
+  ["wifi", "Offline", "Once opened, BindLens works without a network: the documents you opened are kept in this browser, and what you change goes up to your Drive when the network is back."],
+  ["palette", "Your colours", "Settings > Colours: the BindLens colours of the logo, or your institution's colours on the frame, the buttons and the reports."],
   ["file", "Files it shows", "PDF, Word, Excel, PowerPoint, OpenDocument (.odt .ods .odp), RTF, e-mails (.eml), CSV and text files, photos, videos, music and e-books. Word, Excel and PowerPoint look close to the original; right-click one, Show it as it looks, and Google draws it exactly (old .doc and .ppt files always go that way)."],
 ];
 

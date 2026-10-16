@@ -151,7 +151,20 @@ export function Scan({ book: bid, into, at }) {
       } else {
         const b = books.value.find(x => x.id === bid) || currentBook.value || books.value[0];
         if (!b) { toast("Make a book first."); setBusy(""); return; }
-        let name = await ask("Save the scan", { value: "Scan " + fmtDate(new Date()), label: `It goes in "${b.name}" as a PDF.`, ok: "Save" });
+        // a name from the words of the first page: "Invoice 2026-10-14 - Harbour Cafe"
+        let value = "Scan " + fmtDate(new Date()), named = false;
+        if (read) {
+          setBusy("Reading the first page, to give the scan a name...");
+          try {
+            const { readImage } = await import("../ocr.js");
+            const { suggestScanName } = await import("../reports/naming.js");
+            const r = await readImage(new Blob([pages[0].jpg.slice(0)], { type: "image/jpeg" }));
+            const s = suggestScanName(r.text);
+            if (s) { value = s; named = true; }
+          } catch (e) { console.warn(e); }
+          setBusy("Making the PDF...");
+        }
+        let name = await ask("Save the scan", { value, label: named ? `BindLens read the first page and suggests this name. It goes in "${b.name}" as a PDF.` : `It goes in "${b.name}" as a PDF.`, ok: "Save" });
         if (!name) { setBusy(""); return; }
         name = uniqueName(cleanName(name).replace(/\.pdf$/i, "") + ".pdf", b.files.map(f => f.name));
         file = await store.value.create(b.id, name, bytes, "application/pdf");

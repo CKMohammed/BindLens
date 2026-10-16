@@ -7,7 +7,7 @@ import { Dialog, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { REPORTS, runReport } from "../reports/run.js";
 import { goToWord } from "./Find.jsx";
-import { download, escapeHtml, fmtDate, uniqueName, isoDate, uid } from "../util.js";
+import { download, escapeHtml, fmtDate, uniqueName, isoDate, uid, brandOf, mix } from "../util.js";
 import { call } from "../docs.js";
 
 function visibleCols(columns, rows) {
@@ -49,7 +49,9 @@ function toCsv(rep) {
 }
 
 function toHtml(rep) {
-  let h = `<h1>${escapeHtml(rep.title)}</h1><p style="color:#666">${escapeHtml(rep.where)} · ${fmtDate(new Date())} · BindLens</p>`;
+  const br = brandOf(settings.value);
+  const head = br && br.reports !== false ? `<div style="border-bottom:3pt solid ${br.c1};padding:0 0 5pt;margin:0 0 10pt;display:flex"><b style="color:${br.accent};font-size:11pt;letter-spacing:.04em">${escapeHtml(br.name || "")}</b></div>` : "";
+  let h = `${head}<h1${br && br.reports !== false ? ` style="color:${br.accent}"` : ""}>${escapeHtml(rep.title)}</h1><p style="color:#666">${escapeHtml(rep.where)} · ${fmtDate(new Date())} · BindLens</p>`;
   if (rep.pictures) {
     for (const sc of rep.pictures) {
       h += `<h3>${escapeHtml(sc.title)}</h3>`;
@@ -67,7 +69,13 @@ function toHtml(rep) {
   }
   return h;
 }
-const PDF_CSS = "body{font-family:sans-serif;font-size:9pt} h1{font-size:16pt;margin:0} table{border-collapse:collapse;width:100%;margin:6pt 0 12pt} td,th{border:0.5pt solid #bbb;padding:3pt 4pt;text-align:left;vertical-align:top} th{background:#eee}";
+const PDF_CSS0 = "body{font-family:sans-serif;font-size:9pt} h1{font-size:16pt;margin:0} table{border-collapse:collapse;width:100%;margin:6pt 0 12pt} td,th{border:0.5pt solid #bbb;padding:3pt 4pt;text-align:left;vertical-align:top} th{background:#eee}";
+// the reports in the institution's colours, when it has them (Settings > Colours)
+function pdfCss() {
+  const br = brandOf(settings.value);
+  if (!br || br.reports === false) return PDF_CSS0;
+  return PDF_CSS0 + ` th{background:${br.soft};color:${br.accent}} h3{color:${br.accent}} td,th{border-color:${mix(br.c1, "#FFFFFF", 0.6)}}`;
+}
 
 // right-click on a row: open its page, a reminder on its date, the status of its file, copy it
 function rowMenu(e, cells, go, onGo) {
@@ -211,7 +219,7 @@ export function Reports({ compare, pickId }) {
       { title: rep.pictures ? "Save the PDF in..." : "Save the Excel file in..." },
       ...books.value.map(b => ({ label: b.name, swatch: b.color, run: async () => {
         const pdf = !!rep.pictures;
-        const bytes = pdf ? await call("htmlToPdf", toHtml(rep), PDF_CSS, 842, 595, 30) : await toXlsx(rep);
+        const bytes = pdf ? await call("htmlToPdf", toHtml(rep), pdfCss(), 842, 595, 30) : await toXlsx(rep);
         const name = uniqueName(`${rep.title.replace(/[\\/:*?"<>|]/g, " ")} - ${fmtDate(new Date())}.${pdf ? "pdf" : "xlsx"}`, b.files.map(f => f.name));
         const f = await store.value.create(b.id, name, pdf ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes, pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         addFileToBook(b.id, f);
@@ -232,7 +240,7 @@ export function Reports({ compare, pickId }) {
         <button class="btn plain" onClick={() => { navigator.clipboard?.writeText(toTsv(rep)); toast("Copied: paste it in Excel or a document."); }}><Icon n="copy" size={17} />Copy</button>
         <button class="btn plain" onClick={async () => download(await toXlsx(rep), rep.title + ".xlsx")}><Icon n="excel" size={17} />Excel</button>
         <button class="btn plain hide-phone" onClick={() => download(toCsv(rep), rep.title + ".csv", "text/csv")}>CSV</button>
-        <button class="btn plain" onClick={async () => { const u8 = await call("htmlToPdf", toHtml(rep), PDF_CSS, 842, 595, 30); window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank"); }}><Icon n="print" size={17} />PDF</button>
+        <button class="btn plain" onClick={async () => { const u8 = await call("htmlToPdf", toHtml(rep), pdfCss(), 842, 595, 30); window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank"); }}><Icon n="print" size={17} />PDF</button>
         <button class="btn" onClick={saveInBook}><Icon n="drive" size={17} />Save in a book</button>
       </> : null}>
       {busy ? (

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
   redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta, panel, subView, visibleFiles,
-  STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage } from "../state.js";
+  STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage, commentsOpen, offline } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { Viewer, docState, scrollTo, selectedMark, searchHits, toolLock } from "./Viewer.jsx";
@@ -19,6 +19,7 @@ import { FullButton, frameBarOn } from "./FrameBar.jsx";
 import { toolMenus, setTool, RowTools } from "./Tools.jsx";
 import { Contents, ClockCal, DocSwitch, contentsOpen } from "./Reading.jsx";
 import { Checklist, checkProgress } from "./Checklist.jsx";
+import { CommentsDrawer } from "./Comments.jsx";
 import { addGooglePages, openBeside } from "./AddPages.jsx";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
@@ -34,6 +35,7 @@ function SaveState() {
   const demo = store.value.kind === "demo";
   const at = s.last ? new Date(s.last).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
   const where = store.value.kind === "onedrive" ? "OneDrive" : "Google Drive";
+  if (offline.value.on || offline.value.waiting) return <span class="savestate off" title="No network: your changes are kept in this browser and go up to your Drive when the network is back"><Icon n="wifi" size={14} />{offline.value.waiting ? `Offline · ${offline.value.waiting} to save` : "Offline"}</span>;
   if (s.error) return <span class="savestate bad" title={s.error}><Icon n="x" size={14} />Not saved</span>;
   if (s.n) return <span class="savestate busy" title={"Saving in your " + where}><span class="sdot" />Saving</span>;
   if (demo) return <span class="savestate" title="The example library: nothing is saved">Example</span>;
@@ -282,6 +284,12 @@ function MarksList({ book }) {
   const label = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: "Drawing", FreeText: "Text", Text: "Note", Square: "Box", Circle: "Circle", Line: "Line", Stamp: "Stamp" };
   return (
     <div class="list">
+      <div class="row marks-export">
+        <span class="tiny muted grow">{list.length} marks</span>
+        <button class="btn plain small" title="Your highlights and notes as a Word file" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "word")}><Icon n="word" size={14} />Word</button>
+        <button class="btn plain small" title="As a PDF" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "pdf")}><Icon n="pdf" size={14} />PDF</button>
+        {store.value.createConverted && <button class="btn plain small" title="As a Google Doc, to keep writing" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast("Google: " + e.message, "bad"))}><Icon n="drive" size={14} />Docs</button>}
+      </div>
       {list.map((m, i) => (
         <button key={i} class="mark-row" onClick={() => { scrollTo.value = { fileId: m.file.id, page: m.page, y: m.rect[1] }; selectedMark.value = { fileId: m.file.id, ...m }; }}>
           <div class="row"><span class="k" style={{ background: m.color ? rgbToHex(m.color) : "#ccc" }} /><b class="small">{m.subject && m.type === "FreeText" ? m.subject : label[m.type] || m.type}</b><span class="tiny muted grow" style={{ textAlign: "right" }}>p. {m.page + 1}</span></div>
@@ -476,7 +484,7 @@ function PageBar({ book }) {
       if (e.key === "PageDown" || (e.key === "ArrowRight" && !e.shiftKey)) { e.preventDefault(); go(1); }
       if (e.key === "PageUp" || (e.key === "ArrowLeft" && !e.shiftKey)) { e.preventDefault(); go(-1); }
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const map = { v: "select", p: "pen", h: "highlight", t: "text", n: "note", e: "eraser" };
+        const map = { v: "select", p: "pen", h: "highlight", t: "text", n: "note", e: "eraser", c: "comment" };
         if (map[e.key]) setTool(map[e.key]);
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) { e.preventDefault(); zoom.value = Math.min(4, zoom.value * 1.15); }
@@ -629,6 +637,7 @@ export function BookView() {
           {readMode.value && <ClockCal />}
         </div>
         {readMode.value && <ReadingLayer book={book} />}
+        {commentsOpen.value && !readMode.value && <CommentsDrawer book={book} />}
       </div>
     </div>
   );

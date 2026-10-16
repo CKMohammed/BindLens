@@ -70,7 +70,7 @@ export class DriveStore {
     if (!this.user) {
       const about = await this.json(`${API}/about?fields=user(displayName,emailAddress,photoLink)`);
       this.user = { name: about.user.displayName, email: about.user.emailAddress, photo: about.user.photoLink };
-      try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); localStorage.setItem("bl_cloud", "drive"); } catch (e) {}
+      try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); localStorage.setItem("bl_cloud", "drive"); localStorage.setItem("bl_user", JSON.stringify(this.user)); } catch (e) {}
     }
   }
 
@@ -81,6 +81,7 @@ export class DriveStore {
   }
 
   async fetch(url, opts = {}, retry = true) {
+    if (this.offline) throw new Error("You are offline: BindLens does it when the network is back");
     if (!this.token || Date.now() > this.expires) {
       if (this.onNeedSignIn) await this.onNeedSignIn();
       else await this.signIn(true);
@@ -113,6 +114,7 @@ export class DriveStore {
     }
     if (!id) id = (await this.createFolder("BindLens", null)).id;
     this.rootId = id;
+    try { localStorage.setItem("bl_root", id); } catch (e) {}
     // the library's settings file, so they are read before the books are shown
     const st = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and '${id}' in parents and trashed=false`)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`);
     this.settingsId = st.files && st.files.length ? st.files[0].id : null;
@@ -120,6 +122,18 @@ export class DriveStore {
 
   // everything BindLens can see, in one go: the books (folders in BindLens) and their files
   async listAll() {
+    const ck = "list:" + (this.user?.email || "");
+    if (this.offline) {
+      const c = await idb.get("kv", ck);
+      if (c) return c;
+      throw new Error("You are offline, and this library was not opened on this device before");
+    }
+    const out = await this.listOnline();
+    idb.set("kv", ck, out);
+    return out;
+  }
+
+  async listOnline() {
     const items = [];
     let page = "";
     do {
@@ -286,6 +300,48 @@ export class DriveStore {
   }
 
   async write(file, bytes) {
+    if (this.offline || (typeof navigator !== "undefined" && navigator.onLine === false)) return this.queue(file, bytes);
+    try { return await this.writeOnline(file, bytes); }
+    catch (e) { if (/Failed to fetch|NetworkError|offline/i.test(e.message || "")) return this.queue(file, bytes); throw e; }
+  }
+
+  // ---- offline: the changes wait in this browser, and go up when the network is back
+  async queue(file, bytes) {
+    const copy = bytes.slice ? bytes.slice(0) : bytes;
+    await idb.set("kv", "outbox:" + file.id, { id: file.id, name: file.name, mime: file.mime, bytes: copy, at: Date.now() });
+    idb.set("files", file.id + ":" + (file.md5 || file.modified || ""), copy);
+    const list = new Set(JSON.parse(localStorage.getItem("bl_outbox") || "[]")); list.add(file.id);
+    try { localStorage.setItem("bl_outbox", JSON.stringify([...list])); } catch (e) {}
+    this.onQueue && this.onQueue(list.size);
+    return { ...file };
+  }
+
+  waiting() { try { return JSON.parse(localStorage.getItem("bl_outbox") || "[]"); } catch (e) { return []; } }
+
+  async flush() {
+    let n = 0;
+    for (const id of this.waiting()) {
+      const it = await idb.get("kv", "outbox:" + id);
+      if (it) { await this.writeOnline({ id: it.id, name: it.name, mime: it.mime }, it.bytes); n++; }
+      await idb.del("kv", "outbox:" + id);
+      const left = this.waiting().filter(x => x !== id);
+      try { localStorage.setItem("bl_outbox", JSON.stringify(left)); } catch (e) {}
+    }
+    const ck = "settings:" + (this.user?.email || "");
+    const s = await idb.get("kv", "pending" + ck);
+    if (s) await this.saveSettings(s);
+    return n;
+  }
+
+  // start without a network, from what this browser kept the last time
+  canStartOffline() { try { return !!(localStorage.getItem("bl_user") && localStorage.getItem("bl_root")); } catch (e) { return false; } }
+  startOffline() {
+    this.offline = true;
+    this.user = JSON.parse(localStorage.getItem("bl_user"));
+    this.rootId = localStorage.getItem("bl_root");
+  }
+
+  async writeOnline(file, bytes) {
     const mime = file.mime || mimeOf(file.name);
     let json;
     if (bytes.byteLength > 4 * 1024 * 1024) json = await this.resumable("PATCH", `${UP}/files/${file.id}?fields=${FIELDS}`, {}, bytes, mime);
@@ -298,6 +354,7 @@ export class DriveStore {
   }
 
   async create(bookId, name, bytes, mime) {
+    if (this.offline) throw new Error("You are offline: new files can be added when the network is back");
     mime = mime || mimeOf(name);
     const meta = { name, parents: [bookId] };
     let json;
@@ -322,6 +379,16 @@ export class DriveStore {
   }
 
   async loadSettings() {
+    const ck = "settings:" + (this.user?.email || "");
+    const waiting = await idb.get("kv", "pending" + ck);
+    if (this.offline) return waiting || (await idb.get("kv", ck)) || {};
+    if (waiting) return waiting;                 // changed offline, not saved yet: it goes up in a moment
+    const s = await this.loadSettingsOnline();
+    idb.set("kv", ck, s);
+    return s;
+  }
+
+  async loadSettingsOnline() {
     if (!this.settingsId) return {};
     try {
       const r = await this.fetch(`${API}/files/${this.settingsId}?alt=media`);
@@ -332,6 +399,14 @@ export class DriveStore {
   }
 
   async saveSettings(obj) {
+    const ck = "settings:" + (this.user?.email || "");
+    if (this.offline) { await idb.set("kv", "pending" + ck, obj); return; }
+    await this.saveSettingsOnline(obj);
+    idb.set("kv", ck, obj);
+    idb.del("kv", "pending" + ck);
+  }
+
+  async saveSettingsOnline(obj) {
     const body = JSON.stringify(obj, null, 1);
     if (this.settingsId) {
       await this.fetch(`${UP}/files/${this.settingsId}?uploadType=media`, {
@@ -390,6 +465,16 @@ export class DriveStore {
       body: JSON.stringify({ name, mimeType: mime, parents: [parent || this.rootId] }),
     });
     return this.norm(f);
+  }
+
+  // a Word / Excel / PowerPoint file uploaded as a Google Doc / Sheet / Slides (Google converts it)
+  async createConverted(parent, name, bytes, srcMime, kind) {
+    const to = { doc: "application/vnd.google-apps.document", sheet: "application/vnd.google-apps.spreadsheet", slides: "application/vnd.google-apps.presentation" }[kind];
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify({ name, mimeType: to, parents: [parent || this.rootId] })], { type: "application/json" }));
+    form.append("file", new Blob([bytes], { type: srcMime }));
+    const json = await (await this.fetch(`${UP}/files?uploadType=multipart&fields=${FIELDS}`, { method: "POST", body: form })).json();
+    return this.norm(json);
   }
 
   async exportPdf(id) {

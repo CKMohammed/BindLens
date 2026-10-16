@@ -198,3 +198,26 @@ export function isPhone() {
 export function natCompare(a, b) {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 }
+
+// how readable one colour is on another (WCAG contrast, 1 to 21)
+export function contrast(a, b) {
+  const L = (hex) => hexToRgb(hex).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const [x, y] = [L(a), L(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+// the same colour, darker until white words on it (and it on white) read well
+export function readable(hex, min = 4.5) {
+  let c = hex;
+  for (let i = 0; i < 20 && contrast(c, "#FFFFFF") < min; i++) c = mix(c, "#000000", 0.08);
+  return c;
+}
+
+// the institution's colours (Settings > Colours), or null for the BindLens colours of the logo
+export function brandOf(st) {
+  const b = st && st.brand;
+  if (!b || !b.on || !b.c1) return null;
+  const c1 = b.c1, c2 = b.c2 || mix(b.c1, "#FFFFFF", 0.45);
+  const accent = readable(c1);
+  return { ...b, c1, c2, accent, soft: mix(c1, "#FFFFFF", 0.88), btn: readable(c1, 6), frameColors: [c1, mix(c1, "#FFFFFF", 0.3), c2, mix(c2, "#000000", 0.18), c1] };
+}

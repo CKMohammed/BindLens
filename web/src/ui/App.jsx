@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
 import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode } from "../state.js";
+  currentBook, readMode, offline } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -17,7 +17,7 @@ import { Icon } from "./icons.jsx";
 import { Pip } from "./Gallery.jsx";
 import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Logo } from "./Logo.jsx";
-import { mix } from "../util.js";
+import { mix, brandOf } from "../util.js";
 
 export const DEFAULT_FRAME = ["#111218", "#FF85C2", "#FFC83D", "#FF85C2", "#111218"];   // 1.0 calm: the logo's colours (ink, pink, gold)
 export const AURORA_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];
@@ -25,8 +25,11 @@ export const AURORA_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];
 function frameVars() {
   // the frame's colours, and the same colours very soft for the lava backgrounds (Home, sign-in, reading mode)
   const f = settings.value.frame || {};
-  const c = f.colors && f.colors.length >= 2 ? f.colors : DEFAULT_FRAME;
+  const br = brandOf(settings.value);
+  const c = br && br.frame !== false ? br.frameColors : f.colors && f.colors.length >= 2 ? f.colors : DEFAULT_FRAME;
   const style = {};
+  // the institution's colours on the buttons and highlights
+  if (br && br.ui !== false) Object.assign(style, { "--accent": br.accent, "--accent2": mix(br.accent, "#FFFFFF", 0.2), "--accent-soft": br.soft, "--btn": br.btn, "--btn-hover": mix(br.btn, "#FFFFFF", 0.12) });
   for (let i = 0; i < 5; i++) {
     style["--c" + (i + 1)] = c[i % c.length];
     style["--l" + (i + 1)] = mix(c[i % c.length], "#FFFFFF", 0.74);
@@ -49,8 +52,15 @@ function Frame() {
 async function startWith(s, { tour = true } = {}) {
   phase.value = "loading";
   try {
-    if (s.cloud) await s.signIn(false);
-    await s.init();
+    // no network: open the library this browser kept the last time (what you change goes up later)
+    if (s.cloud && navigator.onLine === false && s.canStartOffline && s.canStartOffline()) {
+      s.startOffline();
+      offline.value = { on: true, waiting: s.waiting().length };
+    } else {
+      if (s.cloud) await s.signIn(false);
+      await s.init();
+    }
+    if (s.queue) s.onQueue = (n) => { offline.value = { on: s.offline || navigator.onLine === false, waiting: n }; };
     store.value = s;
     settings.value = (await s.loadSettings()) || {};
     await reloadLibrary();
@@ -59,6 +69,8 @@ async function startWith(s, { tour = true } = {}) {
       view.value = "home";
       phase.value = "ready";
     });
+    import("../notify.js").then(n => n.startNotifications()).catch(() => {});
+    if (s.cloud && s.waiting && s.waiting().length && !s.offline) backOnline(s);
     if (tour) {
       const { shouldWelcome } = await import("./Welcome.jsx");
       if (shouldWelcome(settings.value)) panel.value = { type: "welcome" };
@@ -75,6 +87,28 @@ async function startWith(s, { tour = true } = {}) {
     console.error(e);
     batch(() => { errorText.value = String(e.message || e); phase.value = "start"; });
   }
+}
+
+// the network is back: sign in again with a click, then what waited goes up to the Drive
+async function backOnline(s) {
+  const go = async () => {
+    try {
+      if (!s.token || Date.now() > s.expires || s.offline) { s.offline = false; await s.signIn(true); if (!s.settingsId) await s.init(); }
+      needsTap.value = null;
+      const n = await s.flush();
+      offline.value = { on: false, waiting: 0 };
+      await reloadLibrary();
+      toast(n ? `Back online: ${n} document${n === 1 ? "" : "s"} saved in your Drive.` : "Back online.", "ok");
+    } catch (e) { toast("Not yet: " + e.message, "bad"); }
+  };
+  if (s.token && Date.now() < s.expires && !s.offline) { go(); return; }
+  go.title = "Back online"; go.text = s.waiting().length ? `${s.waiting().length} document${s.waiting().length === 1 ? "" : "s"} changed offline wait${s.waiting().length === 1 ? "s" : ""} to go up to your Drive. Click to sign in again and save.` : "Click to sign in again with Google and go on.";
+  go.ok = "Save to my Drive";
+  needsTap.value = go;
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => { const s = store.value; if (s && s.cloud && (s.offline || (s.waiting && s.waiting().length))) backOnline(s); });
+  window.addEventListener("offline", () => { const s = store.value; if (s && s.cloud) { s.offline = true; offline.value = { on: true, waiting: s.waiting ? s.waiting().length : 0 }; } });
 }
 
 // the Microsoft logo (four squares)
@@ -124,9 +158,9 @@ function NeedsTap() {
   return (
     <div class="scrim">
       <div class="dialog" style={{ width: "min(420px,100%)" }}>
-        <div class="dh"><Icon n="lock" size={22} style={{ color: "var(--accent)" }} /><h2>Still there?</h2></div>
-        <div class="db"><p style={{ margin: 0 }}>Google asks BindLens to check it is still you every hour. Click to keep working.</p></div>
-        <div class="df"><button class="btn" onClick={f}>Keep working</button></div>
+        <div class="dh"><Icon n={f.title ? "wifi" : "lock"} size={22} style={{ color: "var(--accent)" }} /><h2>{f.title || "Still there?"}</h2></div>
+        <div class="db"><p style={{ margin: 0 }}>{f.text || "Google asks BindLens to check it is still you every hour. Click to keep working."}</p></div>
+        <div class="df">{f.title && <button class="btn plain" onClick={() => { needsTap.value = null; }}>Later</button>}<button class="btn" onClick={f}>{f.ok || "Keep working"}</button></div>
       </div>
     </div>
   );

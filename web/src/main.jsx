@@ -13,3 +13,10 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 render(<App />, document.getElementById("app"));
+
+// works offline once opened: the app is kept in the browser (sw.js); a new version comes in on the next visit
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  const v = (/assets\/index-([\w-]+)\.js/.exec(import.meta.url) || [])[1] || "1";
+  const reg = () => navigator.serviceWorker.register("/app/sw.js?v=" + v, { scope: "/app/" }).catch(() => {});
+  if (document.readyState === "complete") reg(); else window.addEventListener("load", reg);
+}

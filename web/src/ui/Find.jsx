@@ -77,8 +77,32 @@ export async function goToWord(book, file, page, query) {
   } catch (e) { scrollTo.value = { fileId: file.id, page }; }
 }
 
+// the filters of Find: a book, a kind of file, a status, when it changed
+const KIND_F = [["", "Any kind"], ["pdf", "PDF"], ["word", "Word and Docs"], ["excel", "Excel and Sheets"], ["powerpoint", "PowerPoint and Slides"],
+  ["image", "Pictures"], ["mail", "E-mails"], ["text", "Text"]];
+const WHEN_F = [["", "Any time"], ["1", "Today"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["365", "This year"]];
+function kindOk(f, k) {
+  if (!k) return true;
+  if (k === "mail") return /\.eml$/i.test(f.name);
+  if (k === "word") return f.kind === "word" || (f.kind === "gdoc" && /document/.test(f.mime || ""));
+  if (k === "excel") return f.kind === "excel" || (f.kind === "gdoc" && /spreadsheet/.test(f.mime || ""));
+  if (k === "powerpoint") return f.kind === "powerpoint" || (f.kind === "gdoc" && /presentation/.test(f.mime || ""));
+  return f.kind === k;
+}
+function whenOk(f, w) {
+  if (!w) return true;
+  const t = f.modified ? new Date(f.modified).getTime() : 0;
+  if (!t) return false;
+  if (w === "365") return new Date(t).getFullYear() === new Date().getFullYear();
+  if (w === "1") return new Date(t).toDateString() === new Date().toDateString();
+  return Date.now() - t <= Number(w) * 86400000;
+}
+
 export function Find() {
   const [q, setQ] = useState(panel.value?.q || "");
+  const [flt, setFlt] = useState({ book: panel.value?.book || "", kind: "", status: "", when: "" });
+  const fileOk = (b, f) => (!flt.book || b.id === flt.book) && kindOk(f, flt.kind) && (!flt.status || (settings.value.tags || {})[f.id] === flt.status) && whenOk(f, flt.when);
+  const anyF = !!(flt.book || flt.kind || flt.status || flt.when);
   const [words, setWords] = useState([]);
   const [busy, setBusy] = useState(false);
   const [on, setOn] = useState(0);
@@ -88,6 +112,11 @@ export function Find() {
 
   const nq = norm(q.trim());
   const quick = useMemo(() => {
+    if (!nq && anyF) {
+      const out = [];
+      for (const b of books.value) for (const f of b.files) if (fileOk(b, f)) out.push({ type: "file", b, f, label: f.name, sub: b.name + (f.modified ? " · " + new Date(f.modified).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "") });
+      return out.slice(0, 80);
+    }
     if (!nq) {
       const recent = (settings.value.recent || []).map(id => books.value.find(b => b.id === id)).filter(Boolean).slice(0, 5);
       return [
@@ -96,13 +125,13 @@ export function Find() {
       ];
     }
     const out = [];
-    for (const a of ACTIONS) if (norm(a.label + " " + a.words).includes(nq)) out.push({ type: "action", a, label: a.label });
+    if (!anyF) for (const a of ACTIONS) if (norm(a.label + " " + a.words).includes(nq)) out.push({ type: "action", a, label: a.label });
     for (const b of books.value) {
-      if (norm(b.name).includes(nq)) out.push({ type: "book", b, label: b.name, sub: `Book · ${b.files.length} files` });
-      for (const f of b.files) if (norm(f.name).includes(nq)) out.push({ type: "file", b, f, label: f.name, sub: b.name });
+      if (!anyF && norm(b.name).includes(nq)) out.push({ type: "book", b, label: b.name, sub: `Book · ${b.files.length} files` });
+      for (const f of b.files) if (norm(f.name).includes(nq) && fileOk(b, f)) out.push({ type: "file", b, f, label: f.name, sub: b.name });
     }
     return out.slice(0, 30);
-  }, [nq, books.value]);
+  }, [nq, books.value, flt]);
 
   // words inside the documents (a moment after typing stops)
   useEffect(() => {
@@ -114,7 +143,7 @@ export function Find() {
       for (const b of books.value) {
         for (const f of b.files) {
           if (!alive) return;
-          if (!isPaged(f.kind) || f.kind === "image") continue;
+          if (!isPaged(f.kind) || f.kind === "image" || !fileOk(b, f)) continue;
           try {
             const { pages } = await wordsOf(f);
             pages.forEach((text, page) => {
@@ -130,7 +159,7 @@ export function Find() {
       if (alive) { setWords([...found]); setBusy(false); }
     }, 250);
     return () => { alive = false; clearTimeout(t); setBusy(false); };
-  }, [nq]);
+  }, [nq, flt]);
 
   const all = [...quick, ...words.slice(0, 60)];
   const choose = (it) => {
@@ -158,8 +187,24 @@ export function Find() {
             placeholder="Find a document, a word, an action..." aria-label="Find" />
           {busy && <div class="spinner" style={{ width: 20, height: 20, borderWidth: 3, margin: 0 }} />}
         </div>
+        <div class="findf">
+          <Icon n="filter" size={14} />
+          <select class={flt.book ? "set" : ""} value={flt.book} onChange={(e) => setFlt({ ...flt, book: e.target.value })} aria-label="Book">
+            <option value="">All books</option>{books.value.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select class={flt.kind ? "set" : ""} value={flt.kind} onChange={(e) => setFlt({ ...flt, kind: e.target.value })} aria-label="Kind">
+            {KIND_F.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <select class={flt.status ? "set" : ""} value={flt.status} onChange={(e) => setFlt({ ...flt, status: e.target.value })} aria-label="Status">
+            <option value="">Any status</option>{[...new Set(["Pending", "Checked", "Signed", "Done", "Urgent", "Waiting", ...Object.values(settings.value.tags || {})])].map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select class={flt.when ? "set" : ""} value={flt.when} onChange={(e) => setFlt({ ...flt, when: e.target.value })} aria-label="Changed">
+            {WHEN_F.map(([k, l]) => <option key={k} value={k}>{k ? "Changed: " + l.toLowerCase() : "Changed: any time"}</option>)}
+          </select>
+          {anyF && <button class="btn plain small" onClick={() => setFlt({ book: "", kind: "", status: "", when: "" })}>Clear</button>}
+        </div>
         <div class="results">
-          {!all.length && nq && !busy && <p class="muted small" style={{ padding: 12 }}>Nothing found for "{q}".</p>}
+          {!all.length && (nq || anyF) && !busy && <p class="muted small" style={{ padding: 12 }}>{nq ? `Nothing found for "${q}"` : "No document is like that"}{anyF ? " with these filters" : ""}.</p>}
           {all.map((it, i) => {
             const g = groupOf(it);
             const head = g !== lastGroup ? <div class="grouph">{g}</div> : null;

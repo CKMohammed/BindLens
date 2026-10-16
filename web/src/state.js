@@ -1,5 +1,6 @@
 // The app's state: what is open, the library, the settings that are saved in the user's Drive.
-import { signal, computed, batch } from "@preact/signals";
+import { signal, computed, batch, effect } from "@preact/signals";
+import { idb } from "./idb.js";
 import { colorFor, debounce, natCompare, kindOf } from "./util.js";
 
 export const store = signal(null);          // DriveStore or DemoStore
@@ -109,6 +110,8 @@ export function sortFiles(files, fo) {
 
 // the sub-book shown on its own ("Open this sub-book"): {book, path} or null
 export const subView = signal(null);
+export const offline = signal({ on: false, waiting: 0 });   // no network: what waits to go up to the Drive
+export const commentsOpen = signal(null);      // the comments beside the page: null, or {focus, fileId, draft}
 export function visibleFiles(book) {
   const sv = subView.value;
   if (!book) return [];
@@ -199,6 +202,20 @@ export function rememberPlace() {
   settings.value = { ...settings.value, books: all };
   setSetting("last", last);
 }
+
+// the library as it is now, kept in this browser: BindLens opens it without a network (Drive and OneDrive)
+const snapLibrary = debounce(() => {
+  const s = store.value;
+  if (!s || !s.cloud || s.offline || !s.user || phase.value !== "ready") return;
+  const list = {
+    books: books.value.map(b => ({ id: b.id, name: b.name, modified: b.modified, shared: !!b.shared })),
+    files: books.value.flatMap(b => b.files.map(f => { const { kind, ...rest } = f; void kind; return { ...rest, book: b.id }; })),
+    subs: books.value.flatMap(b => (b.subs || []).map(x => ({ ...x, book: b.id }))),
+    loose: looseFiles.value,
+  };
+  idb.set("kv", "list:" + (s.user.email || ""), list);
+}, 2500);
+effect(() => { void books.value; snapLibrary(); });
 
 // a phone-size screen (the layout changes)
 export const narrow = signal(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);

@@ -1,7 +1,7 @@
 // Study cards: your highlights and notes of a book as cards to review - the words on the front, where they come
 // from on the back. "I knew it" puts a card at the end; "Again" keeps it near.
 import { useEffect, useState } from "preact/hooks";
-import { panel, currentBook, books, settings, setSetting } from "../state.js";
+import { panel, currentBook, books, settings, setSetting, store, toast } from "../state.js";
 import { Dialog } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { allMarks, call } from "../docs.js";
@@ -73,14 +73,9 @@ export function Study() {
     if (i >= c.length) setI(0);
   };
   const card = cards && cards[i];
-  const sheetPdf = async () => {
-    const u8 = await call("htmlToPdf", blocksHtml(sheetBlocks(book, inOrder)), SHEET_CSS);
-    window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank");
-  };
-  const sheetWord = async () => {
-    const { makeDocx } = await import("../docx.js");
-    download(await makeDocx(sheetBlocks(book, inOrder)), `${book.name} - summary.docx`);
-  };
+  const sheetPdf = async () => (await import("../exportMarks.js")).exportMarks(book, "pdf");
+  const sheetWord = async () => (await import("../exportMarks.js")).exportMarks(book, "word");
+  const sheetGoogle = async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast("Google: " + e.message, "bad"));
   const tabs = (
     <div class="row" style={{ marginBottom: 12 }}>
       <button class={"btn small " + (tab === "cards" ? "" : "plain")} onClick={() => setTab("cards")}>Cards</button>
@@ -90,6 +85,7 @@ export function Study() {
   if (tab === "sheet") return (
     <Dialog title={`Study · ${book ? book.name : ""}`} icon="star" onClose={close} cls="mid"
       foot={inOrder.length ? <><span class="grow small muted">{inOrder.length === 1 ? "1 highlight or note" : `${inOrder.length} highlights and notes`}, as you marked them</span>
+        {store.value.createConverted && <button class="btn ghost" onClick={sheetGoogle}><Icon n="word" size={17} />In Google Docs</button>}
         <button class="btn soft" onClick={sheetWord}><Icon n="word" size={17} />As Word</button>
         <button class="btn" onClick={sheetPdf}><Icon n="pdf" size={17} />As PDF</button></> : null}>
       {tabs}
