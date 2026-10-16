@@ -1,5 +1,5 @@
 // Locked with a PIN: on a shared computer, nobody opens BindLens without the four digits.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { locked, settings, store, setSetting, toast } from "../state.js";
 import { sha256 } from "../util.js";
 
@@ -12,23 +12,26 @@ export function Lock() {
   const [bad, setBad] = useState(false);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
+  const cur = useRef("");
+  const set = (p) => { cur.current = p; setPin(p); };
   const press = async (d) => {
-    const p = (pin + d).slice(0, 4);
-    setPin(p);
+    if (cur.current.length >= 4) return;
+    const p = (cur.current + d).slice(0, 4);
+    set(p);
     setBad(false);
     if (p.length === 4) {
       if (await pinHash(p) === settings.value.pin) locked.value = false;
-      else { setBad(true); setTimeout(() => setPin(""), 400); }
+      else { setBad(true); setTimeout(() => set(""), 400); }
     }
   };
   useEffect(() => {
     const k = (e) => {
       if (/^\d$/.test(e.key)) press(e.key);
-      if (e.key === "Backspace") setPin(p => p.slice(0, -1));
+      if (e.key === "Backspace") set(cur.current.slice(0, -1));
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  });
+  }, []);
   return (
     <div class="lock">
       <div style={{ textAlign: "center" }}>
@@ -39,7 +42,7 @@ export function Lock() {
         <div class="dots">{[0, 1, 2, 3].map(i => <i key={i} class={i < pin.length ? "f" : ""} />)}</div>
         <div class="pad">
           {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "<"].map((d, i) => d === "" ? <span key={i} /> :
-            <button key={i} onClick={() => d === "<" ? setPin(p => p.slice(0, -1)) : press(d)}>{d === "<" ? "⌫" : d}</button>)}
+            <button key={i} onClick={() => d === "<" ? set(cur.current.slice(0, -1)) : press(d)}>{d === "<" ? "⌫" : d}</button>)}
         </div>
         <p style={{ marginTop: 22, fontSize: 13, opacity: .8 }}>Forgot it? <a style={{ color: "#fff" }} href="#" onClick={async (e) => {
           e.preventDefault();

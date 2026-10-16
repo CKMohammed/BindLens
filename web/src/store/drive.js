@@ -49,9 +49,14 @@ export class DriveStore {
       this.tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPE,
+        login_hint: hint,
         hint,
         callback: (r) => {
           if (r.error) { reject(new Error(r.error_description || r.error)); return; }
+          if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE)) {
+            reject(new Error("BindLens needs to use its own folder in your Google Drive. Sign in again and leave the Drive box ticked."));
+            return;
+          }
           this.token = r.access_token;
           this.expires = Date.now() + (Number(r.expires_in || 3600) - 120) * 1000;
           resolve();
@@ -190,22 +195,44 @@ export class DriveStore {
     return buf;
   }
 
-  async write(file, bytes) {
-    const r = await this.fetch(`${UP}/files/${file.id}?uploadType=media&fields=${FIELDS}`, {
-      method: "PATCH", headers: { "Content-Type": file.mime || mimeOf(file.name) }, body: bytes,
+  // big files (over 4 MB) go up in a "resumable" upload, the way Google wants them; small ones in one request
+  async resumable(method, url, meta, bytes, mime) {
+    const start = await this.fetch(url + (url.includes("?") ? "&" : "?") + "uploadType=resumable", {
+      method, headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": mime,
+        "X-Upload-Content-Length": String(bytes.byteLength) },
+      body: JSON.stringify(meta || {}),
     });
-    const f = this.norm(await r.json());
-    idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes.slice ? bytes.slice(0) : bytes);
+    const loc = start.headers.get("Location") || start.headers.get("location");
+    if (!loc) throw new Error("Google Drive did not start the upload");
+    const r = await fetch(loc, { method: "PUT", headers: { "Content-Type": mime }, body: bytes });
+    if (!r.ok) throw new Error("Google Drive: the upload stopped (" + r.status + ")");
+    return r.json();
+  }
+
+  async write(file, bytes) {
+    const mime = file.mime || mimeOf(file.name);
+    let json;
+    if (bytes.byteLength > 4 * 1024 * 1024) json = await this.resumable("PATCH", `${UP}/files/${file.id}?fields=${FIELDS}`, {}, bytes, mime);
+    else json = await (await this.fetch(`${UP}/files/${file.id}?uploadType=media&fields=${FIELDS}`, {
+      method: "PATCH", headers: { "Content-Type": mime }, body: bytes,
+    })).json();
+    const f = this.norm(json);
+    if (bytes.byteLength < 60 * 1024 * 1024) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes.slice ? bytes.slice(0) : bytes);
     return f;
   }
 
   async create(bookId, name, bytes, mime) {
+    mime = mime || mimeOf(name);
     const meta = { name, parents: [bookId] };
-    const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
-    form.append("file", new Blob([bytes], { type: mime || mimeOf(name) }));
-    const r = await this.fetch(`${UP}/files?uploadType=multipart&fields=${FIELDS}`, { method: "POST", body: form });
-    const f = this.norm(await r.json());
+    let json;
+    if (bytes.byteLength > 4 * 1024 * 1024) json = await this.resumable("POST", `${UP}/files?fields=${FIELDS}`, meta, bytes, mime);
+    else {
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+      form.append("file", new Blob([bytes], { type: mime }));
+      json = await (await this.fetch(`${UP}/files?uploadType=multipart&fields=${FIELDS}`, { method: "POST", body: form })).json();
+    }
+    const f = this.norm(json);
     if (bytes.byteLength < 60 * 1024 * 1024) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
     return f;
   }

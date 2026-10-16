@@ -39,6 +39,8 @@ const KINDS = {
 };
 
 export function kindOf(name, mime) {
+  // a Google Doc, Sheet or Slides given to BindLens: read as a PDF (Drive makes it)
+  if (mime && /^application\/vnd\.google-apps\.(document|spreadsheet|presentation|drawing)$/.test(mime)) return "gdoc";
   const k = KINDS[ext(name)];
   if (k) return k;
   if (mime) {
@@ -68,7 +70,7 @@ export function mimeOf(name) {
 
 // files the engine can show as pages
 export function isPaged(kind) {
-  return ["pdf", "image", "word", "excel", "powerpoint", "text", "ebook"].includes(kind);
+  return ["pdf", "image", "word", "excel", "powerpoint", "text", "ebook", "gdoc"].includes(kind);
 }
 
 export function debounce(fn, ms) {

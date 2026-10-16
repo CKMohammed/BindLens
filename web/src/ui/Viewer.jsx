@@ -67,12 +67,26 @@ function PageCanvas({ file, page, w, h, k, v }) {
   const vis = useRef(false);
   const wrap = useRef();
   const [drawn, setDrawn] = useState(false);
+  const drawRef = useRef(null);
   useEffect(() => {
     const el = wrap.current;
-    const io = new IntersectionObserver(([e]) => { vis.current = e.isIntersecting; if (e.isIntersecting) draw(); },
-      { root: el.closest(".pages"), rootMargin: "900px 0px" });
+    let forget = null;
+    const io = new IntersectionObserver(([e]) => {
+      vis.current = e.isIntersecting;
+      clearTimeout(forget);
+      if (e.isIntersecting) drawRef.current && drawRef.current();
+      else {
+        // far from the screen: let the picture go (big books would use too much memory), draw it again on return
+        forget = setTimeout(() => {
+          if (vis.current || !ref.current) return;
+          ref.current.width = 0; ref.current.height = 0;
+          want.current = null;
+          setDrawn(false);
+        }, 4000);
+      }
+    }, { root: el.closest(".pages"), rootMargin: "900px 0px" });
     io.observe(el);
-    return () => { io.disconnect(); vis.current = false; };
+    return () => { io.disconnect(); vis.current = false; clearTimeout(forget); };
   }, []);
   const want = useRef(null);
   const draw = useCallback(() => {
@@ -98,6 +112,7 @@ function PageCanvas({ file, page, w, h, k, v }) {
       },
     });
   }, [k, v, w, h]);
+  drawRef.current = draw;
   useEffect(() => { want.current = null; if (vis.current) draw(); }, [k, v, w, h]);
   return (
     <div ref={wrap} style={{ position: "absolute", inset: 0 }}>
@@ -146,6 +161,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
   const [edit, setEdit] = useState(null);     // inline text {x,y,w,h,kind,value,size,line}
   const [drag, setDrag] = useState(null);
   const [marks, setMarks] = useState(null);
+  const selBusy = useRef(false);
   const d = docState.value[file.id] || {};
   const t = tool.value;
   const o = toolOpts.value;
@@ -275,9 +291,13 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       if (drag.kind === "move") setDrag({ ...drag, dx: p[0] - drag.start[0], dy: p[1] - drag.start[1] });
       else if (drag.kind === "text" || drag.kind === "hl") {
         if (Math.hypot(p[0] - drag.start[0], p[1] - drag.start[1]) < 2) return;
-        const doc = await getDoc(file);
-        const r = await call("select", doc.key, page, drag.start, p);
-        textSel.value = { fileId: file.id, page, quads: r.quads, text: r.text, temp: drag.kind === "hl" };
+        if (selBusy.current) return;          // one question to the engine at a time while the mouse moves
+        selBusy.current = true;
+        try {
+          const doc = await getDoc(file);
+          const r = await call("select", doc.key, page, drag.start, p);
+          textSel.value = { fileId: file.id, page, quads: r.quads, text: r.text, temp: drag.kind === "hl" };
+        } finally { selBusy.current = false; }
       }
     }
   };
@@ -312,6 +332,12 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         return;
       }
       if (dr.kind === "hl") {
+        // the selection up to where the mouse let go
+        try {
+          const doc = await getDoc(file);
+          const r = await call("select", doc.key, page, dr.start, ptOf(e, el, k));
+          if (r.quads && r.quads.length) textSel.value = { fileId: file.id, page, quads: r.quads, text: r.text, temp: true };
+        } catch (err) {}
         const s = textSel.value;
         textSel.value = null;
         if (s && s.quads && s.quads.length) {

@@ -70,6 +70,9 @@ async function openInEngine(file, key) {
     const pdf = await convertedPdf(file, buf);
     if (pdf) { r = await call("open", key, pdf, "application/pdf", "x.pdf"); converted = true; }
     else r = await call("open", key, buf, file.mime, file.name);
+  } else if (file.kind === "gdoc") {
+    r = await call("open", key, buf, "application/pdf", "x.pdf");
+    converted = true;
   } else {
     const mime = file.kind === "pdf" ? "application/pdf" : (file.mime || file.name);
     r = await call("open", key, buf, mime, file.name);

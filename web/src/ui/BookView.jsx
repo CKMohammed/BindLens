@@ -1,7 +1,7 @@
 // The book view: the tools at the top, the library at the left, the pages in the middle.
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
-  redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta } from "../state.js";
+  redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta, panel } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel } from "./Viewer.jsx";
@@ -424,7 +424,8 @@ function PageBar({ book }) {
   };
   useEffect(() => {
     const k = (e) => {
-      if (/INPUT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+      if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable) return;
+      if (panel.value || document.querySelector(".scrim, .gallery, .lock")) return;   // a dialog has the keys
       if (e.key === "PageDown" || (e.key === "ArrowRight" && !e.shiftKey)) { e.preventDefault(); go(1); }
       if (e.key === "PageUp" || (e.key === "ArrowLeft" && !e.shiftKey)) { e.preventDefault(); go(-1); }
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
