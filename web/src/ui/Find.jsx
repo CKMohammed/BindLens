@@ -24,6 +24,14 @@ const ACTIONS = [
   { label: "Lock with a PIN", icon: "lock", words: "lock pin password", run: () => { if (settings.value.pin) locked.value = true; else openPanel("pin"); } },
   { label: "Settings", icon: "settings", words: "settings options", run: () => openPanel("settings") },
   { label: "Help", icon: "help", words: "help how to guide", run: () => openPanel("help") },
+  { label: "The tour (how BindLens works)", icon: "sparkle", words: "tour welcome start introduction what is", run: () => openPanel("welcome") },
+  { label: "Licence, privacy and legal", icon: "info", words: "licence license privacy legal agpl source code terms", run: () => openPanel("legal") },
+  { label: "Add a folder (a book with all its files)", icon: "book", words: "add folder import directory book", run: async () => (await import("../actions.js")).addFolder() },
+  { label: "Add documents (each one becomes a book)", icon: "upload", words: "add documents books import each", run: async () => (await import("../actions.js")).addDocsAsBooks() },
+  { label: "Save the whole book as one PDF", icon: "download", words: "whole book one pdf join merge combine export", run: async () => { const { currentBook } = await import("../state.js"); if (!currentBook.value) { openPanel("help"); return; } (await import("../filetools.js")).wholeBookAsPdf(currentBook.value); } },
+  { label: "Earlier versions of this document", icon: "clock", words: "earlier versions history restore go back revision", run: async () => { const { fileId } = await import("../state.js"); if (fileId.value) openPanel("versions", { fileId: fileId.value }); } },
+  { label: "Copy with a password", icon: "lock", words: "password protect encrypt read-only copy", run: async () => { const { fileId } = await import("../state.js"); if (fileId.value) openPanel("protect", { fileId: fileId.value }); } },
+  { label: "Send by email", icon: "mail", words: "send email share mail attach", run: async () => { const { fileId } = await import("../state.js"); const { fileFor } = await import("../docs.js"); const f = fileFor(fileId.value); if (f) (await import("../filetools.js")).sendFile(f); } },
   { label: "Sign out", icon: "logout", words: "sign out log out exit leave", run: () => signOut() },
 ];
 

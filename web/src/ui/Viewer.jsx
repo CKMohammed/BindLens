@@ -2,11 +2,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
-  readMode } from "../state.js";
+  readMode, visibleFiles, subView, fitPage } from "../state.js";
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
-import { hexToRgb, isPaged, kindOf, debounce, fmtSize } from "../util.js";
+import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
-import { confirm, openMenuAt } from "./dialogs.jsx";
+import { confirm, openMenuAt, openMenu } from "./dialogs.jsx";
 import { stampSpec } from "./marks.js";
 import { openPanel } from "../actions.js";
 import { pip } from "./Gallery.jsx";
@@ -154,6 +154,62 @@ async function ensureWritable(file) {
   return null;
 }
 
+// a tick or a cross where you click: its size and colour as chosen (its own green / red, or the pen's colour)
+async function quickMark(file, page, t, p, o) {
+  const s = o.quickSize || 9;
+  const [x, y] = p;
+  const strokes = t === "tick" ? [[[x - s, y], [x - s / 3, y + s * 0.7], [x + s, y - s * 0.9]]]
+    : [[[x - s * 0.8, y - s * 0.8], [x + s * 0.8, y + s * 0.8]], [[x + s * 0.8, y - s * 0.8], [x - s * 0.8, y + s * 0.8]]];
+  const own = o.quickOwn !== false;
+  await addMark(file, page, { type: "Ink", ink: strokes, color: own ? (t === "tick" ? [0.1, 0.6, 0.25] : [0.85, 0.15, 0.15]) : rgb(o.pen), width: Math.max(1.6, s * 0.29), subject: t === "tick" ? "Tick" : "Cross" });
+}
+
+// right-click on a page: put a mark right there, or do something with the page
+async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
+  e.preventDefault();
+  const o = toolOpts.value;
+  const m = marks ? hitMark(marks, p) : null;
+  if (m && !readOnly) {
+    selectedMark.value = { fileId: file.id, page, ...m };
+    const white = (m.type === "Square" && m.subject === "White box") || (m.type === "Ink" && m.subject === "White brush");
+    openMenuAt(e.clientX, e.clientY, [
+      { title: m.subject || m.type },
+      (m.type === "FreeText" || m.type === "Text") && { label: "Change the words...", icon: "rename", run: () => setEdit({ x: m.rect[0], y: m.rect[1], w: m.rect[2] - m.rect[0], h: m.rect[3] - m.rect[1], kind: "change", value: m.contents, size: 12, m }) },
+      white && { label: "Erase the text under it for good...", icon: "eraser", run: async () => {
+        if (!(await confirm("Erase the text under it for good?", "The words and pictures under it are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true }))) return;
+        const doc = await getDoc(file); await call("eraseArea", doc.key, page, m.rect, false, m.i); afterEdit(file.id, "pages"); selectedMark.value = null;
+      } },
+      "-",
+      { label: white ? "Delete (show the text again)" : "Delete", icon: "trash", danger: true, run: async () => { await deleteMark(file, page, m.i); selectedMark.value = null; } },
+    ]);
+    return;
+  }
+  const ts = textSel.value;
+  const at = (fn) => async () => { if (readOnly) { await ensureWritable(file); return; } await fn(); };
+  const spec = stampSpec(o.stamp);
+  const { fmtDate } = await import("../util.js");
+  openMenuAt(e.clientX, e.clientY, [
+    ts && ts.fileId === file.id && ts.text && { label: "Copy the text", icon: "copy", run: () => navigator.clipboard?.writeText(ts.text).then(() => toast("Copied.")) },
+    { title: "Here" },
+    { label: "Text here...", icon: "text", run: at(() => setEdit({ x: p[0], y: p[1] - 8, w: 220, h: 26, kind: "text", value: "", size: o.textSize || 12 })) },
+    { label: "Sticky note here...", icon: "note", run: at(() => setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12 })) },
+    { label: "Tick here", icon: "tick", run: at(() => quickMark(file, page, "tick", p, o)) },
+    { label: "Cross here", icon: "cross", run: at(() => quickMark(file, page, "cross", p, o)) },
+    { label: `Stamp here (${spec.text})`, icon: "stamp", run: at(() => { const w = spec.w || 150, h = spec.h || 46; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" }); }) },
+    { label: "Today's date here", icon: "calendar", run: at(() => { const d = fmtDate(new Date()); const sz = o.textSize || 12; return addMark(file, page, { type: "FreeText", rect: [p[0], p[1] - sz, p[0] + d.length * sz * 0.56 + 8, p[1] + sz * 0.4], text: d, size: sz, color: rgb(o.textColor || "#1E1C2B") }); }) },
+    { label: "Separator line here", icon: "line", run: at(() => { const pg0 = docState.value[file.id]?.pages?.[page]; const W = pg0 ? pg0.w : 595; return addMark(file, page, { type: "Line", a: [W * 0.08, p[1]], b: [W * 0.92, p[1]], color: rgb(o.pen), width: 1, subject: "Separator line" }); }) },
+    (settings.value.signatures || []).length > 0 && { label: "My signature here", icon: "sign", run: at(() => { const sig = settings.value.signatures[0]; const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0)); const w = 160, h = 160 * sig.h / sig.w; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }); }) },
+    "-",
+    { label: "Change the text of the PDF here", icon: "edit", run: () => { tool.value = "edit"; toast("Click the line to change."); } },
+    !readOnly && { label: "Take all the marks off this page", icon: "eraser", run: async () => {
+      if (!(await confirm("Take all the marks off this page?", "Highlights, drawings, notes, stamps... Undo (Ctrl+Z) brings them back.", { ok: "Take them off", danger: true }))) return;
+      const doc = await getDoc(file); await call("deleteAllAnnots", doc.key, page); afterEdit(file.id);
+    } },
+    { label: "All pages (grid)", icon: "grid", run: () => openPanel("pages", { fileId: file.id }) },
+  ]);
+  void k;
+}
+
 function Overlay({ file, page, k, pw, ph, readOnly }) {
   const ref = useRef();
   const [ink, setInk] = useState(null);       // points while drawing
@@ -211,22 +267,18 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       setDrag({ kind: "hl", start: p });
       return;
     }
-    if (t === "pen") {
+    if (t === "pen" || t === "whitebrush") {
       el.setPointerCapture(e.pointerId);
       setInk([p]);
       return;
     }
-    if (t === "shape") {
+    if (t === "shape" || t === "whitebox" || t === "redact" || t === "crop") {
       el.setPointerCapture(e.pointerId);
       setBox([p[0], p[1], p[0], p[1]]);
       return;
     }
     if (t === "tick" || t === "cross") {
-      const s = 9;
-      const [x, y] = p;
-      const strokes = t === "tick" ? [[[x - s, y], [x - s / 3, y + s * 0.7], [x + s, y - s * 0.9]]]
-        : [[[x - s * 0.8, y - s * 0.8], [x + s * 0.8, y + s * 0.8]], [[x + s * 0.8, y - s * 0.8], [x - s * 0.8, y + s * 0.8]]];
-      await addMark(file, page, { type: "Ink", ink: strokes, color: t === "tick" ? [0.1, 0.6, 0.25] : [0.85, 0.15, 0.15], width: 2.6, subject: t === "tick" ? "Tick" : "Cross" });
+      await quickMark(file, page, t, p, o);
       return;
     }
     if (t === "text") {
@@ -307,7 +359,10 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     if (ink) {
       const pts = ink;
       setInk(null);
-      if (pts.length > 1) await addMark(file, page, { type: "Ink", ink: [pts], color: rgb(o.pen), width: o.width || 2 });
+      if (pts.length > 1) {
+        if (t === "whitebrush") await addMark(file, page, { type: "Ink", ink: [pts], color: [1, 1, 1], width: o.brush || 14, subject: "White brush" });
+        else await addMark(file, page, { type: "Ink", ink: [pts], color: rgb(o.pen), width: o.width || 2 });
+      }
       return;
     }
     if (box) {
@@ -315,9 +370,31 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       setBox(null);
       if (Math.abs(x1 - x0) < 3 && Math.abs(y1 - y0) < 3) return;
       const r = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
+      if (t === "whitebox") {
+        await addMark(file, page, { type: "Square", rect: r, color: [1, 1, 1], fill: [1, 1, 1], width: 0, subject: "White box" });
+        return;
+      }
+      if (t === "redact") {
+        const ok = await confirm("Erase it for good?", "The words, lines and pictures under the box are taken out of the PDF, so nobody can copy or find them. It cannot come back once saved (Undo works until then).", { ok: "Erase for good", danger: true });
+        if (!ok) return;
+        const doc = await getDoc(file);
+        await call("eraseArea", doc.key, page, r, false, -1);
+        afterEdit(file.id, "pages");
+        return;
+      }
+      if (t === "crop") {
+        const pageW = pw, pageH = ph;
+        const margins = [r[0], r[1], pageW - r[2], pageH - r[3]].map(v => Math.max(0, v));
+        openMenuAt(e.clientX, e.clientY + 8, [
+          { label: "Crop this page to the box", icon: "fit", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, page, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
+          { label: "Crop every page the same", icon: "grid", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, -1, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
+          { label: "Cancel", icon: "close", run: () => {} },
+        ]);
+        return;
+      }
       const shape = o.shape || "rect";
       if (shape === "line" || shape === "arrow") await addMark(file, page, { type: "Line", a: [x0, y0], b: [x1, y1], color: rgb(o.pen), width: o.width || 2, arrow: shape === "arrow" });
-      else await addMark(file, page, { type: shape === "circle" ? "Circle" : "Square", rect: r, color: rgb(o.pen), width: o.width || 2 });
+      else await addMark(file, page, { type: shape === "circle" ? "Circle" : "Square", rect: r, color: rgb(o.pen), width: o.width || 2, fill: o.fill ? rgb(mix(o.pen, "#ffffff", 0.78)) : null });
       return;
     }
     if (drag) {
@@ -381,7 +458,8 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       const size = ed.size;
       const wpt = Math.max(...lines.map(l => l.length)) * size * 0.56 + 8;
       const hpt = lines.length * size * 1.25 + 6;
-      await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + wpt, ed.y + hpt], text: v, size, color: rgb(o.textColor || "#1E1C2B") });
+      const style = o.textStyle && o.textStyle !== "plain" ? { style: o.textStyle } : null;
+      await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + wpt + (style ? 12 : 0), ed.y + hpt + (style ? 8 : 0)], text: v, size, color: rgb(o.textColor || "#1E1C2B"), style });
     } else if (ed.kind === "note") {
       await addMark(file, page, { type: "FreeText", rect: [ed.x, ed.y, ed.x + ed.w, ed.y + Math.max(ed.h, lines.length * 16 + 14)], text: v, size: 12, color: [0.15, 0.13, 0.3], fill: [1, 0.93, 0.55], subject: "Sticky note" });
     }
@@ -395,6 +473,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
 
   return (
     <div ref={ref} class={"ov tool-" + t} onPointerDown={down} onPointerMove={move} onPointerUp={up}
+      onContextMenu={async (e) => { e.preventDefault(); const pt = ptOf(e, ref.current, k); const list = readOnly ? [] : await getMarks(); pageMenu(e, file, page, pt, readOnly, list, setEdit, k); }}
       onPointerEnter={() => { if (!readOnly && !marks && (t === "select" || t === "eraser")) getMarks(); }}
       onDblClick={async (e) => {
         if (t !== "select" || readOnly) return;
@@ -416,12 +495,20 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       })()}
       {ink && (
         <svg class="inkpath" width={toPx(pw)} height={toPx(ph)}>
-          <polyline points={ink.map(p => toPx(p[0]) + "," + toPx(p[1])).join(" ")} fill="none" stroke={o.pen} stroke-width={(o.width || 2) * k * PT} stroke-linecap="round" stroke-linejoin="round" />
+          <polyline points={ink.map(p => toPx(p[0]) + "," + toPx(p[1])).join(" ")} fill="none" stroke={t === "whitebrush" ? "#ffffff" : o.pen} stroke-width={(t === "whitebrush" ? o.brush || 14 : o.width || 2) * k * PT} stroke-linecap="round" stroke-linejoin="round" style={t === "whitebrush" ? { filter: "drop-shadow(0 0 1px #9a98a8)" } : null} />
         </svg>
       )}
       {box && (() => {
         const r = [Math.min(box[0], box[2]), Math.min(box[1], box[3]), Math.max(box[0], box[2]), Math.max(box[1], box[3])];
-        const shape = o.shape || "rect";
+        const shape = t === "shape" ? (o.shape || "rect") : "rect";
+        if (t !== "shape") {
+          const look = t === "whitebox" ? { fill: "#fff", stroke: "#9a98a8", dash: "4 3" } : t === "redact" ? { fill: "rgba(224,49,49,.18)", stroke: "#E03131", dash: "" } : { fill: "rgba(91,141,239,.08)", stroke: "#5B8DEF", dash: "6 4" };
+          return (
+            <svg class="inkpath" width={toPx(pw)} height={toPx(ph)}>
+              <rect x={toPx(r[0])} y={toPx(r[1])} width={toPx(r[2] - r[0])} height={toPx(r[3] - r[1])} fill={look.fill} stroke={look.stroke} stroke-width="1.5" stroke-dasharray={look.dash} />
+            </svg>
+          );
+        }
         return (
           <svg class="inkpath" width={toPx(pw)} height={toPx(ph)}>
             {shape === "circle" ? <ellipse cx={toPx((r[0] + r[2]) / 2)} cy={toPx((r[1] + r[3]) / 2)} rx={toPx((r[2] - r[0]) / 2)} ry={toPx((r[3] - r[1]) / 2)} fill="none" stroke={o.pen} stroke-width="2" />
@@ -556,7 +643,8 @@ export function Viewer({ book }) {
   const scroller = useRef();
   const [W, setW] = useState(900);
   const loading = useRef(false);
-  const files = book.files;
+  const files = visibleFiles(book);
+  void subView.value;
 
   // open the documents of the book, the one you are going to first
   useEffect(() => {
@@ -582,9 +670,10 @@ export function Viewer({ book }) {
     return () => { alive = false; };
   }, [book.id, files.map(f => f.id + (f.md5 || "")).join()]);
 
+  const [H, setH] = useState(700);
   useEffect(() => {
     const el = scroller.current;
-    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    const ro = new ResizeObserver(([e]) => { setW(e.contentRect.width); setH(e.contentRect.height); });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -593,7 +682,11 @@ export function Viewer({ book }) {
   let maxPt = 595;
   for (const f of files) { const st = docState.value[f.id]; if (st && st.pages) for (const p of st.pages) maxPt = Math.max(maxPt, Math.min(p.w, 1400)); }
   const avail = Math.max(240, W - (W < 700 ? 16 : 90));
-  const fitK = Math.min(avail / (maxPt * PT), readMode.value ? 1.35 : 1.6);
+  let fitK = Math.min(avail / (maxPt * PT), readMode.value ? 1.35 : 1.6);
+  if (fitPage.value) {
+    const cur = docState.value[fileId.value]?.pages?.[pageNo.value] || { w: 595, h: 842 };
+    fitK = Math.min(avail / (cur.w * PT), (H - 30) / (cur.h * PT));
+  }
   const k = fitWidth.value ? fitK * zoom.value : zoom.value;
   const maxW = Math.min(avail, 900 * k);
 
@@ -672,7 +765,7 @@ export function Viewer({ book }) {
         {files.map((f) => (
           <div key={f.id} style={{ display: "contents" }}>
             {files.length > 1 && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
-              <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.name}</span>
+              <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
               {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} page{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
             </div>}
             <DocBlock book={book} file={f} k={k} maxW={maxW} />
@@ -699,25 +792,60 @@ function EmptyButtons({ book }) {
   );
 }
 
-// the small bar for the selected mark: colour, change the words, take it off
+// the small bar for the selected mark: colour, style, change the words, take it off
+const TEXT_STYLES = [["plain", "Plain"], ["outline", "Outline"], ["label", "Label"], ["solid", "Solid"], ["dashed", "Dashed"], ["marker", "Marker"]];
 function MarkBar() {
   const sel = selectedMark.value;
   if (!sel) return null;
   const file = fileFor(sel.fileId);
   if (!file) return null;
   const colors = ["#FFD43B", "#69DB7C", "#74C0FC", "#F783AC", "#E03131", "#1C7ED6", "#2B8A3E", "#1E1C2B"];
+  const white = (sel.type === "Square" && sel.subject === "White box") || (sel.type === "Ink" && sel.subject === "White brush");
   const names = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: sel.subject || "Drawing",
-    FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Note", Square: "Box", Circle: "Circle", Line: "Line",
+    FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Note", Square: white ? "White box" : "Box", Circle: "Circle", Line: "Line",
     Stamp: sel.subject || "Stamp" };
+  const isText = sel.type === "FreeText" && sel.subject !== "Sticky note";
+  const refresh = async () => {
+    const { marksOn } = await import("../docs.js");
+    const m = (await marksOn(file, sel.page)).find(x => x.i === sel.i);
+    if (m) selectedMark.value = { fileId: file.id, page: sel.page, ...m };
+  };
+  const styleMenu = (e) => openMenu(e, [
+    { title: "Style of the text box" },
+    ...TEXT_STYLES.map(([k, l]) => ({ label: ((sel.style?.style || "plain") === k ? "✓ " : "") + l, run: async () => { await editMark(file, sel.page, sel.i, { style: { style: k } }); refresh(); } })),
+    { title: "Colours and effects" },
+    { label: "Fill colour", sub: [{ label: "No fill", run: async () => { await editMark(file, sel.page, sel.i, { style: { fill: null } }); refresh(); } },
+      ...colors.map(c => ({ label: "", swatch: c, run: async () => { await editMark(file, sel.page, sel.i, { style: { fill: hexToRgb(mix(c, "#ffffff", 0.55)) } }); refresh(); } }))] },
+    { label: "Line colour", sub: [{ label: "No line", run: async () => { await editMark(file, sel.page, sel.i, { style: { line: null } }); refresh(); } },
+      ...colors.map(c => ({ label: "", swatch: c, run: async () => { await editMark(file, sel.page, sel.i, { style: { line: hexToRgb(c) } }); refresh(); } }))] },
+    { label: (sel.style?.opacity ?? 1) < 1 ? "See-through: on" : "See-through: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { opacity: (sel.style?.opacity ?? 1) < 1 ? 1 : 0.6 } }); refresh(); } },
+    { label: sel.style?.round ? "Round corners: on" : "Round corners: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { round: !sel.style?.round } }); refresh(); } },
+    { label: sel.style?.bold ? "Bold: on" : "Bold: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { bold: !sel.style?.bold } }); refresh(); } },
+    { title: "Size" },
+    ...[9, 11, 12, 14, 18, 24].map(z => ({ label: z + " pt" + (Math.round(sel.size || 12) === z ? " (now)" : ""), run: async () => { await editMark(file, sel.page, sel.i, { size: z }); refresh(); } })),
+  ]);
   return (
-    <div class="pagebar" style={{ bottom: 74 }} onPointerDown={(e) => e.stopPropagation()}>
+    <div class="pagebar markbar" style={{ bottom: 74 }} onPointerDown={(e) => e.stopPropagation()}>
       <b class="small" style={{ padding: "0 6px" }}>{names[sel.type] || sel.type}</b>
-      {sel.type !== "Stamp" && colors.map(c => (
+      {white ? <>
+        <button class="btn soft small" onClick={async () => {
+          const ok = await confirm("Erase the text under it for good?", "The words and pictures under the white box are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true });
+          if (!ok) return;
+          const { getDoc: gd } = await import("../docs.js");
+          const doc = await gd(file);
+          await call("eraseArea", doc.key, sel.page, sel.rect, false, sel.i);
+          afterEdit(file.id, "pages");
+          selectedMark.value = null;
+        }}><Icon n="eraser" size={16} />Erase the text under it for good</button>
+      </> : sel.type !== "Stamp" && colors.map(c => (
         <button key={c} class="swatch" style={{ background: c, border: 0, width: 20, height: 20 }} title="Colour"
-          onClick={async () => { await editMark(file, sel.page, sel.i, { color: hexToRgb(c) }); }} />
+          onClick={async () => { await editMark(file, sel.page, sel.i, { color: hexToRgb(c) }); refresh(); }} />
       ))}
+      {isText && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={16} />Style</button>}
+      {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title="Fill it with a light colour, or not"
+        onClick={async () => { await editMark(file, sel.page, sel.i, { fill: sel.fill ? null : hexToRgb(mix(sel.color ? "#" + sel.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "#E03131", "#ffffff", 0.78)) }); refresh(); }}>{sel.fill ? "No fill" : "Fill"}</button>}
       <span class="sep" />
-      <button class="ib" title="Take it off (Delete)" onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" /></button>
+      <button class="ib" title={white ? "Take the white box off (the text shows again)" : "Take it off (Delete)"} onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" /></button>
       <button class="ib" title="Done" onClick={() => { selectedMark.value = null; }}><Icon n="close" /></button>
     </div>
   );

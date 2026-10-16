@@ -11,6 +11,7 @@ const MAX_OPEN = 14;
 const listeners = new Set();
 
 export function onDocChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+export function notifyChanged(fileId, what = "pages") { changed(fileId, what); }
 function changed(fileId, what) { for (const fn of listeners) try { fn(fileId, what); } catch (e) { console.warn(e); } }
 
 function touch(id) {
@@ -40,6 +41,17 @@ async function bytesFor(file) {
 }
 
 async function convertedPdf(file, buf) {
+  // "Show it as it looks": Google converts it (Word, Excel, PowerPoint), when the person chose that for this file
+  if (store.value.kind === "drive" && store.value.googlePdf && (settings.value.googleLook || {})[file.id]) {
+    const gk = "gconv:" + file.id + ":" + (file.md5 || file.modified || "");
+    const ghit = await idb.get("files", gk);
+    if (ghit) return ghit.slice(0);
+    try {
+      const pdf = await store.value.googlePdf(file, file.kind);
+      idb.set("files", gk, pdf.slice(0));
+      return pdf;
+    } catch (e) { toast("Google could not show it as it looks (" + e.message + "): BindLens shows it its own way.", "", 6000); }
+  }
   const key = "conv:" + file.id + ":" + (file.md5 || file.modified || "");
   const hit = await idb.get("files", key);
   if (hit) return hit.slice(0);

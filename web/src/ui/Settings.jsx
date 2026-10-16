@@ -1,6 +1,8 @@
 // Settings (the frame's colours, PIN, account), the PIN dialog and Help.
-import { useState } from "preact/hooks";
-import { panel, settings, setSetting, store, locked, toast } from "../state.js";
+import { useState, useEffect } from "preact/hooks";
+import { panel, settings, setSetting, store, locked, toast, saving } from "../state.js";
+import { indexed } from "../docs.js";
+import { installPrompt, installApp } from "../install.js";
 import { Dialog } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { DEFAULT_FRAME } from "./App.jsx";
@@ -56,6 +58,13 @@ export function Settings() {
         <button class="btn plain small" onClick={() => setSetting("frame", {})}>Back to Lava</button>
       </div>
 
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>View</h3>
+      <div class="row wrap" style={{ gap: 18 }}>
+        <label class="chk"><input type="checkbox" checked={!settings.value.hideRail} onChange={(e) => setSetting("hideRail", !e.target.checked)} />The quick bar on the right of a book</label>
+        {installPrompt.value && <button class="btn soft small" onClick={installApp}><Icon n="download" size={16} />Install BindLens as an app</button>}
+      </div>
+      <Doing />
+
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>PIN</h3>
       <div class="row wrap">
         <span class="grow small muted">{settings.value.pin ? "BindLens asks for your PIN when it opens." : "Lock BindLens with a four-digit PIN on a shared computer."}</span>
@@ -87,7 +96,25 @@ export function Settings() {
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>About</h3>
       <p class="small muted" style={{ margin: 0 }}>BindLens Web 1.0 · made by Mohammed Chahboune Kadi. Free software under the GNU AGPL 3.0: the source is at <a href="https://github.com/CKMohammed/BindLens" target="_blank" rel="noopener">github.com/CKMohammed/BindLens</a>. Pages are drawn with MuPDF (Artifex, AGPL).</p>
+      <div class="row wrap" style={{ marginTop: 8 }}>
+        <button class="btn plain small" onClick={() => { panel.value = { type: "legal" }; }}><Icon n="info" size={16} />Licence, privacy and legal</button>
+        <button class="btn plain small" onClick={() => { panel.value = { type: "welcome" }; }}><Icon n="sparkle" size={16} />Show the tour again</button>
+      </div>
     </Dialog>
+  );
+}
+
+// what BindLens is doing in the background (reading the words of the library, saving)
+function Doing() {
+  const [, setV] = useState(0);
+  useEffect(() => { const f = () => setV(x => x + 1); indexed.listeners.add(f); const t = setInterval(f, 1500); return () => { indexed.listeners.delete(f); clearInterval(t); }; }, []);
+  const sv = saving.value;
+  return (
+    <p class="small muted" style={{ margin: "10px 0 0" }}>
+      <b>What BindLens is doing: </b>
+      {indexed.running ? `reading the words of your library, so Find and Reports are quick (${indexed.n} of ${indexed.of} files)` : "nothing in the background now"}
+      {sv.n ? ` · saving ${sv.n} document${sv.n === 1 ? "" : "s"}` : sv.last ? ` · everything is saved (${new Date(sv.last).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })})` : ""}.
+    </p>
   );
 }
 
@@ -136,6 +163,12 @@ const HELP = [
   ["video", "Videos", "Videos play inside the book. In a corner keeps one playing small while you read; you can move it."],
   ["list", "What BindLens changed", "Settings lists every change BindLens made in your Drive: files added, renamed, moved, marks saved."],
   ["drive", "Your Drive", "BindLens has no servers: it reads and saves straight in your Google Drive and sees only the files it made or that you gave it. You can open the same books in the BindLens folder of your Drive."],
+  ["book", "Sub-books", "A folder inside a book is a sub-book: its files are part of the book, under its name. Make one with + Sub-book in the Files tab, or add a whole folder from your computer. Right-click a sub-book to open it on its own."],
+  ["check", "Status", "Mark a file Pending, Checked, Signed, Done, Urgent or Waiting (right-click it, Status), then show only the files with one status."],
+  ["rect", "Hide or erase text", "In the shapes menu: a white box hides the PDF's own text (you can take it off again); Erase the text for good takes private data out of the PDF so nobody can find or copy it."],
+  ["grid", "Pages and copies", "Right-click a file: save some pages as a new PDF, split it into single pages, add pages from another PDF, a watermark, make it smaller, a copy with a password or read-only. The book's menu saves the whole book as one PDF."],
+  ["clock", "Earlier versions", "Google Drive keeps the versions of a file. Right-click it, Earlier versions: open a copy of one, or go back to it. Pages you take out are kept too (Deleted pages)."],
+  ["edit", "Edit a written page", "A page written in BindLens opens in Write again: Pages button, Edit this written page."],
 ];
 
 export function Help() {
@@ -147,6 +180,10 @@ export function Help() {
           <div><b>{t}</b><div class="small muted">{d}</div></div>
         </div>
       ))}
+      <div class="row wrap" style={{ marginBottom: 8 }}>
+        <button class="btn soft small" onClick={() => { panel.value = { type: "welcome" }; }}><Icon n="sparkle" size={16} />Show the tour again</button>
+        <button class="btn plain small" onClick={() => { panel.value = { type: "legal" }; }}><Icon n="info" size={16} />Licence, privacy and legal</button>
+      </div>
       <p class="small muted">Keys: Ctrl+K find · Ctrl+Z undo · Ctrl+Y redo · Ctrl+R reports · Ctrl+P print · ← → pages · V select · P pen · H highlighter · T text · N sticky note · E eraser.</p>
     </Dialog>
   );

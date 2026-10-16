@@ -53,6 +53,8 @@ function describeAnnot(a, i) {
   try { if (a.hasQuadPoints()) o.quads = a.getQuadPoints(); } catch (e) {}
   try { o.opacity = a.getOpacity(); } catch (e) {}
   try { o.modified = +a.getModificationDate(); } catch (e) {}
+  if (type === "FreeText") { const st = styleOf(a); if (st) o.style = st; try { o.size = a.getDefaultAppearance().size; } catch (e) {} }
+  if (type === "Square" || type === "Circle") { try { const ic = a.getInteriorColor(); if (ic && ic.length) o.fill = colorOf(ic); } catch (e) {} }
   return o;
 }
 
@@ -218,6 +220,78 @@ function stickyAppearance(d, a) {
   a.setAppearance(null, null, mupdf.Matrix.identity, [0, 0, w, h], res, cs);
 }
 
+// a text box with a style (outline, label, solid colour, dashed, marker): its own look, kept by any PDF program
+const BOX_STYLES = {
+  plain: {},
+  outline: { line: true },
+  label: { fillSoft: true, line: true, round: true },
+  solid: { fillStrong: true, round: true, white: true },
+  dashed: { line: true, dash: true },
+  marker: { marker: true },
+};
+function styleOf(a) {
+  try { const v = a.getObject().get("BLStyle"); if (!v.isNull()) return JSON.parse(v.asString()); } catch (e) {}
+  return null;
+}
+function boxAppearance(d, a, st) {
+  let r = a.getRect();
+  const da = a.getDefaultAppearance();
+  const size = da.size || 12, lead = size * 1.25, pad = st.style === "plain" ? 2 : 6;
+  const f = new mupdf.Font(st.bold ? "Helvetica-Bold" : "Helvetica");
+  const w = r[2] - r[0];
+  const lines = wrapLines(f, a.getContents(), size, w - pad * 2);
+  const need = pad * 2 + lines.length * lead;
+  if (r[3] - r[1] < need - 0.5) { r = [r[0], r[1], r[2], r[1] + need]; a.setRect(r); }
+  const h = r[3] - r[1];
+  const font = d.pdf.addSimpleFont(new mupdf.Font(st.bold ? "Helvetica-Bold" : "Helvetica"), "Latin");
+  const res = d.pdf.newDictionary();
+  const fd = d.pdf.newDictionary();
+  fd.put("F", font);
+  res.put("Font", fd);
+  const S = BOX_STYLES[st.style] || {};
+  const c = st.color || da.color || [0.12, 0.11, 0.17];
+  const line = st.line || c;
+  let fill = st.fill || null;
+  if (!fill && S.fillSoft) fill = c.map(v => 1 - (1 - v) * 0.14);
+  if (!fill && S.fillStrong) fill = c;
+  if (!fill && S.marker) fill = [1, 0.9, 0.35];
+  const txt = S.white ? [1, 1, 1] : c;
+  const rr = (st.round ?? S.round) ? Math.min(8, h / 3) : 0;
+  const box = (x0, y0, x1, y1, k) => k ? `${x0 + k} ${y0} m ${x1 - k} ${y0} l ${x1} ${y0} ${x1} ${y0} ${x1} ${y0 + k} c ${x1} ${y1 - k} l ` +
+    `${x1} ${y1} ${x1} ${y1} ${x1 - k} ${y1} c ${x0 + k} ${y1} l ${x0} ${y1} ${x0} ${y1} ${x0} ${y1 - k} c ${x0} ${y0 + k} l ${x0} ${y0} ${x0} ${y0} ${x0 + k} ${y0} c h `
+    : `${x0} ${y0} ${x1 - x0} ${y1 - y0} re `;
+  let cs = "q ";
+  if (st.opacity != null && st.opacity < 1) {
+    const gs = d.pdf.newDictionary(); const g = d.pdf.newDictionary();
+    g.put("ca", st.opacity); g.put("CA", Math.max(st.opacity, 0.6)); gs.put("G", g); res.put("ExtGState", gs);
+    cs += "/G gs ";
+  }
+  const lw = st.width || 1.2;
+  if (fill) cs += `${fill.join(" ")} rg ${box(0.6, 0.6, w - 0.6, h - 0.6, rr)}f `;
+  if (st.line || S.line) cs += `${line.join(" ")} RG ${lw} w ${S.dash || st.dash ? "[4 3] 0 d " : ""}${box(lw / 2, lw / 2, w - lw / 2, h - lw / 2, rr)}S `;
+  cs += "Q\n";
+  cs += `BT /F ${size} Tf ${txt.join(" ")} rg ${lead.toFixed(2)} TL 1 0 0 1 ${pad} ${(h - pad - size * 0.85).toFixed(2)} Tm `;
+  for (const [i, l] of lines.entries()) cs += (i ? "T* " : "") + pdfString(l) + " Tj ";
+  cs += "ET\n";
+  a.setAppearance(null, null, mupdf.Matrix.identity, [0, 0, w, h], res, cs);
+}
+
+// copy the pages of src into dst at a place; a written page keeps its words as written (BLSource)
+function graftWithSource(dst, src, at) {
+  const map = dst.newGraftMap();
+  const n = src.countPages();
+  for (let i = 0; i < n; i++) {
+    map.graftPage(at + i, src, i);
+    const so = src.loadPage(i).getObject();
+    const html = so.get("BLSource");
+    if (!html.isNull()) {
+      const po = dst.loadPage(at + i).getObject();
+      po.put("BLSource", dst.newString(html.asString()));
+      po.put("BLSourceN", so.get("BLSourceN").isNull() ? 1 : so.get("BLSourceN").asNumber());
+    }
+  }
+}
+
 function imageFromBytes(bytes) {
   return new mupdf.Image(bytes);
 }
@@ -282,6 +356,11 @@ function newAnnot(d, pageIndex, spec) {
   a.update();
   if (spec.type === "Stamp" && !spec.image) stampAppearance(d, a, spec);
   if (spec.type === "FreeText" && spec.subject === "Sticky note") stickyAppearance(d, a);
+  if (spec.type === "FreeText" && spec.style && spec.style.style !== "plain") {
+    a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(spec.style)));
+    try { a.setSubject("Text box"); } catch (e) {}
+    boxAppearance(d, a, spec.style);
+  }
   page.update();
   return page.getAnnotations().length - 1;
 }
@@ -567,6 +646,15 @@ const api = {
         }
         else { const r = a.getRect(); a.setRect([r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy]); }
       }
+      if (change.fill !== undefined && (a.getType() === "Square" || a.getType() === "Circle")) {
+        if (change.fill) a.setInteriorColor(change.fill); else a.setInteriorColor([]);
+      }
+      if (change.style && a.getType() === "FreeText") {
+        const was = styleOf(a) || {};
+        const st = { ...was, ...change.style };
+        a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(st)));
+        try { a.setSubject(st.style === "plain" && !st.fill && !st.line ? "" : "Text box"); } catch (e) {}
+      }
       if (change.size && a.getType() === "FreeText") {
         const da = a.getDefaultAppearance();
         a.setDefaultAppearance(da.font || "Helv", change.size, da.color || [0, 0, 0]);
@@ -581,6 +669,13 @@ const api = {
         else a.setAppearanceFromDisplayList(null, null, mupdf.Matrix.translate(shift[0], shift[1]), look);
       }
       else if (type === "FreeText" && subject === "Sticky note") { a.update(); stickyAppearance(d, a); }
+      else if (type === "FreeText" && styleOf(a) && (styleOf(a).style !== "plain" || styleOf(a).fill || styleOf(a).line)) {
+        a.update();
+        const st = styleOf(a);
+        if (change.color) st.color = change.color;
+        a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(st)));
+        boxAppearance(d, a, st);
+      }
       else a.update();
       p.update();
       return true;
@@ -695,15 +790,63 @@ const api = {
     const d = get(key);
     return op(d, "Add pages", () => { d.st = null;
       const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
-      const map = d.pdf.newGraftMap();
-      const n = src.countPages();
-      for (let i = 0; i < n; i++) map.graftPage(at + i, src, i);
+      graftWithSource(d.pdf, src, at);
       return pageSizes(d.doc);
     });
   },
 
+  // the written page (or pages) around this page: {html, start, n} or null
+  writtenAt(key, page) {
+    const d = get(key);
+    if (!d.pdf) return null;
+    for (let p = page; p >= 0 && p > page - 60; p--) {
+      const po = d.pdf.loadPage(p).getObject();
+      const src = po.get("BLSource");
+      if (src.isNull()) continue;
+      const n = po.get("BLSourceN").isNull() ? 1 : po.get("BLSourceN").asNumber();
+      if (p + n > page) return { html: src.asString(), start: p, n };
+      return null;
+    }
+    return null;
+  },
+
+  // put the written pages in again, changed
+  replaceWritten(key, start, n, bytes) {
+    const d = get(key);
+    return op(d, "Change a written page", () => {
+      d.st = null;
+      for (let i = 0; i < n; i++) d.pdf.deletePage(start);
+      const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
+      graftWithSource(d.pdf, src, start);
+      return pageSizes(d.doc);
+    });
+  },
+
+  // every document of a book, one after another, as one PDF (with the marks)
+  joinOpen(keys) {
+    const out = new mupdf.PDFDocument();
+    let at = 0;
+    for (const key of keys) {
+      const d = get(key);
+      let src = d.pdf;
+      if (!src) {
+        const buf = new mupdf.Buffer();
+        const wr = new mupdf.DocumentWriter(buf, "pdf", "compress");
+        const n = d.doc.countPages();
+        for (let i = 0; i < n; i++) { const pg = d.doc.loadPage(i); const dev = wr.beginPage(pg.getBounds()); pg.run(dev, mupdf.Matrix.identity); wr.endPage(); }
+        wr.close();
+        src = mupdf.Document.openDocument(buf.asUint8Array().slice(), "application/pdf").asPDF();
+      }
+      const map = out.newGraftMap();
+      const n = src.countPages();
+      for (let i = 0; i < n; i++) map.graftPage(at++, src, i);
+    }
+    const u8 = out.saveToBuffer("garbage=1,compress").asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
   // ---- making PDFs
-  htmlToPdf(html, css, w = 595, h = 842, margin = 54) {
+  htmlToPdf(html, css, w = 595, h = 842, margin = 54, keepSource = false) {
     // a written page or document: MuPDF lays out the HTML on A4 pages
     const full = `<html><head><style>@page{margin:${margin}pt} body{margin:0} ${css || ""}</style></head><body>${html}</body></html>`;
     const hd = mupdf.Document.openDocument(new TextEncoder().encode(full), "text/html");
@@ -718,7 +861,15 @@ const api = {
       wr.endPage();
     }
     wr.close();
-    const u8 = out.asUint8Array().slice();
+    let u8 = out.asUint8Array().slice();
+    if (keepSource) {
+      // the words as written (HTML) stay inside the first page, so "Edit this written page" can open them again
+      const pdf = mupdf.Document.openDocument(u8, "application/pdf").asPDF();
+      const po = pdf.loadPage(0).getObject();
+      po.put("BLSource", pdf.newString(html));
+      po.put("BLSourceN", n);
+      u8 = pdf.saveToBuffer("compress").asUint8Array().slice();
+    }
     return { __transfer: [u8.buffer], value: u8 };
   },
 
@@ -742,10 +893,10 @@ const api = {
 
   joinPdfs(list) {
     const pdf = new mupdf.PDFDocument();
-    const map = pdf.newGraftMap();
     let at = 0;
     for (const bytes of list) {
       const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
+      const map = pdf.newGraftMap();
       for (let i = 0; i < src.countPages(); i++) map.graftPage(at++, src, i);
     }
     const u8 = pdf.saveToBuffer("compress").asUint8Array().slice();
@@ -824,6 +975,162 @@ const api = {
     const d = get(key);
     return d.doc.loadPage(page).toStructuredText("").asText().trim().length > 15;
   },
+
+  // ---- copies and changes of a whole document
+  extractPages(key, pages) {
+    // these pages (0-based, in this order) as a new PDF
+    const d = get(key);
+    const src = d.pdf;
+    const out = new mupdf.PDFDocument();
+    const map = out.newGraftMap();
+    pages.forEach((pg, i) => map.graftPage(i, src, pg));
+    const u8 = out.saveToBuffer("compress").asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
+  watermark(key, text, opacityGrey = 0.35) {
+    const d = get(key);
+    return op(d, "Watermark", () => {
+      const f = new mupdf.Font("Helvetica-Bold");
+      const n = d.doc.countPages();
+      for (let i = 0; i < n; i++) {
+        const page = d.pdf.loadPage(i);
+        const [x0, y0, x1, y1] = page.getBounds();
+        const w = x1 - x0, h = y1 - y0;
+        const pobj = page.getObject();
+        let res = pobj.getInheritable("Resources");
+        if (!res || res.isNull()) { res = d.pdf.newDictionary(); pobj.put("Resources", res); }
+        else if (res.isIndirect()) res = res.resolve();
+        let fonts = res.get("Font");
+        if (!fonts || fonts.isNull()) { fonts = d.pdf.newDictionary(); res.put("Font", fonts); }
+        if (fonts.get("BLWWM").isNull()) fonts.put("BLWWM", d.pdf.addSimpleFont(new mupdf.Font("Helvetica-Bold"), "Latin"));
+        let gs = res.get("ExtGState");
+        if (!gs || gs.isNull()) { gs = d.pdf.newDictionary(); res.put("ExtGState", gs); }
+        if (gs.get("BLWGS").isNull()) {
+          const g = d.pdf.newDictionary(); g.put("Type", d.pdf.newName("ExtGState")); g.put("ca", 0.22); g.put("CA", 0.22);
+          gs.put("BLWGS", d.pdf.addObject(g));
+        }
+        const diag = Math.hypot(w, h);
+        let size = 72;
+        while (size > 10 && textWidth(f, text, size) > diag * 0.7) size -= 2;
+        const tw = textWidth(f, text, size);
+        const ang = Math.atan2(h, w);
+        const c = Math.cos(ang), sn = Math.sin(ang);
+        // centre of the page, in PDF units (bottom-left origin)
+        const inv = mupdf.Matrix.invert(page.getTransform());
+        const cx = inv[0] * (x0 + w / 2) + inv[2] * (y0 + h / 2) + inv[4];
+        const cy = inv[1] * (x0 + w / 2) + inv[3] * (y0 + h / 2) + inv[5];
+        const tx = cx - c * tw / 2 + sn * size * 0.35, ty = cy - sn * tw / 2 - c * size * 0.35;
+        const g = opacityGrey.toFixed(2);
+        const cs = `q /BLWGS gs BT /BLWWM ${size} Tf ${g} ${g} ${g} rg ${c.toFixed(4)} ${sn.toFixed(4)} ${(-sn).toFixed(4)} ${c.toFixed(4)} ${tx.toFixed(2)} ${ty.toFixed(2)} Tm ${pdfString(text)} Tj ET Q\n`;
+        const stream = d.pdf.addStream(cs, {});
+        const contents = pobj.get("Contents");
+        if (contents.isArray()) contents.push(stream);
+        else { const arr = d.pdf.newArray(); if (!contents.isNull()) arr.push(contents); arr.push(stream); pobj.put("Contents", arr); }
+      }
+      d.st = null;
+      return true;
+    });
+  },
+
+  crop(key, page, margins) {
+    // margins [left, top, right, bottom] in points; page -1 = every page
+    const d = get(key);
+    return op(d, "Crop", () => {
+      const n = d.doc.countPages();
+      for (let i = 0; i < n; i++) {
+        if (page >= 0 && i !== page) continue;
+        const p = d.pdf.loadPage(i);
+        const po = p.getObject();
+        const mb = po.getInheritable("CropBox").isNull() ? po.getInheritable("MediaBox") : po.getInheritable("CropBox");
+        const r = [0, 1, 2, 3].map(j => mb.get(j).asNumber());
+        const [l, t, rr, b] = margins;
+        p.setPageBox("CropBox", [r[0] + l, r[1] + b, r[2] - rr, r[3] - t].map(v => Math.round(v * 100) / 100));
+      }
+      d.st = null;
+      return pageSizes(d.doc);
+    });
+  },
+
+  protectedCopy(key, userPw, ownerPw, readOnly) {
+    // a copy that asks for a password to open (and/or cannot be changed or printed)
+    const d = get(key);
+    const bytes = d.pdf.saveToBuffer("").asUint8Array().slice();
+    const tmp = mupdf.Document.openDocument(bytes, "application/pdf").asPDF();
+    let opts = "encrypt=aes-256,garbage=1";
+    if (userPw) opts += ",user-password=" + userPw.replace(/,/g, "");
+    opts += ",owner-password=" + (ownerPw || userPw || Math.random().toString(36).slice(2)).replace(/,/g, "");
+    if (readOnly) opts += ",permissions=" + (4 | 16);   // may print and copy text, nothing else
+    const u8 = tmp.saveToBuffer(opts).asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
+  smallerCopy(key, maxSide = 1800, quality = 72) {
+    // big pictures (scans, photos) drawn again smaller as JPEG, then everything packed tight; on a copy
+    const d = get(key);
+    const bytes = d.pdf.saveToBuffer("").asUint8Array().slice();
+    const pdf = mupdf.Document.openDocument(bytes, "application/pdf").asPDF();
+    const done = new Map();
+    let pictures = 0;
+    const n = pdf.countPages();
+    for (let i = 0; i < n; i++) {
+      const po = pdf.loadPage(i).getObject();
+      const res = po.getInheritable("Resources");
+      if (!res || res.isNull()) continue;
+      const xo = res.get("XObject");
+      if (!xo || xo.isNull()) continue;
+      const names = [];
+      xo.forEach((v, k) => names.push(k));
+      for (const name of names) {
+        const ref = xo.get(name);
+        if (!ref.isIndirect()) continue;
+        const num = ref.asIndirect();
+        if (done.has(num)) { if (done.get(num)) xo.put(name, done.get(num)); continue; }
+        done.set(num, null);
+        const obj = ref.resolve();
+        if (obj.get("Subtype").toString() !== "/Image") continue;
+        if (!obj.get("SMask").isNull() || !obj.get("Mask").isNull() || obj.get("ImageMask").asBoolean?.()) continue;
+        let img;
+        try { img = pdf.loadImage(ref); } catch (e) { continue; }
+        const w = img.getWidth(), h = img.getHeight();
+        if (w * h < 400 * 400 || img.getImageMask()) continue;
+        const cs = img.getColorSpace();
+        if (!cs || !(cs.isRGB() || cs.isGray())) continue;
+        const k = Math.min(1, maxSide / Math.max(w, h));
+        let pix = img.toPixmap();
+        if (pix.getAlpha && pix.getAlpha()) continue;
+        if (k < 1) {
+          const W = Math.round(w * k), H = Math.round(h * k);
+          pix = pix.warp([[0, 0], [w, 0], [w, h], [0, h]], W, H);
+        }
+        const jpg = pix.asJPEG(quality);
+        const oldLen = obj.get("Length").isNull() ? Infinity : obj.get("Length").asNumber();
+        if (jpg.length >= oldLen * 0.9) continue;
+        const nref = pdf.addImage(new mupdf.Image(jpg));
+        done.set(num, nref);
+        xo.put(name, nref);
+        pictures++;
+      }
+    }
+    const u8 = pdf.saveToBuffer("garbage=4,compress,compress-fonts,clean").asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: { bytes: u8, pictures } };
+  },
+
+  // erase for good: the words, lines and picture under the box are taken out of the PDF (not only covered)
+  eraseArea(key, page, rect, black, markIndex = -1) {
+    const d = get(key);
+    return op(d, "Erase for good", () => {
+      const p = loadPDFPage(d, page);
+      if (markIndex >= 0) { const a = p.getAnnotations()[markIndex]; if (a) p.deleteAnnotation(a); }
+      const r = p.createAnnotation("Redact");
+      r.setRect(rect);
+      r.update();
+      p.applyRedactions(!!black, 2, 1, 0);
+      d.st = null;
+      return true;
+    });
+  },
+
 
   // the whole document with marks drawn in (for printing a copy of a non-PDF, or a picture of a page)
   pagePng(key, page, scale) {

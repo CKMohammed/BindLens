@@ -1,6 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
-import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast } from "../state.js";
+import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
+  currentBook } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { Modals, Menu } from "./dialogs.jsx";
@@ -29,7 +30,7 @@ function Frame() {
   );
 }
 
-async function startWith(s) {
+async function startWith(s, { tour = true } = {}) {
   phase.value = "loading";
   try {
     if (s.kind === "drive") await s.signIn(false);
@@ -42,6 +43,10 @@ async function startWith(s) {
       view.value = "home";
       phase.value = "ready";
     });
+    if (tour) {
+      const { shouldWelcome } = await import("./Welcome.jsx");
+      if (shouldWelcome(settings.value)) panel.value = { type: "welcome" };
+    }
     if (s.kind === "drive") {
       s.onNeedSignIn = () => new Promise((resolve) => {
         needsTap.value = async () => {
@@ -106,7 +111,7 @@ function NeedsTap() {
 export function App() {
   useEffect(() => {
     const p = new URLSearchParams(location.search);
-    if (p.has("demo")) startWith(new DemoStore());
+    if (p.has("demo")) startWith(new DemoStore(), { tour: false });
     const key = (e) => {
       if (phase.value !== "ready" || locked.value) return;
       const mod = e.ctrlKey || e.metaKey;
@@ -118,6 +123,13 @@ export function App() {
       else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); saveAll().then(() => toast("Saved in your Drive.", "ok")); }
       else if (mod && e.key.toLowerCase() === "r") { e.preventDefault(); openPanel("reports"); }
       else if (mod && e.key.toLowerCase() === "p" && view.value === "book") { e.preventDefault(); openPanel("print"); }
+      else if (mod && e.key === ",") { e.preventDefault(); openPanel("settings"); }
+      else if (e.key === "F1") { e.preventDefault(); openPanel("help"); }
+      else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast("Click the line of text to change."); }
+      else if (e.key === "F2" && view.value === "book" && !panel.value) {
+        e.preventDefault();
+        import("../docs.js").then(({ fileFor }) => { const f = fileFor(fileId.value); const b = currentBook.value; if (f && b) import("../actions.js").then(a => a.renameFile(b, f)); });
+      }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);

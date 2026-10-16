@@ -1,11 +1,13 @@
 // Reports: choose what you want, where to look - and get the rows, exactly as they are in your documents.
 import { useState } from "preact/hooks";
-import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange } from "../state.js";
+import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange,
+  STATUSES, setStatus } from "../state.js";
+import { parseDatesAt } from "../reports/patterns.js";
 import { Dialog, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { REPORTS, runReport } from "../reports/run.js";
 import { goToWord } from "./Find.jsx";
-import { download, escapeHtml, fmtDate, uniqueName } from "../util.js";
+import { download, escapeHtml, fmtDate, uniqueName, isoDate, uid } from "../util.js";
 import { call } from "../docs.js";
 
 function visibleCols(columns, rows) {
@@ -53,6 +55,27 @@ function toHtml(rep) {
 }
 const PDF_CSS = "body{font-family:sans-serif;font-size:9pt} h1{font-size:16pt;margin:0} table{border-collapse:collapse;width:100%;margin:6pt 0 12pt} td,th{border:0.5pt solid #bbb;padding:3pt 4pt;text-align:left;vertical-align:top} th{background:#eee}";
 
+// right-click on a row: open its page, a reminder on its date, the status of its file, copy it
+function rowMenu(e, cells, go, onGo) {
+  e.preventDefault();
+  let date = null;
+  for (const c of cells) { const d = parseDatesAt(String(c ?? ""))[0]; if (d) { date = d.date; break; } }
+  const line = cells.map(c => String(c ?? "").trim()).filter(Boolean).join(" · ").slice(0, 140);
+  const b = go && books.value.find(x => x.id === go.bookId);
+  const f = b && b.files.find(x => x.id === go.fileId);
+  const remind = (d) => {
+    setSetting("reminders", [...(settings.value.reminders || []), { id: uid(), date: isoDate(d), text: line, bookId: b?.id, fileId: f?.id, page: go?.page || 0, file: f?.name || "", book: b?.name || "" }]);
+    toast(`On ${fmtDate(d)}, What needs you shows it.`, "ok");
+  };
+  openMenu(e, [
+    go && { label: "Open its page", icon: "right", run: () => onGo(go) },
+    date && { label: `Remind me on ${fmtDate(date)}`, icon: "clock", run: () => remind(date) },
+    date && { label: "Remind me 2 weeks before", icon: "bell", run: () => remind(new Date(date.getTime() - 14 * 86400000)) },
+    f && { label: "Status of its file", icon: "check", sub: [...STATUSES.map(([nm, col]) => ({ label: nm, color: col, run: () => { setStatus(f.id, nm); toast(`"${f.name}" is marked ${nm}.`, "ok"); } })), "-", { label: "No status", run: () => setStatus(f.id, "") }] },
+    { label: "Copy this row", icon: "copy", run: () => { navigator.clipboard?.writeText(cells.map(c => String(c ?? "")).join("\t")); toast("Copied."); } },
+  ]);
+}
+
 function RowsTable({ rep, onGo }) {
   if (rep.tables) {
     if (!rep.tables.length) return <p class="muted">No tables found here.</p>;
@@ -63,7 +86,7 @@ function RowsTable({ rep, onGo }) {
         <div class="rep-out" style={{ maxHeight: "40vh" }}>
           <table class="rows">
             {t.header && <thead><tr>{t.header.map((h, j) => <th key={j}>{h}</th>)}</tr></thead>}
-            <tbody>{t.rows.map((r, k) => <tr key={k}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
+            <tbody>{t.rows.map((r, k) => <tr key={k} onContextMenu={(e) => rowMenu(e, r, t.go, onGo)}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
           </table>
         </div>
       </div>
@@ -77,7 +100,7 @@ function RowsTable({ rep, onGo }) {
         <thead><tr>{cols.map(j => <th key={j}>{rep.columns[j]}</th>)}</tr></thead>
         <tbody>
           {rep.rows.map((r, k) => (
-            <tr key={k} class="click" title="Double-click to open the page" onDblClick={() => onGo(r.go)}>
+            <tr key={k} class="click" title="Double-click to open the page · right-click for more" onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
               {cols.map(j => <td key={j}>{rep.columns[j] === "When" && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : r.cells[j]}</td>)}
             </tr>
           ))}
@@ -94,7 +117,9 @@ export function Reports() {
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(null);
   const [rep, setRep] = useState(null);
+  const [some, setSome] = useState(() => settings.value.repBooks || (currentBook.value ? [currentBook.value.id] : []));
   const close = () => { panel.value = null; };
+  const toggleSome = (id) => { const n = some.includes(id) ? some.filter(x => x !== id) : [...some, id]; setSome(n); setSetting("repBooks", n); };
   const book = currentBook.value;
   const file = currentFile.value;
 
@@ -103,7 +128,8 @@ export function Reports() {
     if (!def) return;
     if (def.ask && !qq.trim()) { setPick(def); return; }
     let list, where;
-    if (sc === "book" && book) { list = [book]; where = `Book: ${book.name}`; }
+    if (sc === "some") { list = books.value.filter(b => some.includes(b.id)); where = list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books`; if (!list.length) { toast("Choose the books to look in."); return; } }
+    else if (sc === "book" && book) { list = [book]; where = `Book: ${book.name}`; }
     else if (sc === "doc" && book && file) { list = [{ ...book, files: [file] }]; where = `Document: ${file.name}`; }
     else { list = books.value; where = "All books"; }
     setPick(def);
@@ -169,9 +195,18 @@ export function Reports() {
           {book && <button class={"btn small " + (scope === "book" ? "" : "plain")} onClick={() => setScope("book")}>This book ({book.name})</button>}
           {file && <button class={"btn small " + (scope === "doc" ? "" : "plain")} onClick={() => setScope("doc")}>This document</button>}
           <button class={"btn small " + (scope === "all" ? "" : "plain")} onClick={() => setScope("all")}>All books</button>
+          <button class={"btn small " + (scope === "some" ? "" : "plain")} onClick={() => setScope("some")}>Some books...</button>
           <span class="grow" />
           <input class="field" style={{ maxWidth: 220 }} placeholder="Find a report" value={filter} onInput={(e) => setFilter(e.target.value)} />
         </div>
+        {scope === "some" && (
+          <div class="row wrap" style={{ marginBottom: 12, gap: 6 }}>
+            {books.value.map(b => (
+              <button key={b.id} class={"btn small " + (some.includes(b.id) ? "soft" : "plain")} onClick={() => toggleSome(b.id)}>
+                <span class="swatch" style={{ background: b.color, width: 12, height: 12 }} />{some.includes(b.id) ? "✓ " : ""}{b.name}</button>
+            ))}
+          </div>
+        )}
         {(settings.value.repRuns || []).length > 0 && !filter && (
           <div class="row wrap" style={{ marginBottom: 12 }}>
             <span class="tiny muted">Made lately:</span>

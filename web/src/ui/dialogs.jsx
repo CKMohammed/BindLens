@@ -37,6 +37,11 @@ export function confirm(title, text = "", { ok = "OK", danger = false } = {}) {
   return new Promise((resolve) => { modal.value = { kind: "confirm", title, text, ok, danger, resolve }; });
 }
 
+// a question with a few answers (buttons): resolves to the key of the one chosen, or null
+export function choose(title, text, options) {
+  return new Promise((resolve) => { modal.value = { kind: "choose", title, text, options, resolve }; });
+}
+
 export function openMenu(e, items) {
   e.preventDefault?.();
   e.stopPropagation?.();
@@ -81,11 +86,23 @@ function Confirm({ m }) {
   );
 }
 
+function Choose({ m }) {
+  const done = (val) => { modal.value = null; m.resolve(val); };
+  return (
+    <Dialog title={m.title} onClose={() => done(null)}
+      foot={<><button class="btn plain" onClick={() => done(null)}>Cancel</button><span class="grow" />
+        {m.options.map((o, i) => <button key={o.key} class={"btn" + (i < m.options.length - 1 ? " soft" : "") + (o.danger ? " danger" : "")} onClick={() => done(o.key)}>{o.icon && <Icon n={o.icon} size={17} />}{o.label}</button>)}</>}>
+      {m.text && <p style={{ margin: 0 }}>{m.text}</p>}
+    </Dialog>
+  );
+}
+
 export function Modals() {
   const m = modal.value;
   if (!m) return null;
   if (m.kind === "ask") return <Ask m={m} />;
   if (m.kind === "confirm") return <Confirm m={m} />;
+  if (m.kind === "choose") return <Choose m={m} />;
   return null;
 }
 
@@ -116,10 +133,13 @@ export function Menu() {
         if (it === "-") return <hr key={i} />;
         if (it.title) return <div class="lbl" key={i}>{it.title}</div>;
         return (
-          <button key={i} style={it.danger ? { color: "var(--bad)" } : null} disabled={it.disabled}
-            onClick={() => { menu.value = null; it.run && it.run(); }}>
+          <button key={i} style={it.danger ? { color: "var(--bad)" } : it.color ? { color: it.color } : null} disabled={it.disabled}
+            onClick={() => {
+              if (it.sub) { const p = pos || m; menu.value = { x: p.x, y: p.y, items: [{ label: "Back", icon: "left", run: () => { menu.value = m; } }, "-", ...it.sub] }; setPos(null); return; }
+              menu.value = null; it.run && it.run();
+            }}>
             {it.icon && <Icon n={it.icon} />}{it.swatch && <span class="swatch" style={{ background: it.swatch, width: 16, height: 16 }} />}
-            <span class="grow">{it.label}</span>{it.hint && <span class="tiny muted">{it.hint}</span>}
+            <span class="grow">{it.label}</span>{it.hint && <span class="tiny muted">{it.hint}</span>}{it.sub && <Icon n="right" size={14} />}
           </button>
         );
       })}

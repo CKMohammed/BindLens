@@ -41,22 +41,24 @@ export async function newBook(name) {
   }
 }
 
-export async function uploadFiles(book, files, { open = true } = {}) {
+export async function uploadFiles(book, files, { open = true, parent = null, quiet = false } = {}) {
   if (!files || !files.length) return [];
   if (!book) {
     book = currentBook.value || books.value[0] || await newBook();
     if (!book) return [];
   }
   const made = [];
-  const taken = [...book.files.map(f => f.name)];
+  const where = parent || book.id;
+  const taken = [...book.files.filter(f => (f.parent || book.id) === where).map(f => f.name)];
   let n = 0;
-  toast(files.length === 1 ? `Adding ${files[0].name}...` : `Adding ${files.length} files...`);
+  if (!quiet) toast(files.length === 1 ? `Adding ${files[0].name}...` : `Adding ${files.length} files...`);
   for (const f of files) {
     try {
       const name = uniqueName(cleanName(f.name) || "file", taken);
       taken.push(name);
       const bytes = await f.arrayBuffer();
-      const made1 = await store.value.create(book.id, name, bytes, f.type || mimeOf(name));
+      const made1 = await store.value.create(where, name, bytes, f.type || mimeOf(name));
+      made1.parent = where;
       addFileToBook(book.id, made1);
       logChange("Added", name, book.name);
       made.push(made1);
@@ -65,7 +67,7 @@ export async function uploadFiles(book, files, { open = true } = {}) {
       toast(`Could not add ${f.name}: ${e.message}`, "bad", 6000);
     }
   }
-  if (n) toast(n === 1 ? `Added to "${book.name}" in your Drive.` : `${n} files added to "${book.name}" in your Drive.`, "ok");
+  if (n && !quiet) toast(n === 1 ? `Added to "${book.name}" in your Drive.` : `${n} files added to "${book.name}" in your Drive.`, "ok");
   if (open && made.length) openBook(book.id, made[0].id);
   return made;
 }
@@ -167,7 +169,8 @@ export async function deleteFile(book, file) {
 
 export async function moveFileTo(book, file, toBook) {
   await saveAll();
-  const f = await store.value.move(file.id, book.id, toBook.id);
+  const f = await store.value.move(file.id, file.parent || book.id, toBook.id);
+  f.parent = toBook.id;
   removeFile(file.id);
   addFileToBook(toBook.id, f);
   logChange("Moved", `${file.name}: ${book.name} → ${toBook.name}`, toBook.name);
@@ -206,4 +209,120 @@ export function continueReading() {
   const f = b.files.find(x => x.id === last.file);
   openBook(b.id, f ? f.id : null, f ? last.page || 0 : 0);
   return true;
+}
+
+// ---- sub-books: folders inside a book (as in the Windows app)
+export async function newSubBook(book, parentSub = null) {
+  let name = await ask(parentSub ? `New sub-book inside "${parentSub.name}"` : `New sub-book in "${book.name}"`,
+    { label: "A sub-book is a folder inside the book's folder in your Drive. Its files are part of the book.", placeholder: "e.g. 2026", ok: "Make it" });
+  if (!name) return null;
+  name = cleanName(name);
+  const path = (parentSub ? parentSub.path + "/" : "") + name;
+  if ((book.subs || []).some(x => x.path.toLowerCase() === path.toLowerCase())) { toast("There is a sub-book with that name already."); return null; }
+  const made = await store.value.createSub(name, parentSub ? parentSub.id : book.id);
+  const sub = { id: made.id, name, path };
+  books.value = books.value.map(b => b.id === book.id ? { ...b, subs: [...(b.subs || []), sub].sort((a, c) => a.path.localeCompare(c.path, undefined, { numeric: true })) } : b);
+  logChange("Made the sub-book", path, book.name);
+  toast(`"${name}" is ready inside "${book.name}".`, "ok");
+  return sub;
+}
+
+export async function renameSub(book, sub) {
+  let name = await ask("Rename the sub-book", { value: sub.name, ok: "Rename" });
+  if (!name || name === sub.name) return;
+  name = cleanName(name);
+  await store.value.rename(sub.id, name);
+  logChange("Renamed the sub-book", `${sub.path} → ${name}`, book.name);
+  await reloadLibrary();
+}
+
+export async function deleteSub(book, sub) {
+  const n = book.files.filter(f => f.sub === sub.path || f.sub.startsWith(sub.path + "/")).length;
+  const ok = await confirm(`Move "${sub.name}" to the bin?`, `The folder and its ${n} file${n === 1 ? "" : "s"} go to your Google Drive bin, where you can get them back for 30 days.`, { ok: "Move to the bin", danger: true });
+  if (!ok) return;
+  await saveAll();
+  await store.value.trash(sub.id);
+  logChange("Moved the sub-book to the bin", sub.path, book.name);
+  await reloadLibrary();
+}
+
+export async function moveFileToSub(book, file, sub) {
+  const to = sub ? sub.id : book.id;
+  if ((file.parent || book.id) === to) return;
+  await saveAll();
+  await store.value.move(file.id, file.parent || book.id, to);
+  books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, parent: to, sub: sub ? sub.path : "" } : f) } : b);
+  const { sortFiles } = await import("./state.js");
+  books.value = books.value.map(b => b.id === book.id ? { ...b, files: sortFiles([...b.files], settings.value.books?.[b.id]?.fileOrder || []) } : b);
+  logChange("Moved", `${file.name} → ${sub ? sub.path : "the top of the book"}`, book.name);
+  toast(sub ? `Moved into "${sub.name}".` : "Moved to the top of the book.", "ok");
+}
+
+// a folder from the computer: a new book with all its files (its folders become sub-books)
+export async function addFolder(book = null) {
+  const files = await pickFiles({ folder: true });
+  if (!files.length) return;
+  const top = (files[0].webkitRelativePath || "").split("/")[0] || "New book";
+  if (!book) book = await newBook(top);
+  if (!book) return;
+  const subIds = new Map((book.subs || []).map(x => [x.path, x]));
+  let n = 0;
+  toast(`Adding ${files.length} files...`);
+  for (const f of files) {
+    if (f.name.startsWith(".")) continue;
+    const parts = (f.webkitRelativePath || f.name).split("/").slice(1, -1);   // the folders inside the chosen one
+    let parent = null, path = "";
+    for (const part of parts) {
+      path = path ? path + "/" + part : part;
+      if (!subIds.has(path)) {
+        const cur = books.value.find(b => b.id === book.id);
+        const made = await store.value.createSub(cleanName(part), parent ? parent.id : book.id);
+        const sub = { id: made.id, name: cleanName(part), path };
+        subIds.set(path, sub);
+        books.value = books.value.map(b => b.id === book.id ? { ...b, subs: [...(cur.subs || []), sub] } : b);
+      }
+      parent = subIds.get(path);
+    }
+    const cur = books.value.find(b => b.id === book.id);
+    await uploadFiles(cur, [f], { open: false, quiet: true, parent: parent ? parent.id : null }).then(m => { n += m.length; });
+  }
+  toast(`${n} files added to "${book.name}".`, "ok");
+  openBook(book.id);
+}
+
+// documents from the computer, each one its own book
+export async function addDocsAsBooks() {
+  const files = await pickFiles();
+  for (const f of files) {
+    const b = await newBook(f.name.replace(/\.[^.]+$/, ""));
+    if (b) await uploadFiles(books.value.find(x => x.id === b.id), [f], { open: false, quiet: true });
+  }
+  if (files.length) toast(`${files.length} new book${files.length === 1 ? "" : "s"}.`, "ok");
+}
+
+// out of BindLens, but kept in the Drive ("My Drive"): a book (its folder) or a file
+export async function releaseBook(book) {
+  const ok = await confirm(`Take "${book.name}" out of BindLens?`, store.value.kind === "drive"
+    ? "The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
+  if (!ok) return;
+  await saveAll();
+  await store.value.release(book.id, store.value.rootId);
+  logChange("Took the book out of BindLens (it is in My Drive)", book.name);
+  batch(() => {
+    books.value = books.value.filter(b => b.id !== book.id);
+    if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
+  });
+  toast(`"${book.name}" is in My Drive now.`, "ok");
+}
+
+export async function releaseFile(book, file) {
+  const ok = await confirm(`Take "${file.name}" out of this book?`, store.value.kind === "drive"
+    ? "It goes to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
+  if (!ok) return;
+  await saveAll();
+  await store.value.release(file.id, file.parent || book.id);
+  logChange("Took out of the book (it is in My Drive)", file.name, book.name);
+  removeFile(file.id);
+  if (fileId.value === file.id) { const b = books.value.find(x => x.id === book.id); fileId.value = b?.files[0]?.id || null; pageNo.value = 0; }
+  toast(`"${file.name}" is in My Drive now.`, "ok");
 }

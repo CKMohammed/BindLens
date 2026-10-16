@@ -17,9 +17,15 @@ const Signature = lazy(() => import("./Signature.jsx").then(m => ({ default: m.S
 const Pages = lazy(() => import("./Pages.jsx").then(m => ({ default: m.Pages })));
 const Study = lazy(() => import("./Study.jsx").then(m => ({ default: m.Study })));
 const BookPin = lazy(() => import("./BookPin.jsx").then(m => ({ default: m.BookPin })));
+const Versions = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Versions })));
+const Deleted = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Deleted })));
+const Protect = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Protect })));
+const Welcome = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Welcome })));
+const Legal = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Legal })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
-  gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin };
+  gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
+  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

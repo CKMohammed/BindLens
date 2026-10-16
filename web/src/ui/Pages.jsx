@@ -54,7 +54,7 @@ export function Pages({ fileId: fid }) {
                   <button class="ib" title="Turn" onClick={() => act("rotatePage", i, 90)}><Icon n="rotate" size={16} /></button>
                   <button class="ib" title="Move earlier" disabled={i === 0} onClick={() => act("movePage", i, i - 1)}><Icon n="left" size={16} /></button>
                   <button class="ib" title="Move later" disabled={i === pages.length - 1} onClick={() => act("movePage", i, i + 1)}><Icon n="right" size={16} /></button>
-                  <button class="ib" title="Take it out" disabled={pages.length < 2} onClick={async () => { if (await confirm(`Take page ${i + 1} out?`, "Undo (Ctrl+Z) puts it back.", { ok: "Take it out", danger: true })) act("deletePage", i); }}><Icon n="trash" size={16} /></button>
+                  <button class="ib" title="Take it out" disabled={pages.length < 2} onClick={async () => { if (await confirm(`Take page ${i + 1} out?`, "Undo (Ctrl+Z) puts it back, and so does Deleted pages in the Pages menu.", { ok: "Take it out", danger: true })) { const { takePageOut } = await import("../filetools.js"); await takePageOut(file, i); const d = await getDoc(file); setPages([...d.pages]); setV(x => x + 1); } }}><Icon n="trash" size={16} /></button>
                 </>}
               </div>
             </div>

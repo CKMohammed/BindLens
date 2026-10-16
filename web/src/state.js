@@ -19,6 +19,7 @@ export const toolOpts = signal({ color: "#FFD43B", pen: "#E03131", width: 2, sha
   hlKind: "Highlight", textSize: 12 });
 export const zoom = signal(1);
 export const fitWidth = signal(true);
+export const fitPage = signal(false);       // the whole page in the window (instead of its width)
 export const saving = signal({ n: 0, last: null, error: "" });
 export const locked = signal(false);
 export const sideTab = signal("files");     // files | marks | search
@@ -69,18 +70,19 @@ export function buildLibrary(list) {
   const byBook = new Map(list.books.map(b => [b.id, []]));
   for (const f of list.files) {
     if (f.name.startsWith(".") || f.name === "BindLens library.json") continue;
-    if (byBook.has(f.book)) byBook.get(f.book).push({ ...f, kind: kindOf(f.name, f.mime) });
+    if (byBook.has(f.book)) byBook.get(f.book).push({ ...f, sub: f.sub || "", parent: f.parent || f.book, kind: kindOf(f.name, f.mime) });
+  }
+  const subsOf = new Map();
+  for (const sb of list.subs || []) {
+    if (!subsOf.has(sb.book)) subsOf.set(sb.book, []);
+    subsOf.get(sb.book).push({ id: sb.id, name: sb.name, path: sb.path });
   }
   const out = list.books.map(b => {
     const m = metas[b.id] || {};
     const files = byBook.get(b.id) || [];
-    const fo = m.fileOrder || [];
-    files.sort((a, c) => {
-      const ia = fo.indexOf(a.id), ic = fo.indexOf(c.id);
-      if (ia >= 0 || ic >= 0) return (ia < 0 ? 1e9 : ia) - (ic < 0 ? 1e9 : ic);
-      return natCompare(a.name, c.name);
-    });
-    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, modified: b.modified };
+    sortFiles(files, m.fileOrder || []);
+    const subs = (subsOf.get(b.id) || []).sort((a, c) => natCompare(a.path, c.path));
+    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, subs, modified: b.modified };
   });
   out.sort((a, b) => {
     const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
@@ -88,6 +90,41 @@ export function buildLibrary(list) {
     return natCompare(a.name, b.name);
   });
   return out;
+}
+
+// the files of a book: the ones at its top first, then each sub-book (folder inside it) in order
+export function sortFiles(files, fo) {
+  files.sort((a, c) => {
+    if ((a.sub || "") !== (c.sub || "")) {
+      if (!a.sub) return -1;
+      if (!c.sub) return 1;
+      return natCompare(a.sub, c.sub);
+    }
+    const ia = fo.indexOf(a.id), ic = fo.indexOf(c.id);
+    if (ia >= 0 || ic >= 0) return (ia < 0 ? 1e9 : ia) - (ic < 0 ? 1e9 : ic);
+    return natCompare(a.name, c.name);
+  });
+  return files;
+}
+
+// the sub-book shown on its own ("Open this sub-book"): {book, path} or null
+export const subView = signal(null);
+export function visibleFiles(book) {
+  const sv = subView.value;
+  if (!book) return [];
+  if (!sv || sv.book !== book.id) return book.files;
+  return book.files.filter(f => f.sub === sv.path || (f.sub || "").startsWith(sv.path + "/"));
+}
+
+// the status of a file (Pending, Checked, Signed, Done, Urgent, Waiting or your own), as in the Windows app
+export const STATUSES = [["Pending", "#E8772E"], ["Checked", "#2F80ED"], ["Signed", "#8E5CE6"], ["Done", "#1E8E3E"],
+  ["Urgent", "#B3261E"], ["Waiting", "#9AA0A6"]];
+export function statusOf(fileIdv) { return (settings.value.tags || {})[fileIdv] || ""; }
+export function statusColor(tag) { return (STATUSES.find(s => s[0] === tag) || [0, "#7A7690"])[1]; }
+export function setStatus(fileIdv, tag) {
+  const t = { ...(settings.value.tags || {}) };
+  if (tag) t[fileIdv] = tag; else delete t[fileIdv];
+  setSetting("tags", t);
 }
 
 export async function reloadLibrary() {
@@ -106,7 +143,12 @@ export function patchFile(f) {
 }
 
 export function addFileToBook(bookIdv, f) {
-  books.value = books.value.map(b => b.id === bookIdv ? { ...b, files: [...b.files, { ...f, kind: kindOf(f.name, f.mime) }] } : b);
+  books.value = books.value.map(b => {
+    if (b.id !== bookIdv) return b;
+    const sub = (b.subs || []).find(x => x.id === f.parent);
+    const nf = { ...f, book: b.id, parent: f.parent && (sub || f.parent === b.id) ? f.parent : b.id, sub: sub ? sub.path : "", kind: kindOf(f.name, f.mime) };
+    return { ...b, files: sortFiles([...b.files, nf], (settings.value.books || {})[b.id]?.fileOrder || []) };
+  });
 }
 
 export function removeFile(id) {

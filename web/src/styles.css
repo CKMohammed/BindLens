@@ -347,3 +347,17 @@ table.rows tr.click{cursor:pointer}
   .grid2{grid-template-columns:1fr}
   .pagebar{bottom:10px}
 }
+
+.filerow .tag{font-size:12px;font-weight:700}
+.filerow.subrow{color:var(--ink);background:transparent}
+.filerow.subrow b{font-weight:700}
+.markbar{flex-wrap:wrap;max-width:calc(100% - 24px)}
+.tool-whitebox,.tool-redact,.tool-crop{cursor:crosshair}
+.writer .paper .pb{border-top:2px dashed #b9b4d6;margin:14px -20px;position:relative}
+.writer .paper .pb::after{content:"new page";position:absolute;right:0;top:-9px;font-size:10px;color:#8a85a8;background:#fff;padding:0 4px}
+.writer .paper hr{border:0;border-top:1px solid #9a98a8;margin:10pt 0}
+.writer .tbltools .btn.small{padding:4px 7px;font-size:12px}
+.page .ov.tool-whitebrush{cursor:crosshair}
+.writer .paper img{cursor:pointer}
+.writer .paper img.picked{outline:3px solid var(--accent);outline-offset:2px}
+.writer .paper table.pic,.writer .paper table.pic td{border:1px dashed #d6d2ea}

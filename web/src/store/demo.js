@@ -9,6 +9,8 @@ export class DemoStore {
     this.books = [];
     this.files = [];
     this.data = new Map();
+    this.subs = [];             // folders inside books: {id, name, parent}
+    this.versions = new Map();  // file id -> [{id, modified, size, bytes}]
     this.settings = {};
     this.rootId = "demo-root";
     this.base = import.meta.env.BASE_URL + "demo/";
@@ -26,14 +28,41 @@ export class DemoStore {
       this.books.push({ id, name: b.name, modified: now });
       for (const f of b.files) {
         this.files.push({ id: "f-" + uid(), name: f.name, mime: f.mime, size: f.size, modified: now, md5: "", book: id,
-          path: f.path });
+          parent: id, path: f.path });
       }
     }
     this.settings = m.settings || {};
   }
 
+  placeOf(id) {
+    if (this.books.some(b => b.id === id)) return { book: id, path: "" };
+    const s = this.subs.find(x => x.id === id);
+    if (!s) return null;
+    const up = this.placeOf(s.parent);
+    return up && { book: up.book, path: (up.path ? up.path + "/" : "") + s.name };
+  }
+
   async listAll() {
-    return { books: this.books.map(b => ({ ...b })), files: this.files.map(f => ({ ...f })), loose: [] };
+    const subs = this.subs.map(s => ({ id: s.id, name: s.name, ...this.placeOf(s.id) })).filter(s => s.book);
+    const files = this.files.map(f => { const w = this.placeOf(f.parent || f.book); return w && { ...f, book: w.book, sub: w.path, parent: f.parent || f.book }; }).filter(Boolean);
+    return { books: this.books.map(b => ({ ...b })), files, loose: [], subs };
+  }
+
+  async release(id) { return this.trash(id); }
+
+  async createSub(name, parent) {
+    const s = { id: "s-" + uid(), name, parent };
+    this.subs.push(s);
+    return { id: s.id, name };
+  }
+
+  async revisions(file) {
+    return (this.versions.get(file.id) || []).map(v => ({ id: v.id, modified: v.modified, size: v.size })).reverse();
+  }
+
+  async readRevision(file, revId) {
+    const v = (this.versions.get(file.id) || []).find(x => x.id === revId);
+    return v.bytes.slice(0);
   }
 
   async createBook(name) {
@@ -43,23 +72,29 @@ export class DemoStore {
   }
 
   async rename(id, name) {
-    const b = this.books.find(x => x.id === id);
+    const b = this.books.find(x => x.id === id) || this.subs.find(x => x.id === id);
     if (b) { b.name = name; return { ...b }; }
     const f = this.files.find(x => x.id === id);
     if (f) { f.name = name; f.modified = new Date().toISOString(); return { ...f }; }
   }
 
   async trash(id) {
+    const gone = new Set([id]);
+    let more = true;
+    while (more) { more = false; for (const s of this.subs) if (gone.has(s.parent) && !gone.has(s.id)) { gone.add(s.id); more = true; } }
     this.books = this.books.filter(b => b.id !== id);
-    this.files = this.files.filter(f => f.id !== id && f.book !== id);
+    this.subs = this.subs.filter(s => !gone.has(s.id));
+    this.files = this.files.filter(f => f.id !== id && !gone.has(f.parent || f.book));
   }
 
   async untrash() {}
 
   async move(id, fromBook, toBook) {
     const f = this.files.find(x => x.id === id);
-    f.book = toBook;
-    return { ...f };
+    const w = this.placeOf(toBook);
+    f.parent = toBook;
+    f.book = w ? w.book : toBook;
+    return { ...f, sub: w ? w.path : "" };
   }
 
   async read(file) {
@@ -72,6 +107,14 @@ export class DemoStore {
 
   async write(file, bytes) {
     const buf = bytes instanceof ArrayBuffer ? bytes : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    // keep the version before, like Google Drive does
+    try {
+      const before = await this.read(file);
+      const list = this.versions.get(file.id) || [];
+      if (!list.length) list.push({ id: "v-" + uid(), modified: file.modified || new Date().toISOString(), size: before.byteLength, bytes: before });
+      list.push({ id: "v-" + uid(), modified: new Date().toISOString(), size: buf.byteLength, bytes: buf.slice(0) });
+      this.versions.set(file.id, list.slice(-30));
+    } catch (e) {}
     this.data.set(file.id, buf.slice(0));
     const f = this.files.find(x => x.id === file.id);
     f.size = buf.byteLength;
@@ -82,7 +125,8 @@ export class DemoStore {
 
   async create(bookId, name, bytes, mime) {
     const buf = bytes instanceof ArrayBuffer ? bytes : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    const f = { id: "f-" + uid(), name, mime, size: buf.byteLength, modified: new Date().toISOString(), md5: uid(), book: bookId };
+    const w = this.placeOf(bookId);
+    const f = { id: "f-" + uid(), name, mime, size: buf.byteLength, modified: new Date().toISOString(), md5: uid(), book: w ? w.book : bookId, parent: bookId, sub: w ? w.path : "" };
     this.files.push(f);
     this.data.set(f.id, buf.slice(0));
     return { ...f };

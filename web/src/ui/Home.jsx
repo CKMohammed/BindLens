@@ -5,7 +5,7 @@ import { greeting, fmtDate, mix, initials } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, openPanel, continueReading,
-  addFromDrive, signOut, toggleBookLock } from "../actions.js";
+  addFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook } from "../actions.js";
 import { needsCount } from "../reports/dates.js";
 import { indexLibrary, indexed } from "../docs.js";
 import { BOOK_COLORS } from "../util.js";
@@ -59,12 +59,25 @@ function Stack() {
   );
 }
 
+function addItems() {
+  return [
+    { label: "New empty book...", icon: "plus", run: () => newBook().then(b => b && openBook(b.id)) },
+    { label: "Add a folder... (a book with all its files)", icon: "book", run: () => addFolder() },
+    { label: "Add documents... (each one becomes a book)", icon: "upload", run: () => addDocsAsBooks() },
+    { label: "Add documents as one book...", icon: "upload", run: async () => { const fs = await pickFiles(); if (!fs.length) return; const b = await newBook(); if (b) uploadFiles(books.value.find(x => x.id === b.id), fs); } },
+    books.value.length > 0 && { label: "Add files to the book I was in...", icon: "addpage", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); } },
+  ];
+}
+
 function Spine({ b, h, onHover, lean }) {
   const ref = useRef();
   const [drop, setDrop] = useState(false);
   const menuItems = () => [
     { label: "Open", icon: "read", run: () => openBook(b.id) },
     { label: "Add files to it", icon: "upload", run: async () => uploadFiles(b, await pickFiles(), { open: false }) },
+    { label: "Add a folder to it as a sub-book...", icon: "book", run: () => addFolder(b) },
+    { label: "New sub-book...", icon: "plus", run: () => newSubBook(b) },
+    { label: "Save the whole book as one PDF...", icon: "download", run: async () => (await import("../filetools.js")).wholeBookAsPdf(b) },
     { label: "Rename", icon: "rename", run: () => renameBook(b) },
     { label: bookMeta(b.id).locked ? "Open it without the PIN" : "Lock it with the PIN", icon: "lock", run: () => toggleBookLock(b) },
     { title: "Colour" },
@@ -73,6 +86,7 @@ function Spine({ b, h, onHover, lean }) {
     { label: "Move left", icon: "left", run: () => moveBook(b, -1) },
     { label: "Move right", icon: "right", run: () => moveBook(b, 1) },
     "-",
+    { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
   ];
   const w = 40 + Math.min(18, b.files.length * 2);
@@ -166,7 +180,7 @@ export function Home() {
                 <div class="decor left">{si % 2 === 0 ? <Plant /> : <Frame />}</div>
                 <div class="booksrun">
                   {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.72 : 1) * (156 + (hashOf(b.name) % 46))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
-                  {si === addAt && <button class="addspine" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}>+</button>}
+                  {si === addAt && <button class="addspine" title="New book" onClick={(e) => openMenu(e, addItems())}>+</button>}
                 </div>
                 <div class="decor right">{si % 2 === 0 ? <Stack /> : <Vase />}</div>
               </div>
@@ -201,7 +215,7 @@ export function Home() {
           <button class="qa" onClick={() => openPanel("write")}><Icon n="edit" />Write</button>
           <button class="qa" onClick={() => openPanel("scan")}><Icon n="camera" />Scan</button>
           <button class="qa" onClick={() => { if (!books.value.length) { toast("Make a book first."); return; } if (!settings.value.last) openBook(books.value[0].id); openPanel("study"); }}><Icon n="star" />Study cards</button>
-          <button class="qa" onClick={async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); }}><Icon n="upload" />Add files</button>
+          <button class="qa" onClick={(e) => openMenu(e, addItems())}><Icon n="upload" />Add</button>
           {store.value.kind === "drive" && <button class="qa" onClick={() => addFromDrive()}><Icon n="drive" />From Drive</button>}
           <button class="qa" onClick={() => openPanel("settings")}><Icon n="palette" />Frame colours</button>
         </div>

@@ -111,6 +111,9 @@ export class DriveStore {
     }
     if (!id) id = (await this.createFolder("BindLens", null)).id;
     this.rootId = id;
+    // the library's settings file, so they are read before the books are shown
+    const st = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and '${id}' in parents and trashed=false`)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`);
+    this.settingsId = st.files && st.files.length ? st.files[0].id : null;
   }
 
   // everything BindLens can see, in one go: the books (folders in BindLens) and their files
@@ -124,22 +127,48 @@ export class DriveStore {
     } while (page);
     const books = items.filter(f => f.mimeType === FOLDER && (f.parents || []).includes(this.rootId));
     const ids = new Set(books.map(b => b.id));
-    const files = items.filter(f => f.mimeType !== FOLDER && (f.parents || []).some(p => ids.has(p)))
-      .map(f => this.norm(f));
-    const settings = items.find(f => f.name === SETTINGS_NAME && (f.parents || []).includes(this.rootId));
-    this.settingsId = settings ? settings.id : null;
+    // folders inside a book are its sub-books (as deep as they go): each one knows its book and its path
+    const folders = new Map(items.filter(f => f.mimeType === FOLDER).map(f => [f.id, f]));
+    const where = new Map(books.map(b => [b.id, { book: b.id, path: "" }]));
+    const placeOf = (id, depth = 0) => {
+      if (where.has(id)) return where.get(id);
+      const f = folders.get(id);
+      if (!f || depth > 12) return null;
+      for (const p of f.parents || []) {
+        const up = placeOf(p, depth + 1);
+        if (up) { const v = { book: up.book, path: (up.path ? up.path + "/" : "") + f.name }; where.set(id, v); return v; }
+      }
+      return null;
+    };
+    const subs = [];
+    for (const f of folders.values()) {
+      if (ids.has(f.id)) continue;
+      const w = placeOf(f.id);
+      if (w) subs.push({ id: f.id, name: f.name, book: w.book, path: w.path });
+    }
+    const files = [];
+    for (const f of items) {
+      if (f.mimeType === FOLDER) continue;
+      const p = (f.parents || []).find(x => where.has(x) || placeOf(x));
+      if (!p) continue;
+      const w = where.get(p);
+      files.push({ ...this.norm(f), book: w.book, sub: w.path, parent: p });
+    }
+    const settings = items.filter(f => f.name === SETTINGS_NAME && (f.parents || []).includes(this.rootId))
+      .sort((a, b) => (b.modifiedTime || "").localeCompare(a.modifiedTime || ""))[0];
+    if (settings) this.settingsId = settings.id;
     const loose = items.filter(f => f.mimeType !== FOLDER && f.name !== SETTINGS_NAME && (f.parents || []).includes(this.rootId))
       .map(f => this.norm(f));
     return {
       books: books.map(b => ({ id: b.id, name: b.name, modified: b.modifiedTime })),
-      files, loose,
+      files, loose, subs,
     };
   }
 
   norm(f) {
     const book = (f.parents || []).find(p => p !== this.rootId) || (f.parents || [])[0];
     return { id: f.id, name: f.name, mime: f.mimeType, size: f.size ? Number(f.size) : null, modified: f.modifiedTime,
-      md5: f.md5Checksum || "", version: f.version || "", book };
+      md5: f.md5Checksum || "", version: f.version || "", book, parent: book };
   }
 
   async createFolder(name, parent) {
@@ -177,6 +206,47 @@ export class DriveStore {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}",
     });
     return this.norm(f);
+  }
+
+  // the earlier versions Google Drive keeps of a file (for about 30 days, or for ever when kept)
+  async revisions(file) {
+    const r = await this.json(`${API}/files/${file.id}/revisions?fields=revisions(id,modifiedTime,size,keepForever)&pageSize=200`);
+    return (r.revisions || []).map(v => ({ id: v.id, modified: v.modifiedTime, size: v.size ? Number(v.size) : null, keep: !!v.keepForever })).reverse();
+  }
+
+  async readRevision(file, revId) {
+    const r = await this.fetch(`${API}/files/${file.id}/revisions/${revId}?alt=media`);
+    return r.arrayBuffer();
+  }
+
+  // a Word, Excel or PowerPoint file as it really looks: Google converts a copy, gives it back as a PDF, and the copy
+  // is deleted straight away (the file itself is not changed)
+  async googlePdf(file, kind) {
+    const to = { word: "application/vnd.google-apps.document", excel: "application/vnd.google-apps.spreadsheet",
+      powerpoint: "application/vnd.google-apps.presentation" }[kind];
+    if (!to) throw new Error("Google cannot show this kind of file");
+    const copy = await this.json(`${API}/files/${file.id}/copy?fields=id`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "BindLens (a moment) - " + file.name, mimeType: to, parents: [this.rootId] }),
+    });
+    try {
+      const r = await this.fetch(`${API}/files/${copy.id}/export?mimeType=application/pdf`);
+      return await r.arrayBuffer();
+    } finally {
+      this.fetch(`${API}/files/${copy.id}`, { method: "DELETE" }).catch(() => {});
+    }
+  }
+
+  // out of BindLens, into "My Drive" (nothing is deleted)
+  async release(id, from) {
+    await this.fetch(`${API}/files/${id}?addParents=root&removeParents=${from}&fields=id`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}",
+    });
+  }
+
+  async createSub(name, parent) {
+    const f = await this.createFolder(name, parent);
+    return { id: f.id, name: f.name };
   }
 
   async read(file) {

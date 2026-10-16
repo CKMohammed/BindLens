@@ -2,6 +2,7 @@ import { render } from "preact";
 import "./styles.css";
 import { App } from "./ui/App.jsx";
 import { toast } from "./state.js";
+import "./install.js";
 
 // anything that goes wrong is said in a line at the bottom, not lost
 window.addEventListener("unhandledrejection", (e) => {
