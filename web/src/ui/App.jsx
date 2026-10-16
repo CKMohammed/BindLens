@@ -19,7 +19,8 @@ import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix } from "../util.js";
 
-export const DEFAULT_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];   // 1.0 calm: the soft aurora (purple, pink, gold)
+export const DEFAULT_FRAME = ["#111218", "#FF85C2", "#FFC83D", "#FF85C2", "#111218"];   // 1.0 calm: the logo's colours (ink, pink, gold)
+export const AURORA_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];
 
 function frameVars() {
   // the frame's colours, and the same colours very soft for the lava backgrounds (Home, sign-in, reading mode)
@@ -148,6 +149,7 @@ export function App() {
       else if (mod && e.key.toLowerCase() === "p" && view.value === "book") { e.preventDefault(); openPanel("print"); }
       else if (mod && e.key === ",") { e.preventDefault(); openPanel("settings"); }
       else if (e.key === "F1") { e.preventDefault(); openPanel("help"); }
+      else if (mod && e.key === "/") { e.preventDefault(); openPanel("keys"); }
       else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast("Click the line of text to change."); }
       else if (e.key === "F2" && view.value === "book" && !panel.value) {
         e.preventDefault();

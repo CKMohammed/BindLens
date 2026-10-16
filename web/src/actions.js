@@ -22,7 +22,7 @@ export function pickFiles({ accept = "", multiple = true, capture = null, folder
   });
 }
 
-export async function newBook(name) {
+export async function newBook(name, { quiet = false } = {}) {
   if (!name) name = await ask("New book", { label: "A book is a folder in your Google Drive, inside the BindLens folder.", placeholder: "e.g. Clients", ok: "Make the book" });
   if (!name) return null;
   name = cleanName(name);
@@ -33,7 +33,7 @@ export async function newBook(name) {
     books.value = [...books.value, { id: b.id, name: b.name, color: colorFor(b.name), files: [], modified: b.modified }];
     setSetting("bookOrder", books.value.map(x => x.id));
     logChange("Made the book", name);
-    toast(`"${name}" is ready. Add files to it.`, "ok");
+    if (!quiet) toast(`"${name}" is ready. Add files to it.`, "ok");
     return books.value.find(x => x.id === b.id);
   } catch (e) {
     toast("Could not make the book: " + e.message, "bad");
@@ -178,6 +178,7 @@ export async function renameBook(book) {
 }
 
 export async function deleteBook(book) {
+  if (book.shared) { unlinkBook(book); return; }
   const ok = await confirm(`Move "${book.name}" to the bin?`,
     `The folder and its ${book.files.length} file${book.files.length === 1 ? "" : "s"} go to your Google Drive bin, where you can get them back for 30 days.`,
     { ok: "Move to the bin", danger: true });
@@ -377,6 +378,7 @@ export async function addDocsAsBooks() {
 
 // out of BindLens, but kept in the Drive ("My Drive"): a book (its folder) or a file
 export async function releaseBook(book) {
+  if (book.shared) { unlinkBook(book); return; }
   const ok = await confirm(`Take "${book.name}" out of BindLens?`, store.value.kind === "drive"
     ? "The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
   if (!ok) return;
@@ -402,4 +404,43 @@ export async function releaseFile(book, file) {
   removeFile(file.id);
   if (fileId.value === file.id) { const b = books.value.find(x => x.id === book.id); fileId.value = b?.files[0]?.id || null; pageNo.value = 0; }
   toast(`"${file.name}" is in My Drive now.`, "ok");
+}
+
+// ---- books colleagues shared with you: they stay in their Drive; BindLens only remembers them
+export async function addSharedBook() {
+  if (store.value.kind !== "drive") { toast("Sign in with Google to open a book a colleague shared with you."); return; }
+  let folders = [];
+  try { folders = (await store.value.pick(false, { shared: true, title: "A book (folder) a colleague shared with you" })).filter(p => p.mime === FOLDER_MIME); }
+  catch (e) { toast("Could not open your Drive: " + e.message, "bad", 6000); return; }
+  const fo = folders[0];
+  if (!fo) return;
+  const linked = settings.value.linkedBooks || [];
+  if (!linked.some(x => x.id === fo.id)) setSetting("linkedBooks", [...linked, { id: fo.id, name: fo.name, at: Date.now() }]);
+  await reloadLibrary();
+  let b = books.value.find(x => x.id === fo.id);
+  if (!b || !b.files.length) {
+    // Google lets BindLens see only the files you choose: choose them once
+    const ok = await confirm(`Choose the files of "${fo.name}"`, `Google lets BindLens open only the files you choose. In the next window "${fo.name}" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select. Later, "Bring in new files" in the book's menu adds the ones your colleague puts in.`, { ok: "Choose the files" });
+    if (ok) { await store.value.pick(true, { parent: fo.id, title: `"${fo.name}": select all the files (Ctrl+A), then Select` }); await reloadLibrary(); }
+    b = books.value.find(x => x.id === fo.id);
+  }
+  if (b) { logChange("Opened a book shared with you", b.name); toast(`"${b.name}" is in your library. It stays in your colleague's Drive: what you mark, they see.`, "ok", 6000); openBook(b.id); }
+  else toast(`Google did not let BindLens open "${fo.name}". Ask your colleague to share it with your Google account.`, "bad", 7000);
+}
+
+export async function bringNewFiles(book) {
+  await store.value.pick(true, { parent: book.id, title: `"${book.name}": select the new files, then Select` });
+  await reloadLibrary();
+  toast(`"${book.name}" is up to date.`, "ok");
+}
+
+export async function unlinkBook(book) {
+  const ok = await confirm(`Take "${book.name}" out of your library?`, "It is a book a colleague shared with you: it stays in their Drive, as it is. You can open it again with Add > A book shared with me.", { ok: "Take it out" });
+  if (!ok) return;
+  setSetting("linkedBooks", (settings.value.linkedBooks || []).filter(x => x.id !== book.id));
+  batch(() => {
+    books.value = books.value.filter(b => b.id !== book.id);
+    if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
+  });
+  logChange("Took out of the library the shared book", book.name);
 }

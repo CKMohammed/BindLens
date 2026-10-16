@@ -82,7 +82,7 @@ export function buildLibrary(list) {
     const files = byBook.get(b.id) || [];
     sortFiles(files, m.fileOrder || []);
     const subs = (subsOf.get(b.id) || []).sort((a, c) => natCompare(a.path, c.path));
-    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, subs, modified: b.modified };
+    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, subs, modified: b.modified, shared: !!b.shared };
   });
   out.sort((a, b) => {
     const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
@@ -129,6 +129,7 @@ export function setStatus(fileIdv, tag) {
 
 export async function reloadLibrary() {
   const s = store.value;
+  s.linked = (settings.value.linkedBooks || []).map(x => x.id);    // books colleagues shared with you
   const list = await s.listAll();
   batch(() => {
     books.value = buildLibrary(list);

@@ -42,10 +42,12 @@ export function choose(title, text, options) {
   return new Promise((resolve) => { modal.value = { kind: "choose", title, text, options, resolve }; });
 }
 
-export function openMenu(e, items) {
+export function openMenu(e, items, opts = {}) {
   e.preventDefault?.();
   e.stopPropagation?.();
   const r = e.currentTarget?.getBoundingClientRect?.();
+  // side "left": beside the button, to its left (the icons on the frame at the right of the window)
+  if (r && opts.side === "left") { menu.value = { x: r.left - 8, y: r.top, items, side: "left" }; return; }
   const x = r ? r.left : e.clientX, y = r ? r.bottom + 4 : e.clientY;
   menu.value = { x, y, items };
 }
@@ -121,9 +123,9 @@ export function Menu() {
   useEffect(() => {
     if (!m || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    let x = m.x, y = m.y;
+    let x = m.side === "left" ? m.x - r.width : m.x, y = m.y;
     if (x + r.width > window.innerWidth - 8) x = window.innerWidth - r.width - 8;
-    if (y + r.height > window.innerHeight - 8) y = Math.max(8, m.y - r.height - 40);
+    if (y + r.height > window.innerHeight - 8) y = m.side === "left" ? Math.max(8, window.innerHeight - r.height - 8) : Math.max(8, m.y - r.height - 40);
     setPos({ x: Math.max(8, x), y: Math.max(8, y) });
   }, [m]);
   if (!m) return null;

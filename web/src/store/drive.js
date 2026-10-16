@@ -127,7 +127,9 @@ export class DriveStore {
       items.push(...r.files);
       page = r.nextPageToken || "";
     } while (page);
-    const books = items.filter(f => f.mimeType === FOLDER && (f.parents || []).includes(this.rootId));
+    // the books: the folders in BindLens, and the books colleagues shared with you (kept in your settings)
+    const linked = new Set(this.linked || []);
+    const books = items.filter(f => f.mimeType === FOLDER && ((f.parents || []).includes(this.rootId) || linked.has(f.id)));
     const ids = new Set(books.map(b => b.id));
     // folders inside a book are its sub-books (as deep as they go): each one knows its book and its path
     const folders = new Map(items.filter(f => f.mimeType === FOLDER).map(f => [f.id, f]));
@@ -162,7 +164,7 @@ export class DriveStore {
     const loose = items.filter(f => f.mimeType !== FOLDER && f.name !== SETTINGS_NAME && (f.parents || []).includes(this.rootId))
       .map(f => this.norm(f));
     return {
-      books: books.map(b => ({ id: b.id, name: b.name, modified: b.modifiedTime })),
+      books: books.map(b => ({ id: b.id, name: b.name, modified: b.modifiedTime, shared: linked.has(b.id) })),
       files, loose, subs,
     };
   }
@@ -358,7 +360,8 @@ export class DriveStore {
     return new Promise((resolve) => {
       // folders: only folders are shown, and a folder can be chosen; or the files inside one folder
       let view;
-      if (opts.folders) view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER);
+      if (opts.shared) view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER).setOwnedByMe(false);
+      else if (opts.folders) view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER);
       else {
         view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
         if (opts.parent) view = view.setParent(opts.parent);
@@ -376,6 +379,44 @@ export class DriveStore {
       if (PICKER_KEY) b = b.setDeveloperKey(PICKER_KEY);
       b.build().setVisible(true);
     });
+  }
+
+  // a new Google Doc, Sheet or Slides: BindLens makes it, so the "drive.file" permission lets it open and export it
+  async createGoogle(kind, name, parent) {
+    const mime = { doc: "application/vnd.google-apps.document", sheet: "application/vnd.google-apps.spreadsheet",
+      slides: "application/vnd.google-apps.presentation" }[kind];
+    const f = await this.json(`${API}/files?fields=${FIELDS}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, mimeType: mime, parents: [parent || this.rootId] }),
+    });
+    return this.norm(f);
+  }
+
+  async exportPdf(id) {
+    const r = await this.fetch(`${API}/files/${id}/export?mimeType=application/pdf`);
+    return r.arrayBuffer();
+  }
+
+  editLink(kind, id) {
+    return { doc: `https://docs.google.com/document/d/${id}/edit`, sheet: `https://docs.google.com/spreadsheets/d/${id}/edit`,
+      slides: `https://docs.google.com/presentation/d/${id}/edit` }[kind];
+  }
+
+  // sharing a book (a folder) with colleagues: Google sends them an email; the files inside are shared with it
+  async permissions(id) {
+    const r = await this.json(`${API}/files/${id}/permissions?fields=permissions(id,type,role,emailAddress,displayName,photoLink,deleted)`);
+    return (r.permissions || []).filter(p => !p.deleted);
+  }
+
+  async share(id, email, role, message) {
+    return this.json(`${API}/files/${id}/permissions?sendNotificationEmail=true${message ? "&emailMessage=" + encodeURIComponent(message) : ""}&fields=id`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "user", role, emailAddress: email }),
+    });
+  }
+
+  async unshare(id, permId) {
+    await this.fetch(`${API}/files/${id}/permissions/${permId}`, { method: "DELETE" });
   }
 
   async meta(id) {

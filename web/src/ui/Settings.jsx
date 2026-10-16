@@ -5,13 +5,15 @@ import { indexed } from "../docs.js";
 import { installPrompt, installApp } from "../install.js";
 import { Dialog } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
-import { DEFAULT_FRAME } from "./App.jsx";
+import { DEFAULT_FRAME, AURORA_FRAME } from "./App.jsx";
 import { idb } from "../idb.js";
 import { pinHash } from "./Lock.jsx";
 import { signOut } from "../actions.js";
 
 const PRESETS = [
-  { name: "Lava", colors: DEFAULT_FRAME },
+  { name: "BindLens", colors: DEFAULT_FRAME },
+  { name: "Aurora", colors: AURORA_FRAME },
+  { name: "Lava", colors: ["#7C5CFF", "#FF3D9A", "#F0562A", "#F2C85A", "#3E7BFF"] },
   { name: "Gold", colors: ["#8A6A1E", "#D4AF37", "#F2C85A", "#FFF1B8", "#B8892A"] },
   { name: "Ocean", colors: ["#0B5FA5", "#18A0C9", "#5BD4D9", "#2E6FE0", "#7C5CFF"] },
   { name: "Forest", colors: ["#1F6B45", "#3FB28F", "#A3D977", "#2B8A3E", "#F2C85A"] },
@@ -55,7 +57,7 @@ export function Settings() {
         <label class="row small">Speed
           <input type="range" min="6" max="60" value={66 - (f.speed || 22)} onInput={(e) => setFrame({ speed: 66 - Number(e.target.value) })} />
         </label>
-        <button class="btn plain small" onClick={() => setSetting("frame", {})}>Back to Lava</button>
+        <button class="btn plain small" onClick={() => setSetting("frame", {})}>Back to the BindLens colours</button>
       </div>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>View</h3>

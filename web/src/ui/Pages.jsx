@@ -62,6 +62,7 @@ export function Pages({ fileId: fid }) {
         </div>
       )}
       {!pdf && <p class="small muted">This document is not a PDF, so its pages cannot be moved here.</p>}
+      <div class="row" style={{ marginTop: 14 }}><span class="grow" /><button class="btn ghost small" onClick={() => { close(); panel.value = { type: "addpages", book: currentBook.value?.id }; }}><Icon n="addpage" size={16} />Add pages...</button></div>
       {void currentBook}
     </Dialog>
   );

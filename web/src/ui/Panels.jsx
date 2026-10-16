@@ -23,10 +23,17 @@ const Protect = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Pro
 const Welcome = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Welcome })));
 const Legal = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Legal })));
 const BookStyle = lazy(() => import("./BookStyle.jsx").then(m => ({ default: m.BookStyle })));
+const AddPages = lazy(() => import("./AddPages.jsx").then(m => ({ default: m.AddPages })));
+const Templates = lazy(() => import("./Templates.jsx").then(m => ({ default: m.Templates })));
+const Tasks = lazy(() => import("./Tasks.jsx").then(m => ({ default: m.Tasks })));
+const Share = lazy(() => import("./Share.jsx").then(m => ({ default: m.Share })));
+const Keys = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Keys })));
+const Feedback = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Feedback })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
-  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal, bookstyle: BookStyle };
+  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal, bookstyle: BookStyle,
+  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

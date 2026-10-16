@@ -20,6 +20,10 @@ export class DemoStore {
   signOut() {}
 
   async init() {
+    // the example library stands on two named shelves, as an office or a university would use it
+    const SHELF_OF = { Clients: "Office & administration", Contracts: "Office & administration", Insurance: "Office & administration",
+      "Invoices 2026": "Office & administration", "Meeting notes": "Office & administration", Projects: "Office & administration",
+      "Taxes 2025": "Office & administration", "Lecture notes": "University", "Research papers": "University", Thesis: "University" };
     const r = await fetch(this.base + "manifest.json");
     const m = await r.json();
     const now = new Date().toISOString();
@@ -28,12 +32,16 @@ export class DemoStore {
       const id = "b-" + uid();
       this.books.push({ id, name: b.name, modified: now });
       if (b.icon) looks[id] = { icon: b.icon, tstyle: b.tstyle || "3d" };
+      const shelf = SHELF_OF[b.name];
+      if (shelf) looks[id] = { ...(looks[id] || {}), shelf };
       for (const f of b.files) {
         this.files.push({ id: "f-" + uid(), name: f.name, mime: f.mime, size: f.size, modified: now, md5: "", book: id,
           parent: id, path: f.path });
       }
     }
-    this.settings = { ...(m.settings || {}), books: looks };
+    const soon = new Date(Date.now() + 40 * 86400000).toISOString().slice(0, 10);
+    this.settings = { ...(m.settings || {}), books: looks, shelves: ["Office & administration", "University"],
+      countdowns: [{ id: "cd1", text: "Thesis submission", date: soon }] };
   }
 
   placeOf(id) {

@@ -4,8 +4,8 @@ import { panel, settings, setSetting, books, openBook, toast } from "../state.js
 import { scrollTo } from "./Viewer.jsx";
 import { Dialog, ask } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
-import { allDeadlines, needs, status, calendarLink, icsOf, itemKey } from "../reports/dates.js";
-import { goToWord } from "./Find.jsx";
+import { allDeadlines, needs, status, calendarLink, icsOf, itemKey, myItems } from "../reports/dates.js";
+import { openItem, addCountdown } from "./needs.js";
 import { fmtDate, isoDate, download, daysBetween, monthName, uid } from "../util.js";
 
 // the dates of a calendar file (.ics): every event's day and title (a repeating one: its next dates, up to a year)
@@ -96,16 +96,14 @@ export function Dates() {
   }, [books.value.length]);
   const done = new Set(settings.value.datesDone || []);
   const today = new Date();
-  const mine = [
-    ...(settings.value.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? "About a page" : "Reminder", line: r.text, file: r.file || "", book: r.book || "" })),
-    ...(settings.value.calendar || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, cal: true, what: "Calendar", line: r.text, file: "", book: r.source || "" })),
-  ].map(r => ({ ...r, days: daysBetween(today, r.date) }));
+  const mine = myItems(today);
   const all = items ? [...items, ...mine].sort((a, b) => a.date - b.date) : null;
   let list = !all ? [] : show === "needs" ? [...needs(items), ...mine.filter(r => !r.cal && r.days >= -1 && r.days <= 30)].sort((a, b) => a.date - b.date)
     : show === "ahead" ? all.filter(x => x.days >= 0) : all;
   if (day) list = (all || []).filter(x => isoDate(x.date) === day);
 
   const markDone = (it) => {
+    if (it.task) { setSetting("tasks", (settings.value.tasks || []).map(t => t.id === it.id ? { ...t, done: Date.now() } : t)); return; }
     if (it.cal) { setSetting("calendar", (settings.value.calendar || []).filter(r => r.id !== it.id)); return; }
     if (it.mine) { setSetting("reminders", (settings.value.reminders || []).filter(r => r.id !== it.id)); return; }
     setSetting("datesDone", [...(settings.value.datesDone || []), itemKey(it)]);
@@ -133,24 +131,12 @@ export function Dates() {
     setSetting("calendar", [...others, ...keep]);
     toast(keep.length ? `${keep.length} dates from "${f.name}" are in the calendar.` : `"${f.name}" has no dates from the last two months on.`, keep.length ? "ok" : "");
   };
-  const open = (it) => {
-    if (it.mine && it.fileId) {
-      const b = books.value.find(x => x.id === it.bookId);
-      close();
-      if (b) { openBook(b.id, it.fileId, it.page || 0); setTimeout(() => { scrollTo.value = { fileId: it.fileId, page: it.page || 0 }; }, 50); }
-      return;
-    }
-    if (it.mine) return;
-    const b = books.value.find(x => x.id === it.bookId);
-    const f = b && b.files.find(x => x.id === it.fileId);
-    close();
-    if (b && f) goToWord(b, f, it.page, it.line.slice(0, 40));
-    else if (b) openBook(b.id);
-  };
+  const open = (it) => { close(); openItem(it); };
   return (
     <Dialog title="What needs you" icon="clock" onClose={close} cls="wide"
       foot={<>
         <button class="btn plain" onClick={addReminder}><Icon n="plus" size={17} />A reminder of my own</button>
+        <button class="btn plain" onClick={() => addCountdown()}><Icon n="hourglass" size={17} />Count down to a date</button>
         <button class="btn plain" title="An .ics file from Outlook, Google Calendar or Apple Calendar" onClick={bringCalendar}><Icon n="calendar" size={17} />Bring in a calendar</button>
         <span class="grow" />
         {list.length > 0 && <button class="btn soft" onClick={() => download(icsOf(list.filter(x => x.days >= 0)), "BindLens dates.ics", "text/calendar")}><Icon n="calendar" size={17} />For Outlook / Apple Calendar</button>}
@@ -180,6 +166,7 @@ export function Dates() {
                             <td class="small">{it.cal ? <span class="muted">From {it.book}</span> : it.mine && !it.fileId ? <span class="muted">Your reminder</span> : <a href="#" onClick={(e) => { e.preventDefault(); open(it); }}>{it.file}</a>}{(!it.mine || it.fileId) && <div class="tiny muted">{it.book} · page {(it.page || 0) + 1}</div>}</td>
                             <td style={{ whiteSpace: "nowrap" }}>
                               <a class="ib" title="Add to Google Calendar" href={calendarLink({ ...it, file: it.file || it.line, book: it.book || "" })} target="_blank" rel="noopener"><Icon n="calendar" /></a>
+                              {it.days >= 0 && <button class="ib" title="Count down to it on Home" onClick={() => addCountdown({ text: (it.what === "Date" ? "" : it.what + ": ") + (it.file ? it.file.replace(/\.[^.]+$/, "") : it.line).slice(0, 50), date: isoDate(it.date) })}><Icon n="hourglass" /></button>}
                               {!isDone && <button class="ib" title={it.cal ? "Take it out of the calendar" : it.mine ? "Delete the reminder" : "Done: it no longer needs me"} onClick={() => markDone(it)}><Icon n={it.mine ? "trash" : "check"} /></button>}
                             </td>
                           </tr>
@@ -192,7 +179,7 @@ export function Dates() {
         </div>
         <div>
           <MonthCal items={all || []} day={day} onDay={(k) => setDay(day === k ? null : k)} />
-          <p class="tiny muted">Red dots: dates in your documents. Purple: your reminders. Green: a calendar you brought in. Click a day to see it, or to add a reminder to it.</p>
+          <p class="tiny muted">Red dots: dates in your documents. Pink: your reminders and tasks. Green: a calendar you brought in. Click a day to see it, or to add a reminder to it.</p>
         </div>
       </div>
       <style>{"@media (max-width:760px){.dates-grid{grid-template-columns:1fr!important}}"}</style>

@@ -64,6 +64,19 @@ async function convertedPdf(file, buf) {
   return ab;
 }
 
+// any file the person brings (a PDF, pictures, Word, Excel, PowerPoint, text) as the bytes of a PDF, or null
+export async function anyToPdf(name, mime, buf, kind) {
+  if (kind === "pdf" || /\.pdf$/i.test(name) || mime === "application/pdf") return buf;
+  if (kind === "image" || (mime || "").startsWith("image/")) {
+    const u8 = await call("imagesToPdf", [buf]);
+    return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+  }
+  const html = await toHtml(kind, name, buf);
+  if (html == null) return null;
+  const pdf = await call("htmlToPdf", html, OFFICE_CSS);
+  return pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength);
+}
+
 // -> {key, pages:[{w,h}], isPDF, converted, outline}
 export function getDoc(file) {
   if (!file) return Promise.reject(new Error("No file"));

@@ -325,6 +325,36 @@ function graftWithSource(dst, src, at) {
   }
 }
 
+function tagPages(d, at, n, tag) {
+  for (let i = 0; i < n; i++) {
+    const po = d.pdf.loadPage(at + i).getObject();
+    po.put("BLFrom", d.pdf.newString(JSON.stringify(tag)));
+    po.put("BLFromI", i);
+    po.put("BLFromN", n);
+  }
+}
+
+// the lines of a page of paper (PDF drawing commands): lined like a notebook, squared (5 mm) or dotted
+function paperPattern(kind, w, h) {
+  const f = (x) => (Math.round(x * 100) / 100).toString();
+  let s = "";
+  if (kind === "lined") {
+    s += "0.70 0.80 0.93 RG 0.5 w\n";
+    for (let y = h - 96; y > 48; y -= 24) s += `48 ${f(y)} m ${f(w - 48)} ${f(y)} l S\n`;
+    s += "0.93 0.62 0.62 RG 0.6 w\n" + `84 36 m 84 ${f(h - 36)} l S\n`;
+  } else if (kind === "squared") {
+    const st = 14.173, x0 = 28, y0 = 28, x1 = w - 28, y1 = h - 28;
+    s += "0.86 0.89 0.93 RG 0.3 w\n";
+    for (let x = x0; x <= x1 + 0.1; x += st) s += `${f(x)} ${f(y0)} m ${f(x)} ${f(y1)} l S\n`;
+    for (let y = y0; y <= y1 + 0.1; y += st) s += `${f(x0)} ${f(y)} m ${f(x1)} ${f(y)} l S\n`;
+  } else if (kind === "dotted") {
+    const st = 14.173;
+    s += "0.62 0.66 0.74 RG 1.3 w 1 J\n";
+    for (let x = 28; x <= w - 28; x += st) for (let y = 28; y <= h - 28; y += st) s += `${f(x)} ${f(y)} m ${f(x)} ${f(y)} l S\n`;
+  }
+  return s;
+}
+
 function imageFromBytes(bytes) {
   return new mupdf.Image(bytes);
 }
@@ -1023,6 +1053,63 @@ const api = {
       for (let i = 0; i < n; i++) d.pdf.deletePage(start);
       const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
       graftWithSource(d.pdf, src, start);
+      return pageSizes(d.doc);
+    });
+  },
+
+  // blank pages the size of the page they follow: plain, lined, squared or dotted paper
+  insertBlank(key, at, n = 1, w = 595, h = 842, pattern = "blank") {
+    const d = get(key);
+    return op(d, "Add pages", () => { d.st = null;
+      for (let i = 0; i < n; i++) {
+        const page = d.pdf.addPage([0, 0, w, h], 0, d.pdf.newDictionary(), paperPattern(pattern, w, h));
+        d.pdf.insertPage(at + i, page);
+      }
+      return pageSizes(d.doc);
+    });
+  },
+
+  // a new PDF of blank pages (a new document in a book)
+  blankPdf(n = 1, w = 595, h = 842, pattern = "blank") {
+    const out = new mupdf.PDFDocument();
+    for (let i = 0; i < n; i++) out.insertPage(i, out.addPage([0, 0, w, h], 0, out.newDictionary(), paperPattern(pattern, w, h)));
+    const u8 = out.saveToBuffer("compress").asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
+  // pages that come from a Google Doc, Sheet or Slides: each page remembers where it came from, so it can be
+  // opened there again and its pages put in anew
+  insertTagged(key, at, bytes, tag) {
+    const d = get(key);
+    return op(d, "Add pages", () => { d.st = null;
+      const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
+      const n = src.countPages();
+      graftWithSource(d.pdf, src, at);
+      tagPages(d, at, n, tag);
+      return pageSizes(d.doc);
+    });
+  },
+
+  taggedAt(key, page) {
+    const d = get(key);
+    if (!d.pdf) return null;
+    const po = d.pdf.loadPage(page).getObject();
+    const t = po.get("BLFrom");
+    if (t.isNull()) return null;
+    const i = po.get("BLFromI").isNull() ? 0 : po.get("BLFromI").asNumber();
+    const n = po.get("BLFromN").isNull() ? 1 : po.get("BLFromN").asNumber();
+    try { return { tag: JSON.parse(t.asString()), start: page - i, n }; } catch (e) { return null; }
+  },
+
+  replaceTagged(key, start, n, bytes, tag) {
+    const d = get(key);
+    return op(d, "Put the pages in anew", () => {
+      d.st = null;
+      for (let i = 0; i < n; i++) d.pdf.deletePage(start);
+      const src = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
+      const m = src.countPages();
+      graftWithSource(d.pdf, src, start);
+      tagPages(d, start, m, tag);
       return pageSizes(d.doc);
     });
   },

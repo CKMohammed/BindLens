@@ -5,8 +5,7 @@ import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom
   STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
-import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel, toolLock, PAPERS } from "./Viewer.jsx";
-import { STAMPS, PEN_COLORS, HL_COLORS, stampSpec } from "./marks.js";
+import { Viewer, docState, scrollTo, selectedMark, searchHits, toolLock } from "./Viewer.jsx";
 import { undo, redo, allMarks, fileFor, pageOp, getDoc, call, afterEdit } from "../docs.js";
 import { uploadFiles, pickFiles, newBook, renameBook, deleteBook, renameFile, deleteFile, moveFileTo, moveFileInBook,
   openPanel, addFromDrive, addFolderFromDrive, refresh, setBookColor, toggleBookLock, newSubBook, renameSub, deleteSub, moveFileToSub,
@@ -16,8 +15,11 @@ import { initials, isPaged, fmtDate, rgbToHex, BOOK_COLORS, isPhone } from "../u
 import { AccountButton } from "./Home.jsx";
 import { Logo } from "./Logo.jsx";
 import { BookTile } from "./bookicons.jsx";
-import { FullButton } from "./FrameBar.jsx";
+import { FullButton, frameBarOn } from "./FrameBar.jsx";
+import { toolMenus, setTool, RowTools } from "./Tools.jsx";
 import { Contents, ClockCal, DocSwitch, contentsOpen } from "./Reading.jsx";
+import { Checklist, checkProgress } from "./Checklist.jsx";
+import { addGooglePages, openBeside } from "./AddPages.jsx";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
   // a tool goes back to the arrow after one use; a double-click keeps it on (lock)
@@ -26,100 +28,26 @@ function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
     onDblClick={lock ? () => { tool.value = lock; toolLock.value = true; toast("It stays on until you choose the arrow."); } : undefined}><Icon n={n} />{children}</button>;
 }
 
-function setTool(t) {
-  tool.value = tool.value === t && t !== "select" ? "select" : t;
-  toolLock.value = false;
-  selectedMark.value = null;
-  textSel.value = null;
+// "Saved · 22:41" - always there, quiet; red when something did not save
+function SaveState() {
+  const s = saving.value;
+  const demo = store.value.kind === "demo";
+  const at = s.last ? new Date(s.last).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const where = store.value.kind === "onedrive" ? "OneDrive" : "Google Drive";
+  if (s.error) return <span class="savestate bad" title={s.error}><Icon n="x" size={14} />Not saved</span>;
+  if (s.n) return <span class="savestate busy" title={"Saving in your " + where}><span class="sdot" />Saving</span>;
+  if (demo) return <span class="savestate" title="The example library: nothing is saved">Example</span>;
+  return <span class="savestate" title={s.last ? `Everything is saved in your ${where} (${at})` : `Saved in your ${where}`}><Icon n="check" size={14} />{s.last ? "Saved · " + at : "Saved"}</span>;
 }
 
 function TopBar({ book }) {
   const t = tool.value, o = toolOpts.value;
-  const s = saving.value;
-  const setOpt = (k, v) => { toolOpts.value = { ...toolOpts.value, [k]: v }; };
-  const colorMenu = (e) => openMenu(e, [
-    { title: "Highlighter" },
-    ...HL_COLORS.map(c => ({ label: c === o.color ? "Highlighter (now)" : "Highlighter", swatch: c, run: () => { setOpt("color", c); tool.value = "highlight"; } })),
-    { title: "Pen, shapes and lines" },
-    ...PEN_COLORS.map(c => ({ label: c === o.pen ? "Pen (now)" : "Pen", swatch: c, run: () => setOpt("pen", c) })),
-    { title: "Line width" },
-    ...[1, 2, 3, 5].map(w => ({ label: `${w} pt${o.width === w ? " (now)" : ""}`, run: () => setOpt("width", w) })),
-    { title: "Text boxes" },
-    { label: "Colour of the words", sub: ["#1E1C2B", "#E03131", "#1C7ED6", "#2B8A3E", "#8E6CF0", "#E8772E"].map(c => ({ label: c === (o.textColor || "#1E1C2B") ? "(now)" : "", swatch: c, run: () => { setOpt("textColor", c); tool.value = "text"; } })) },
-    { label: "Style: " + ({ plain: "Plain", outline: "Outline", label: "Label", solid: "Solid", dashed: "Dashed", marker: "Marker" })[o.textStyle || "plain"], sub: [["plain", "Plain"], ["outline", "Outline"], ["label", "Label"], ["solid", "Solid"], ["dashed", "Dashed"], ["marker", "Marker"]].map(([k, l]) => ({ label: ((o.textStyle || "plain") === k ? "✓ " : "") + l, run: () => { setOpt("textStyle", k); tool.value = "text"; } })) },
-    { label: "Size: " + (o.textSize || 12) + " pt", sub: [9, 11, 12, 14, 18, 24].map(z => ({ label: z + " pt", run: () => { setOpt("textSize", z); tool.value = "text"; } })) },
-  ]);
-  const shapeMenu = (e) => openMenu(e, [
-    { label: "Box", icon: "rect", run: () => { setOpt("shape", "rect"); tool.value = "shape"; } },
-    { label: "Circle", icon: "circle", run: () => { setOpt("shape", "circle"); tool.value = "shape"; } },
-    { label: "Line", icon: "line", run: () => { setOpt("shape", "line"); tool.value = "shape"; } },
-    { label: "Arrow", icon: "arrow", run: () => { setOpt("shape", "arrow"); tool.value = "shape"; } },
-    { label: o.fill ? "Fill boxes and circles: on" : "Fill boxes and circles: off", icon: "palette", run: () => setOpt("fill", !o.fill) },
-    "-",
-    { label: "Tick", icon: "tick", run: () => { tool.value = "tick"; } },
-    { label: "Cross", icon: "cross", run: () => { tool.value = "cross"; } },
-    { label: "Size and colour of ticks and crosses", icon: "palette", sub: [
-      ...[["Small", 6], ["Medium", 9], ["Big", 14]].map(([l, z]) => ({ label: l + ((o.quickSize || 9) === z ? " (now)" : ""), run: () => setOpt("quickSize", z) })),
-      "-",
-      { label: (o.quickOwn !== false ? "✓ " : "") + "Their own colours (green tick, red cross)", run: () => setOpt("quickOwn", true) },
-      { label: (o.quickOwn === false ? "✓ " : "") + "The colour chosen at the top", run: () => setOpt("quickOwn", false) },
-    ] },
-    { title: "Hide or erase the PDF's own text" },
-    { label: "White box: drag over the text", icon: "rect", run: () => { tool.value = "whitebox"; toast("Drag a box over the text to hide. Later you can erase what is under it for good."); } },
-    { label: "White brush: paint over the text", icon: "pen", run: () => { tool.value = "whitebrush"; toast("Paint over the text to hide it."); } },
-    tool.value === "whitebrush" && { label: "Brush size", sub: [8, 14, 22, 32].map(z => ({ label: z + " pt" + ((o.brush || 14) === z ? " (now)" : ""), run: () => { setOpt("brush", z); tool.value = "whitebrush"; } })) },
-    { label: "Erase the text for good (private data)", icon: "eraser", run: () => { tool.value = "redact"; toast("Drag a box over what has to go. It is taken out of the PDF and cannot come back."); } },
-    { label: "Crop the page...", icon: "fit", run: () => { tool.value = "crop"; toast("Drag a box round the part of the page to keep."); } },
-  ]);
-  const stampMenu = (e) => openMenu(e, [
-    { title: "Stamp" },
-    ...STAMPS.map(st => ({ label: st.date ? "Today's date" : st.text, icon: "stamp", run: () => { setOpt("stamp", st.key); tool.value = "stamp"; } })),
-    ...((settings.value.myStamps || []).map(w => ({ label: w, icon: "stamp", run: () => { setOpt("stamp", "custom:" + w); tool.value = "stamp"; } }))),
-    { label: "My own words...", icon: "plus", run: async () => {
-      const w = await ask("Your stamp", { label: "The words on the stamp", placeholder: "e.g. CHECKED BY AOIFE", ok: "Make the stamp" });
-      if (!w) return;
-      const { setSetting } = await import("../state.js");
-      setSetting("myStamps", [w, ...(settings.value.myStamps || []).filter(x => x !== w)].slice(0, 8));
-      setOpt("stamp", "custom:" + w); tool.value = "stamp";
-    } },
-    (settings.value.myStamps || []).length > 0 && { label: "Delete one of my stamps", icon: "trash", sub: (settings.value.myStamps || []).map(w => ({ label: w, run: async () => { const { setSetting: ss } = await import("../state.js"); ss("myStamps", (settings.value.myStamps || []).filter(x => x !== w)); toast(`"${w}" is no longer in My stamps.`); } })) },
-    "-",
-    { label: "Signature", icon: "sign", run: () => { tool.value = "sign"; if (!(settings.value.signatures || []).length) openPanel("signature"); } },
-    { label: "New signature...", icon: "rename", run: () => openPanel("signature") },
-    { label: "A picture...", icon: "image", run: async () => {
-      const [f] = await pickFiles({ accept: "image/png,image/jpeg", multiple: false });
-      if (!f) return;
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const img = await createImageBitmap(f);
-      setOpt("picture", { bytes, w: img.width, h: img.height });
-      tool.value = "picture";
-      toast("Click on the page to put the picture there.");
-    } },
-  ]);
-  const hlMenu = (e) => { e.preventDefault(); openMenu(e, [
-    { label: "Highlight", icon: "highlighter", run: () => { setOpt("hlKind", "Highlight"); tool.value = "highlight"; } },
-    { label: "Underline", icon: "line", run: () => { setOpt("hlKind", "Underline"); tool.value = "highlight"; } },
-    { label: "Strike out", icon: "x", run: () => { setOpt("hlKind", "StrikeOut"); tool.value = "highlight"; } },
-    { label: "Wavy line", icon: "sign", run: () => { setOpt("hlKind", "Squiggly"); tool.value = "highlight"; } },
-  ]); };
-  const addMenu = (e) => openMenu(e, [
-    { label: "Add files...", icon: "upload", run: async () => uploadFiles(book, await pickFiles()) },
-    store.value.canPick && { label: "Add from my Google Drive...", icon: "drive", run: () => addFromDrive(book) },
-    store.value.canPick && { label: "A whole folder from my Drive (a new book)...", icon: "drive", run: () => addFolderFromDrive() },
-    { label: "Add a folder as a sub-book...", icon: "book", run: () => addFolder(book) },
-    { label: "Add pages from another PDF here...", icon: "addpage", run: () => { const f = fileFor(fileId.value); if (f && f.kind === "pdf") FT.addPagesFromPdf(f, pageNo.value + 1); else toast("Open a PDF page first."); } },
-    "-",
-    { label: "Write a new page or document...", icon: "edit", run: () => openPanel("write", { book: book.id }) },
-    { label: "Scan pages (camera or photos)...", icon: "camera", run: () => openPanel("scan", { book: book.id }) },
-    { label: "A blank page after this one", icon: "addpage", run: () => addBlankPage() },
-  ]);
-  const curFile = fileFor(fileId.value);
-  const saveText = s.error ? "Not saved" : s.n ? "Saving..." : store.value.kind === "demo" ? "Example" : s.last ? "Saved" : "";
+  const m = toolMenus(book);
   if (narrow.value) {
     // on a phone: the tools in one button, the rest under "more"
     const TOOLS = [["select", "select", "Select and move"], ["pen", "pen", "Pen"], ["highlight", "highlighter", "Highlighter"],
       ["text", "text", "Text"], ["note", "note", "Sticky note"], ["tick", "tick", "Tick"], ["cross", "cross", "Cross"],
-      ["edit", "edit", "Change the text"], ["eraser", "eraser", "Eraser"]];
+      ["edit", "textedit", "Change the text"], ["eraser", "eraser", "Eraser"]];
     const cur = TOOLS.find(x => x[0] === t) || (t === "shape" ? ["shape", "shape", "Shapes"] : t === "stamp" ? ["stamp", "stamp", "Stamp"] : t === "sign" ? ["sign", "sign", "Signature"] : TOOLS[0]);
     return (
       <div class="topbar">
@@ -127,18 +55,18 @@ function TopBar({ book }) {
         <T n="home" label="Home" onClick={goHome} />
         <button class="ib on" title="Tool" onClick={(e) => openMenu(e, [
           ...TOOLS.map(([k, icon, label]) => ({ label, icon, run: () => setTool(k) })),
-          { label: "Shapes...", icon: "shape", run: () => shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
-          { label: "Stamps and signature...", icon: "stamp", run: () => stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+          { label: "Shapes...", icon: "shape", run: () => m.shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+          { label: "Stamps and signature...", icon: "stamp", run: () => m.stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
         ])}><Icon n={cur[1]} /></button>
-        <button class="ib" title="Colours" onClick={colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
+        <button class="ib" title="Colours" onClick={m.colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
         <T n="undo" label="Undo" onClick={undo} disabled={!undoStack.value.length} />
         <span class="grow" />
         <T n="search" label="Find" onClick={() => openPanel("find")} />
-        <T n="reports" label="Reports" onClick={() => openPanel("reports")} />
+        <T n="addpage" label="Add pages, files, a scan" onClick={m.addMenu} />
         <button class="ib" title="More" onClick={(e) => openMenu(e, [
           { label: readMode.value ? "Leave reading mode" : "Reading mode", icon: "read", run: () => { readMode.value = !readMode.value; } },
           { label: "Redo", icon: "redo", run: redo },
-          { label: "Add files, write, scan...", icon: "addpage", run: () => addMenu(e) },
+          { label: "Reports", icon: "reports", run: () => openPanel("reports") },
           { label: "What needs you", icon: "clock", run: () => openPanel("dates") },
           { label: "Photos as a gallery", icon: "image", run: () => openPanel("gallery") },
           { label: "Print", icon: "print", run: () => openPanel("print") },
@@ -149,47 +77,37 @@ function TopBar({ book }) {
       </div>
     );
   }
+  // on a computer: a slim bar - where you are, Find, saved; the tools to mark are on the frame at the right
+  const onFrame = frameBarOn();
   return (
-    <div class="topbar">
-      <button class="brand" onClick={goHome} title="Home"><Logo size={54} /><b>Bind<span>Lens</span></b></button>
-      <T n="sidebar" label="Library (show / hide)" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
+    <div class={"topbar slim" + (onFrame ? "" : " withtools")}>
+      <button class="brand" onClick={goHome} title="Home"><Logo size={36} still /></button>
       <T n="home" label="Home" onClick={goHome} />
-      <div class="tools">
-        <T n="select" label="Select and move (V)" on={t === "select"} onClick={() => setTool("select")} />
-        <T n="pen" label="Pen (P)" on={t === "pen"} onClick={() => setTool("pen")} lock="pen" />
-        <T n="highlighter" label="Highlighter (H) - right-click: underline, strike out" on={t === "highlight"} onClick={() => setTool("highlight")} onContextMenu={hlMenu} lock="highlight" />
-        <T n="text" label="Text (T) - right-click: its style, colour and size" on={t === "text"} onClick={() => setTool("text")} onContextMenu={(e) => { e.preventDefault(); colorMenu(e); }} lock="text" />
-        <T n="note" label="Sticky note (N) - right-click: the colour of the paper" on={t === "note"} onClick={() => setTool("note")} onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ title: "Sticky note paper" }, ...PAPERS.map(([c, l]) => ({ label: l + ((o.paper || "#FFED8C") === c ? " (now)" : ""), swatch: c, run: () => { setOpt("paper", c); tool.value = "note"; } }))]); }} lock="note" />
-        <button class={"ib" + (["shape", "tick", "cross"].includes(t) ? " on" : "")} title="Shapes, tick and cross" onClick={shapeMenu}><Icon n={t === "tick" ? "tick" : t === "cross" ? "cross" : o.shape === "circle" ? "circle" : o.shape === "line" ? "line" : o.shape === "arrow" ? "arrow" : "shape"} /></button>
-        <button class={"ib" + (["stamp", "sign", "picture"].includes(t) ? " on" : "")} title="Stamps, signature, picture" onClick={stampMenu}><Icon n={t === "sign" ? "sign" : "stamp"} /></button>
-        <T n="edit" label="Change the text of the PDF" on={t === "edit"} onClick={() => setTool("edit")} />
-        <T n="eraser" label="Eraser: click a mark to take it off (E)" on={t === "eraser"} onClick={() => setTool("eraser")} />
-        <button class="ib" title="Colours" onClick={colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
-        <span class="sep" />
-        <T n="undo" label="Undo (Ctrl+Z)" onClick={undo} disabled={!undoStack.value.length} />
-        <T n="redo" label="Redo (Ctrl+Y)" onClick={redo} disabled={!redoStack.value.length} />
-        <button class="ib" title="Add: files, a written page, a scan" onClick={addMenu}><Icon n="addpage" /></button>
-      </div>
-      <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0}><Icon n="search" size={17} /><span class="ellipsis">Find a document or a word</span><kbd>Ctrl+K</kbd></div>
-      {readMode.value && <span class="grow" />}
-      {readMode.value && <DocSwitch book={book} />}
-      <button class={"btn " + (readMode.value ? "" : "ghost") + " small hide-phone"} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={17} />Read</button>
-      <button class="btn small" onClick={() => openPanel("reports")}><Icon n="reports" size={17} /><span class="hide-phone">Reports</span></button>
-      <span class={"savestate" + (s.error ? " bad" : "")} title={s.error || (store.value.kind === "demo" ? "The example library: nothing is saved" : "Saved in your Google Drive")}>{saveText}</span>
+      <T n="sidebar" label="Library (show / hide)" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
+      <span class="crumb" title={book.name}><BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={22} /><b class="ellipsis">{book.name}</b><Icon n="right" size={13} /></span>
+      <DocSwitch book={book} />
+      {!onFrame && <RowTools book={book} />}
+      <span class="grow" />
+      <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}><Icon n="search" size={16} /><span class="ellipsis">Find anything</span><kbd>Ctrl+K</kbd></div>
+      <SaveState />
+      <button class="btn ghost small" title="Add pages, files, a scan, a written page" onClick={m.addMenu}><Icon n="plus" size={16} />Add</button>
+      <button class={"btn small " + (readMode.value ? "" : "ghost")} title="Reading mode: the page, the contents, calm" onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={16} />Read</button>
       <T n="print" label="Print (Ctrl+P)" onClick={() => openPanel("print")} />
       <FullButton small />
       <AccountButton />
-      {void curFile}
     </div>
   );
 }
 
 async function addBlankPage() {
   const f = fileFor(fileId.value);
-  if (!f || f.kind !== "pdf") { toast("Open a PDF page first."); return; }
-  const u8 = await call("htmlToPdf", "<p>&nbsp;</p>", "");
-  await pageOp(f, "insertPages", pageNo.value + 1, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
-  toast("A blank page was added.");
+  if (!f || f.kind !== "pdf") { openPanel("addpages", { book: currentBook.value?.id }); return; }
+  const d = await getDoc(f);
+  const p = d.pages[pageNo.value] || { w: 595, h: 842 };
+  const at = pageNo.value + 1;
+  await pageOp(f, "insertBlank", at, 1, Math.round(p.w), Math.round(p.h), "blank");
+  pageNo.value = at; setTimeout(() => { scrollTo.value = { fileId: f.id, page: at }; }, 160);
+  toast(`A blank page is after page ${at}. Ctrl+Z takes it out.`, "ok");
 }
 
 function Rail({ book }) {
@@ -197,7 +115,7 @@ function Rail({ book }) {
     <div class="rail">
       {books.value.map(b => (
         <button key={b.id} class={"tab" + (b.id === book.id ? " on" : "")} title={b.name}
-          onClick={() => openBook(b.id)} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={bookMeta(b.id)} size={48} /></button>
+          onClick={() => openBook(b.id)} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={{ ...bookMeta(b.id), tstyle: "flat" }} size={34} /></button>
       ))}
       <button class="ib" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
     </div>
@@ -320,6 +238,8 @@ function fileMenu(e, book, f) {
     { label: "Print...", icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
     { label: "Send by email...", icon: "mail", run: () => FT.sendFile(f) },
     { label: "Download a copy", icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
+    f.kind === "gdoc" && store.value.editLink && { label: "Edit it in Google", icon: "edit", run: () => openBeside(store.value.editLink(/spreadsheet/.test(f.mime) ? "sheet" : /presentation/.test(f.mime) ? "slides" : "doc", f.id)) },
+    f.kind === "gdoc" && { label: "Show it as it is now", icon: "rotate", run: () => refreshGoogle(f, true) },
     store.value.cloud && { label: "Open in " + store.value.cloud, icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
     f.kind === "image" && { label: "Open the photos as a gallery", icon: "image", run: () => openPanel("gallery", { fileId: f.id }) },
     pdf && { label: "Make scanned pages searchable (OCR)", icon: "type", run: async () => {
@@ -509,6 +429,7 @@ function Side({ book }) {
         <button class={tab === "files" ? "on" : ""} onClick={() => { sideTab.value = "files"; }}>Files</button>
         <button class={tab === "marks" ? "on" : ""} onClick={() => { sideTab.value = "marks"; }}>Marks</button>
         <button class={tab === "search" ? "on" : ""} onClick={() => { sideTab.value = "search"; }}>Search</button>
+        <button class={tab === "check" ? "on" : ""} onClick={() => { sideTab.value = "check"; }} title="The documents this book needs">Checklist{checkProgress(book.id) ? <span class="tabn">{checkProgress(book.id).done}/{checkProgress(book.id).of}</span> : null}</button>
       </div>
       {tab === "files" && <div class="row" style={{ padding: "0 10px 4px" }}>
         <button class="btn plain small" style={{ padding: "2px 6px" }} onClick={(e) => openMenu(e, [
@@ -522,8 +443,9 @@ function Side({ book }) {
       {tab === "files" && <FilesList book={book} />}
       {tab === "marks" && <MarksList book={book} />}
       {tab === "search" && <SearchList book={book} />}
+      {tab === "check" && <Checklist book={book} />}
       <div class="foot">
-        <button class="btn" onClick={async () => uploadFiles(book, await pickFiles(), { open: false })}><Icon n="plus" size={17} />Add files</button>
+        <button class="btn ghost" onClick={async () => uploadFiles(book, await pickFiles(), { open: false })}><Icon n="plus" size={17} />Add files</button>
       </div>
     </div>
   );
@@ -565,11 +487,19 @@ function PageBar({ book }) {
     return () => window.removeEventListener("keydown", k);
   });
   const curFile = fileFor(fileId.value);
-  const pagesMenu = (e) => {
+  const pagesMenu = async (e0) => {
+    const e = { currentTarget: e0.currentTarget, clientX: e0.clientX, clientY: e0.clientY, preventDefault() {}, stopPropagation() {} };
     const f = curFile;
     const pdf = f && f.kind === "pdf" && docState.value[f.id]?.status === "ready";
+    let tg = null;
+    if (pdf) try { tg = await call("taggedAt", (await getDoc(f)).key, pageNo.value); } catch (er) { tg = null; }
+    const gname = tg && { doc: "Google Docs", sheet: "Google Sheets", slides: "Google Slides" }[tg.tag.kind];
     openMenu(e, [
       { title: `Page ${pageNo.value + 1} of ${f ? f.name : ""}` },
+      tg && store.value.editLink && { label: `Open it in ${gname} again`, icon: "edit", run: () => openBeside(store.value.editLink(tg.tag.kind, tg.tag.id)) },
+      tg && store.value.exportPdf && { label: `Bring its pages anew from ${gname}`, icon: "rotate", run: () => addGooglePages({ ...tg.tag, fileId: f.id, start: tg.start, n: tg.n }, { replace: true }).catch(er => toast("Google: " + er.message, "bad")) },
+      tg && "-",
+      { label: "Add pages here...", icon: "addpage", run: () => openPanel("addpages", { book: book.id }) },
       pdf && { label: "Turn it right", icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, 90) },
       pdf && { label: "Turn it left", icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, -90) },
       pdf && { label: "Move it up", icon: "up", disabled: pageNo.value === 0, run: () => pageOp(f, "movePage", pageNo.value, pageNo.value - 1).then(() => { pageNo.value--; }) },
@@ -582,6 +512,7 @@ function PageBar({ book }) {
       pdf && { label: "Crop...", icon: "fit", run: () => { tool.value = "crop"; toast("Drag a box round the part of the page to keep."); } },
       pdf && { label: "Save pages as a new PDF...", icon: "copy", run: () => FT.savePagesAsPdf(f, pageNo.value) },
       f && { label: "Remind me about this page...", icon: "clock", run: () => remindPage(book, f, pageNo.value) },
+      f && { label: "A task about this page...", icon: "task", run: () => openPanel("tasks", { about: true }) },
       pdf && { label: "Read the words of this page (a scan)", icon: "type", run: async () => {
         toast("Reading the words of the page...");
         const { readScannedPage } = await import("../ocr.js");
@@ -642,19 +573,58 @@ function RRail() {
   );
 }
 
+// a Google Doc of the book changed in its window: when you come back, BindLens shows it as it is now
+async function refreshGoogle(f, loud = false) {
+  const s = store.value;
+  if (!s.meta) return;
+  try {
+    const m = await s.meta(f.id);
+    if (!loud && m.modified === f.modified) return;
+    const { patchFile } = await import("../state.js");
+    const { reopen, notifyChanged } = await import("../docs.js");
+    patchFile({ ...m, kind: f.kind });
+    await reopen({ ...f, ...m });
+    notifyChanged(f.id, "pages");
+    if (loud) toast(`"${f.name}" is as it is now in Google.`, "ok");
+  } catch (e) { if (loud) toast("Google: " + e.message, "bad"); }
+}
+
+function GoogleJobs({ book }) {
+  const jobs = (settings.value.googleJobs || []).filter(j => j.book === book.id && !j.hide);
+  const [busy, setBusy] = useState(false);
+  if (!jobs.length) return null;
+  const j = jobs[jobs.length - 1];
+  const app = { doc: "Google Docs", sheet: "Google Sheets", slides: "Google Slides" }[j.kind];
+  return (
+    <div class="gjob">
+      <Icon n={{ doc: "word", sheet: "excel", slides: "slides" }[j.kind]} size={18} />
+      <span class="small"><b>{j.name}</b> is open in {app}. When it is ready:</span>
+      <button class="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await addGooglePages(j); } catch (e) { toast("Google: " + e.message, "bad"); } setBusy(false); }}><Icon n="addpage" size={15} />Add these pages</button>
+      <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>Open it</button>
+      <button class="ib" title="Not now (it stays in Add pages)" onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).map(x => x === j ? { ...x, hide: true } : x))}><Icon n="close" size={15} /></button>
+    </div>
+  );
+}
+
 export function BookView() {
   const book = currentBook.value;
   useEffect(() => { if (!book) goHome(); }, [book]);
+  useEffect(() => {
+    const back = () => { const f = fileFor(fileId.value); if (f && f.kind === "gdoc") refreshGoogle(f); };
+    window.addEventListener("focus", back);
+    return () => window.removeEventListener("focus", back);
+  }, []);
   useEffect(() => { if (isPhone()) leftOpen.value = false; }, []);
   if (!book) return null;
   return (
     <div class={"book-view" + (readMode.value ? " reading" : "")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <TopBar book={book} />
       <div class="main">
-        <Rail book={book} />
+        {(!leftOpen.value || readMode.value) && <Rail book={book} />}
         {leftOpen.value && !readMode.value && <Side book={book} />}
         <div class={"vhost" + (readMode.value && contentsOpen.value && !narrow.value ? " withcontents" : "")} style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
           <Viewer book={book} />
+          <GoogleJobs book={book} />
           {book.files.length > 0 && <PageBar book={book} />}
           {readMode.value && <ClockCal />}
         </div>

@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal, effect } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
-  readMode, visibleFiles, subView, fitPage } from "../state.js";
+  readMode, visibleFiles, subView, fitPage, bookMeta } from "../state.js";
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
@@ -1019,6 +1019,10 @@ export function Viewer({ book }) {
             <h2>"{book.name}" is empty</h2>
             <p class="muted">Add PDFs, Word and Excel files, photos or videos. They are saved in your Google Drive, in this book's folder.</p>
             <EmptyButtons book={book} />
+            {(bookMeta(book.id).checklist || []).length > 0 && <div class="emptycheck">
+              <div class="ap-sec">This book needs</div>
+              {(bookMeta(book.id).checklist || []).map(it => <div key={it.id} class="small"><Icon n={it.done ? "check" : "circle"} size={14} />{it.text}</div>)}
+            </div>}
           </div>
         </div>
         {drop && <div class="dropzone">Drop to add to "{book.name}"</div>}

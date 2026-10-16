@@ -57,8 +57,25 @@ export function needs(items) {
   return items.filter(it => it.days >= -60 && it.days <= 30 && !done.has(itemKey(it)));
 }
 
+// your own: reminders, tasks with a date, and a calendar brought in
+export function myItems(today = new Date()) {
+  const st = settings.value;
+  return [
+    ...(st.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? "About a page" : "Reminder", line: r.text, file: r.file || "", book: r.book || "" })),
+    ...(st.tasks || []).filter(t => t.due && !t.done).map(t => ({ ...t, id: t.id, date: new Date(t.due + "T00:00"), mine: true, task: true, what: "Task" + (t.who ? " · " + t.who : ""), line: t.text, file: t.file || "", book: t.book || "" })),
+    ...(st.calendar || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, cal: true, what: "Calendar", line: r.text, file: "", book: r.source || "" })),
+  ].map(r => ({ ...r, days: daysBetween(today, r.date) }));
+}
+
+// what needs you now: dates found in the documents (from 60 days ago to 30 ahead) and your own (from yesterday)
+export async function needsNow(cachedOnly = true) {
+  const items = await allDeadlines(null, cachedOnly);
+  const mine = myItems().filter(r => !r.cal && r.days >= -1 && r.days <= 30);
+  return [...needs(items), ...mine].sort((a, b) => a.date - b.date);
+}
+
 export async function needsCount() {
-  return needs(await allDeadlines(null, true)).length;
+  return (await needsNow(true)).length;
 }
 
 export function status(days) {
