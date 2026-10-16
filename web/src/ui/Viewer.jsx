@@ -168,20 +168,22 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     if (edit) return;
     if (t === "select" || t === "eraser") {
       // capture the pointer now (after a wait the browser may refuse it), then find the mark under it
-      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      if (e.pointerType !== "touch") try { el.setPointerCapture(e.pointerId); } catch (err) {}
       const list = readOnly ? [] : await getMarks();
       const m = hitMark(list, p);
       if (t === "eraser") {
         if (m) { await deleteMark(file, page, m.i); selectedMark.value = null; }
         return;
       }
+      const touch = e.pointerType === "touch";
       if (m) {
         selectedMark.value = { fileId: file.id, page, ...m };
         textSel.value = null;
-        setDrag({ kind: "move", start: p, dx: 0, dy: 0, m });
+        if (!touch) setDrag({ kind: "move", start: p, dx: 0, dy: 0, m });
         return;
       }
       selectedMark.value = null;
+      if (touch) return;            // a finger on the page scrolls it
       setDrag({ kind: "text", start: p });
       textSel.value = null;
       return;

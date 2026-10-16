@@ -28,7 +28,37 @@ export function AccountButton() {
   );
 }
 
-function Spine({ b, h, onHover }) {
+function Frame() {
+  return (
+    <svg class="pic" viewBox="0 0 54 66" aria-hidden="true">
+      <rect x="2" y="2" width="50" height="62" rx="3" fill="#2B2440" />
+      <rect x="7" y="7" width="40" height="52" rx="2" fill="#F3EFFA" />
+      <circle cx="20" cy="22" r="5" fill="#F2C85A" />
+      <path d="M8 56 L22 36 L31 47 L37 40 L46 56Z" fill="#7C5CFF" opacity=".8" />
+    </svg>
+  );
+}
+
+function Vase() {
+  return (
+    <svg class="plant" viewBox="0 0 44 70" aria-hidden="true">
+      <path d="M22 40 C18 24 14 14 8 6 M22 40 C24 22 28 12 36 4 M22 40 C22 26 22 16 22 2" stroke="#8A6A1E" stroke-width="1.6" fill="none" />
+      <circle cx="8" cy="6" r="3.5" fill="#F2C85A" /><circle cx="36" cy="4" r="3.5" fill="#FF8A3D" /><circle cx="22" cy="2" r="3" fill="#E06C9F" />
+      <path d="M13 40h18c2 8 2 18-3 28H16c-5-10-5-20-3-28z" fill="#6C5CFF" />
+      <path d="M13 40h18v4H13z" fill="#8E7FFF" />
+    </svg>
+  );
+}
+
+function Stack() {
+  return (
+    <div class="stack" aria-hidden="true">
+      {[["#C9B8E8", 74], ["#E8C8A0", 66], ["#A8D5C2", 70], ["#F3B7C8", 60]].map(([c, w], i) => <i key={i} style={{ background: c, width: w + "px" }} />)}
+    </div>
+  );
+}
+
+function Spine({ b, h, onHover, lean }) {
   const ref = useRef();
   const [drop, setDrop] = useState(false);
   const menuItems = () => [
@@ -45,7 +75,7 @@ function Spine({ b, h, onHover }) {
   ];
   const w = 40 + Math.min(18, b.files.length * 2);
   return (
-    <button ref={ref} class="spine" title={b.name}
+    <button ref={ref} class={"spine" + (lean ? " lean" : "")} title={b.name}
       style={{ height: h + "px", width: w + "px", background: `linear-gradient(90deg, ${mix(b.color, "#000000", 0.08)}, ${b.color} 30%, ${mix(b.color, "#ffffff", 0.08)} 70%, ${mix(b.color, "#000000", 0.12)})`,
         outline: drop ? "3px solid var(--accent)" : "" }}
       onClick={() => openBook(b.id)}
@@ -89,11 +119,16 @@ export function Home() {
     return () => { alive = false; };
   }, [all.length]);
 
-  const per = Math.max(4, Math.floor((width - 120) / 62));
+  // the books on two or three shelves, spread evenly and centred, never more than fit on one shelf
+  const phone = width < 560;
+  const fit = phone ? Math.max(4, Math.floor((width - 30) / 44)) : Math.max(4, Math.floor((width - 200) / 58));
+  const cap = Math.min(fit, phone ? 7 : 9);
+  const nShelves = all.length <= Math.min(7, cap - 1) ? 1 : Math.ceil((all.length + 1) / cap);
+  const per = Math.max(1, Math.ceil((all.length + 1) / nShelves));
   const shelves = [];
-  for (let i = 0; i < all.length; i += per) shelves.push(all.slice(i, i + per));
-  if (!shelves.length || shelves[shelves.length - 1].length >= per) shelves.push([]);
-  if (shelves.length < 2) shelves.push([]);
+  for (let i = 0; i < Math.max(1, all.length); i += per) shelves.push(all.slice(i, i + per));
+  if (!shelves.length) shelves.push([]);
+  const addAt = shelves.length - 1;
   const last = settings.value.last;
   const lastBook = last && all.find(b => b.id === last.book);
   const lastFile = lastBook && lastBook.files.find(f => f.id === last.file);
@@ -122,16 +157,12 @@ export function Home() {
           {shelves.map((row, si) => (
             <div class="shelf" key={si}>
               <div class="rowbooks">
-                {row.map((b) => <Spine key={b.id} b={b} h={150 + (hashOf(b.name) % 50)} onHover={setHover} />)}
-                {si === Math.floor(all.length / per) &&
-                  <button class="addspine" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}>+</button>}
-                <div class="decor">
-                  {si % 2 === 0 ? <Plant /> : (
-                    <div class="stack">
-                      {["#C9B8E8", "#E8C8A0", "#A8D5C2"].map((c, i) => <i key={i} style={{ background: c, width: 70 - i * 8 + "px" }} />)}
-                    </div>
-                  )}
+                <div class="decor left">{si % 2 === 0 ? <Plant /> : <Frame />}</div>
+                <div class="booksrun">
+                  {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.72 : 1) * (156 + (hashOf(b.name) % 46))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
+                  {si === addAt && <button class="addspine" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}>+</button>}
                 </div>
+                <div class="decor right">{si % 2 === 0 ? <Stack /> : <Vase />}</div>
               </div>
               <div class="board" />
             </div>

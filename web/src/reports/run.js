@@ -210,6 +210,8 @@ async function person(scope, progress, q) {
   return { columns: ["Document", "Page", "The line", "Email", "Phone", "Dates"], rows };
 }
 
+const SUM_HDR = /\b(amount|total|cost|price|paid|due|balance|fee|fees|charge|importe|precio)\b|€|\$|£|eur\b/i;
+
 async function money(scope, progress) {
   const rows = [];
   const list = filesIn(scope);
@@ -217,6 +219,15 @@ async function money(scope, progress) {
     progress(n, list.length, f.name);
     const { pages } = await readFile(f);
     pages.forEach((pg, page) => {
+      // a table with an Amount / Total / Price column: each of its numbers, with the row it is in
+      for (const t of pg.tables) {
+        const cols = (t.header || []).map((h, j) => SUM_HDR.test(h || "") ? j : -1).filter(j => j >= 0);
+        for (const r of t.rows) for (const j of cols) {
+          const v = String(r[j] || "").trim();
+          if (!/\d/.test(v) || allMatches(RE.Amounts, v).length) continue;
+          rows.push({ cells: [v, t.header[j], r.filter(c => String(c).trim()).join("   "), docName(f), String(page + 1)], value: amountValue(v), go: where(b, f, page, v) });
+        }
+      }
       for (const r of pg.rows) {
         for (const m of allMatches(RE.Amounts, r.text || "")) {
           const kind = /total/i.test(r.text) ? "Total" : /due|owed|balance|pay/i.test(r.text) ? "Due" : /budget/i.test(r.text) ? "Budget" : "";

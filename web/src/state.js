@@ -138,3 +138,9 @@ export function rememberPlace() {
   if (prev.book === last.book && prev.file === last.file && prev.page === last.page) return;
   setSetting("last", last);
 }
+
+// a phone-size screen (the layout changes)
+export const narrow = signal(typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
+if (typeof window !== "undefined") {
+  window.matchMedia("(max-width: 760px)").addEventListener("change", (e) => { narrow.value = e.matches; });
+}

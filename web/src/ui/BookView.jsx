@@ -1,7 +1,7 @@
 // The book view: the tools at the top, the library at the left, the pages in the middle.
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
-  redoStack, store, goHome, openBook, currentBook, settings, toast } from "../state.js";
+  redoStack, store, goHome, openBook, currentBook, settings, toast, narrow } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel } from "./Viewer.jsx";
@@ -83,6 +83,40 @@ function TopBar({ book }) {
   ]);
   const curFile = fileFor(fileId.value);
   const saveText = s.error ? "Not saved" : s.n ? "Saving..." : s.last ? "Saved in your Drive" : store.value.kind === "demo" ? "Example: nothing is saved" : "";
+  if (narrow.value) {
+    // on a phone: the tools in one button, the rest under "more"
+    const TOOLS = [["select", "select", "Select and move"], ["pen", "pen", "Pen"], ["highlight", "highlighter", "Highlighter"],
+      ["text", "text", "Text"], ["note", "note", "Sticky note"], ["tick", "tick", "Tick"], ["cross", "cross", "Cross"],
+      ["edit", "edit", "Change the text"], ["eraser", "eraser", "Eraser"]];
+    const cur = TOOLS.find(x => x[0] === t) || (t === "shape" ? ["shape", "shape", "Shapes"] : t === "stamp" ? ["stamp", "stamp", "Stamp"] : t === "sign" ? ["sign", "sign", "Signature"] : TOOLS[0]);
+    return (
+      <div class="topbar">
+        <T n="sidebar" label="Library" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
+        <T n="home" label="Home" onClick={goHome} />
+        <button class="ib on" title="Tool" onClick={(e) => openMenu(e, [
+          ...TOOLS.map(([k, icon, label]) => ({ label, icon, run: () => setTool(k) })),
+          { label: "Shapes...", icon: "shape", run: () => shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+          { label: "Stamps and signature...", icon: "stamp", run: () => stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+        ])}><Icon n={cur[1]} /></button>
+        <button class="ib" title="Colours" onClick={colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
+        <T n="undo" label="Undo" onClick={undo} disabled={!undoStack.value.length} />
+        <span class="grow" />
+        <T n="search" label="Find" onClick={() => openPanel("find")} />
+        <T n="reports" label="Reports" onClick={() => openPanel("reports")} />
+        <button class="ib" title="More" onClick={(e) => openMenu(e, [
+          { label: readMode.value ? "Leave reading mode" : "Reading mode", icon: "read", run: () => { readMode.value = !readMode.value; } },
+          { label: "Redo", icon: "redo", run: redo },
+          { label: "Add files, write, scan...", icon: "addpage", run: () => addMenu(e) },
+          { label: "What needs you", icon: "clock", run: () => openPanel("dates") },
+          { label: "Photos as a gallery", icon: "image", run: () => openPanel("gallery") },
+          { label: "Print", icon: "print", run: () => openPanel("print") },
+          "-",
+          { label: "Settings", icon: "settings", run: () => openPanel("settings") },
+          { label: "Help", icon: "help", run: () => openPanel("help") },
+        ])}><Icon n="more" /></button>
+      </div>
+    );
+  }
   return (
     <div class="topbar">
       <button class="brand" onClick={goHome} title="Home"><img src={import.meta.env.BASE_URL + "icon.png"} alt="" /><b>Bind<span>Lens</span></b></button>
