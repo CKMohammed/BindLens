@@ -1,6 +1,6 @@
 // The quick icons on the frame itself (the strip of colours on the right of the window), as in the Windows app.
 import { useEffect, useState } from "preact/hooks";
-import { readMode, view, settings, setSetting, books, openBook, toast, narrow, currentBook } from "../state.js";
+import { readMode, view, settings, setSetting, books, openBook, toast, narrow, currentBook, tool } from "../state.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { openPanel, continueReading } from "../actions.js";
@@ -16,20 +16,25 @@ export function FrameBar() {
     if (!continueReading()) openBook(books.value[0].id);
     setTimeout(fn, 60);
   };
-  const B = ({ n, t, run, on }) => <button class={"fb" + (on ? " on" : "")} title={t} aria-label={t} onClick={run}><Icon n={n} size={17} /></button>;
+  const B = ({ n, t, run, on }) => <button class={"fb" + (on ? " on" : "")} title={t} aria-label={t} onClick={run}><Icon n={n} size={17} /><span class="fbtip">{t}</span></button>;
   return (
     <div class="framebar" onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ label: "Hide the icons on the frame (Settings brings them back)", icon: "close", run: () => setSetting("hideRail", true) }]); }}>
-      <B n="read" t={readMode.value ? "Leave reading mode" : "Reading mode"} on={readMode.value} run={needBook(() => { readMode.value = !readMode.value; })} />
       <B n="clock" t="What needs you" run={() => openPanel("dates")} />
       <B n="table" t="Reports" run={() => openPanel("reports")} />
-      <B n="image" t="Photos as a gallery" run={() => openPanel("gallery")} />
       <B n="camera" t="Scan" run={() => openPanel("scan", currentBook.value ? { book: currentBook.value.id } : {})} />
-      <B n="edit" t="Write" run={() => openPanel("write", currentBook.value ? { book: currentBook.value.id } : {})} />
-      <B n="star" t="Study cards (your highlights)" run={needBook(() => openPanel("study"))} />
+      <B n="edit" t="Write a page or a document" run={() => openPanel("write", currentBook.value ? { book: currentBook.value.id } : {})} />
+      {inBook && <span class="fbsep" />}
+      {inBook && <B n="read" t={readMode.value ? "Leave reading mode" : "Reading mode"} on={readMode.value} run={() => { readMode.value = !readMode.value; }} />}
+      {inBook && <B n="textedit" t="Change the text of the PDF (Ctrl+E)" on={tool.value === "edit"} run={() => { tool.value = tool.value === "edit" ? "select" : "edit"; if (tool.value === "edit") toast("Click the line of text to change."); }} />}
       <span class="grow" />
-      <B n="palette" t="Frame colours" run={() => openPanel("settings")} />
-      <B n="lock" t="Lock with a PIN" run={() => openPanel("pin")} />
-      <B n="help" t="Help" run={() => openPanel("help")} />
+      <B n="more" t="More: gallery, study cards, frame colours, PIN, help" run={(e) => openMenu(e, [
+        { label: "Photos as a gallery", icon: "image", run: () => openPanel("gallery") },
+        { label: "Study cards (your highlights)", icon: "star", run: needBook(() => openPanel("study")) },
+        "-",
+        { label: "Frame colours...", icon: "palette", run: () => openPanel("settings") },
+        { label: "Lock with a PIN...", icon: "lock", run: () => openPanel("pin") },
+        { label: "Help", icon: "help", run: () => openPanel("help") },
+      ])} />
     </div>
   );
 }

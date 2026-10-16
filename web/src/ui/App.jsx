@@ -19,7 +19,7 @@ import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix } from "../util.js";
 
-export const DEFAULT_FRAME = ["#7C5CFF", "#FF3D9A", "#F0562A", "#F2C85A", "#3E7BFF"];
+export const DEFAULT_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];   // 1.0 calm: the soft aurora (purple, pink, gold)
 
 function frameVars() {
   // the frame's colours, and the same colours very soft for the lava backgrounds (Home, sign-in, reading mode)
@@ -30,7 +30,7 @@ function frameVars() {
     style["--c" + (i + 1)] = c[i % c.length];
     style["--l" + (i + 1)] = mix(c[i % c.length], "#FFFFFF", 0.74);
   }
-  style["--speed"] = (f.speed || 22) + "s";
+  style["--speed"] = (f.speed || 60) + "s";
   // the bar of the browser on a phone (and of the installed app) in the frame's colour
   try { const m = document.querySelector('meta[name="theme-color"]'); if (m && m.content !== c[0]) m.content = c[0]; } catch (e) {}
   return style;
@@ -159,7 +159,7 @@ export function App() {
   }, []);
 
   const ready = phase.value === "ready";
-  const lava = !ready || view.value !== "book" || readMode.value;
+  const lava = !ready;                        // 1.0 calm: the soft colours only on the sign-in page
   const still = !!(settings.value.frame || {}).still;
   return (
     <div class={"shell" + (ready && frameBarOn() ? " withbar" : "")} style={frameVars()}>

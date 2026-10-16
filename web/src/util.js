@@ -1,7 +1,6 @@
 // Small helpers used everywhere.
 
-export const BOOK_COLORS = ["#F08A4B", "#E9A13B", "#4CC38A", "#4FB6C6", "#5B8DEF", "#8E6CF0", "#E06C9F", "#9A93A8",
-  "#E5734A", "#F5B841", "#3FB28F", "#5AA9E6", "#B07CE8", "#EF6F6C"];
+export const BOOK_COLORS = ["#2F4A7A", "#7A2E3E", "#B8862E", "#2D6E6A", "#4A5568", "#5E7D5A", "#5A4A7A", "#9C4F2E", "#3E6B8C", "#8A6D3B"];   // 1.0 calm: deep, matte office colours
 
 export function colorFor(name) {
   let h = 0;

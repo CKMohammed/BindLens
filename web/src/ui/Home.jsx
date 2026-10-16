@@ -1,6 +1,6 @@
 // Home: a modern library. The books stand on shelves; pull one out to open it.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { books, settings, store, openBook, toast, bookMeta } from "../state.js";
+import { books, settings, setSetting, store, openBook, toast, bookMeta } from "../state.js";
 import { greeting, fmtDate, mix, initials } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
@@ -65,7 +65,7 @@ function Spine({ b, h, onHover, lean }) {
     store.value.kind !== "onedrive" && { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
   ];
-  const w = 42 + Math.min(20, b.files.length * 2.5);
+  const w = 48 + Math.min(16, b.files.length * 2);
   const m = bookMeta(b.id);
   const c = m.color || b.color;
   const [out, setOut] = useState(false);
@@ -73,15 +73,16 @@ function Spine({ b, h, onHover, lean }) {
   return (
     <button ref={ref} class={"spine" + (lean ? " lean" : "") + (out ? " out" : "") + (m.icon && m.icon !== "letters" ? " withmedal" : "")} title={b.name}
       style={{ height: h + "px", width: w + "px", "--sc": c, "--h": h + "px", "--ms": Math.round(w * 0.62) + "px",
-        background: `linear-gradient(90deg, ${mix(c, "#000000", 0.32)} 0%, ${mix(c, "#000000", 0.08)} 9%, ${mix(c, "#ffffff", 0.22)} 26%, ${c} 46%, ${mix(c, "#000000", 0.1)} 80%, ${mix(c, "#000000", 0.34)} 100%)`,
+        background: `linear-gradient(90deg, ${mix(c, "#000000", 0.28)} 0%, ${c} 7%, ${mix(c, "#ffffff", 0.06)} 50%, ${c} 93%, ${mix(c, "#000000", 0.3)} 100%)`,
         outline: drop ? "3px solid var(--accent)" : "" }}
       onClick={open}
       onMouseEnter={() => onHover(b)} onFocus={() => onHover(b)} onMouseLeave={() => onHover(null)}
       onContextMenu={(e) => { e.preventDefault(); openMenu({ clientX: e.clientX, clientY: e.clientY, preventDefault() {}, stopPropagation() {} }, menuItems()); }}
       onDragOver={(e) => { e.preventDefault(); setDrop(true); }} onDragLeave={() => setDrop(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDrop(false); uploadFiles(b, [...e.dataTransfer.files], { open: false }); }}>
-      <i class="b1" /><i class="b1 two" /><span class="t">{b.name}</span><i class="b2 two" /><i class="b2" />
-      {m.icon && m.icon !== "letters" ? <span class="medal"><BookTile book={b} meta={{ ...m, tstyle: "flat", color: mix(c, "#000000", 0.25) }} size={Math.round(w * 0.62)} /></span> : null}
+      <span class="lbl"><span class="t">{b.name}</span>
+        {m.icon && m.icon !== "letters" ? <span class="medal"><BookTile book={b} meta={{ ...m, tstyle: "flat", color: c }} size={Math.round(w * 0.42)} /></span> : null}</span>
+      <span class="hole" />
       {m.locked && <span class="cnt">🔒</span>}
     </button>
   );
@@ -139,6 +140,36 @@ function Plant() {
   );
 }
 
+// the library as a list: for many books
+function BookList({ all }) {
+  const [q, setQ] = useState("");
+  const nq = q.trim().toLowerCase();
+  const list = all.filter(b => !nq || b.name.toLowerCase().includes(nq));
+  const latest = (b) => b.files.reduce((m, f) => (f.modified && f.modified > m ? f.modified : m), b.modified || "");
+  return (
+    <div class="booklist">
+      <div class="bl-bar"><div class="bl-find"><Icon n="search" size={15} /><input placeholder="Find a book" value={q} onInput={(e) => setQ(e.target.value)} /></div>
+        <span class="muted small">{list.length} of {all.length} books</span></div>
+      <div class="bl-table">
+        <div class="bl-row head"><span>Book</span><span>Documents</span><span>Last change</span><span /></div>
+        {list.map(b => {
+          const m = bookMeta(b.id);
+          const t = latest(b);
+          return (
+            <div class="bl-row" key={b.id} onClick={() => openBook(b.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openBook(b.id); }}>
+              <span class="bl-name"><BookTile book={b} meta={m} size={30} /><b>{b.name}</b>{m.locked ? <Icon n="lock" size={13} /> : null}</span>
+              <span class="muted">{b.files.length}</span>
+              <span class="muted">{t ? fmtDate(new Date(t)) : "-"}</span>
+              <span class="bl-open">Open <Icon n="right" size={14} /></span>
+            </div>
+          );
+        })}
+        {!list.length && <div class="bl-row"><span class="muted">No book with that name.</span></div>}
+      </div>
+    </div>
+  );
+}
+
 export function Home() {
   const all = books.value;
   const wallRef = useRef();
@@ -178,82 +209,68 @@ export function Home() {
   const longest = Math.max(1, ...shelves.map(r => r.length + 1));
   const caseW = phone ? 0 : Math.min(width - 20, Math.max(520, longest * 62 + 260));
 
+  // 1.0 calm: the shelf (or a list) first, "Continue" at the top; the rest of the actions are on the frame
+  const mode = settings.value.homeView || "shelf";
+  const setMode = (m) => setSetting("homeView", m);
   return (
-    <div class="home"
+    <div class={"home calm" + (mode === "list" ? " listmode" : "")}
       onDragOver={(e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={(e) => { if (e.target === e.currentTarget) setDrag(false); }}
       onDrop={async (e) => { e.preventDefault(); setDrag(false); const fs = [...e.dataTransfer.files]; if (fs.length) uploadFiles(null, fs); }}>
       <div class="home-in">
         <div class="home-top">
-          <Logo size={58} />
-          <div>
+          <Logo size={44} />
+          <div class="grow">
             <h1>{greeting()}</h1>
-            <div class="date">{fmtDate(now, true)}</div>
+            <div class="date">{fmtDate(now, true)}{needs > 0 ? <> · <a class="needlink" onClick={() => openPanel("dates")}>{needs} {needs === 1 ? "date needs" : "dates need"} you</a></> : null}</div>
           </div>
           <div class="home-find" onClick={() => openPanel("find")} role="button" tabIndex={0}
             onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}>
-            <Icon n="search" /><span>Find a document, a word, an action...</span><kbd>Ctrl+K</kbd>
+            <Icon n="search" size={16} /><span>Find anything</span><kbd>Ctrl+K</kbd>
           </div>
-          {needs > 0 && <button class="needs" onClick={() => openPanel("dates")}><i />{needs} {needs === 1 ? "date needs" : "dates need"} you</button>}
-          <FullButton />
+          <div class="seg">
+            <button class={mode === "shelf" ? "on" : ""} onClick={() => setMode("shelf")}><Icon n="book" size={15} />Shelf</button>
+            <button class={mode === "list" ? "on" : ""} onClick={() => setMode("list")}><Icon n="list" size={15} />List</button>
+          </div>
+          <button class="btn small" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={16} />Add</button>
+          <FullButton small />
           <AccountButton />
         </div>
 
+        {lastBook ? (
+          <div class="contcard">
+            <BookTile book={lastBook} meta={bookMeta(lastBook.id)} size={36} />
+            <div class="grow"><b>{lastBook.name}{lastFile ? " · " + lastFile.name.replace(/\.[^.]+$/, "") : ""}</b>
+              {lastFile && <span class="muted"> · page {(last.page || 0) + 1}</span>}</div>
+            <button class="btn small" onClick={continueReading}>Continue <Icon n="right" size={15} /></button>
+          </div>
+        ) : !all.length ? (
+          <div class="contcard empty">
+            <div class="grow"><b>Your library is empty.</b> <span class="muted">Make a book (a folder in your Drive), then add your documents to it.</span></div>
+            <button class="btn small" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" size={15} />New book</button>
+            <button class="btn ghost small" onClick={async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); }}><Icon n="upload" size={15} />Add files</button>
+          </div>
+        ) : null}
+
+        {mode === "list" ? <BookList all={all} /> : (
         <div class="bookcase-wrap" ref={wallRef}>
           <div class="bookcase" style={{ width: caseW ? caseW + "px" : undefined }}>
-            <div class="bc-crown"><TopDecor /></div>
             <div class="bc-body">
               {shelves.map((row, si) => (
                 <div class="bc-shelf" key={si}>
                   <div class="bc-back">
-                    {si % 3 === 1 && <div class="bc-deco left"><LyingBooks seed={si} /></div>}
                     <div class="booksrun">
-                      {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.74 : 1) * Math.min(208, Math.max(150 + (hashOf(b.name) % 40), b.name.length * 7.6 + 64 + medalRoom(b)))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
-                      {si === addAt && <button class="addspine" title="Add a book" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={22} /><span>Add</span></button>}
+                      {row.map((b) => <Spine key={b.id} b={b} h={(phone ? 0.78 : 1) * Math.min(232, Math.max(186 + (hashOf(b.name) % 24), b.name.length * 7.4 + 84 + medalRoom(b) * 0.7))} onHover={setHover} />)}
+                      {si === addAt && <button class="addspine" title="Add a book" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={18} /></button>}
                     </div>
-                    <div class="bc-deco right">{si % 3 === 0 ? <><LyingBooks seed={si + 3} /><Bookend /></> : si % 3 === 1 ? <Hourglass /> : <Plant />}</div>
                   </div>
                   <div class="bc-board" />
                 </div>
               ))}
             </div>
-            <div class="bc-base"><i /><i /></div>
           </div>
-        </div>
-
-        <div class="hovername">
-          {hover ? <>{hover.name} <span class="muted small">· {hover.files.length} file{hover.files.length === 1 ? "" : "s"} · click to take it out</span></>
-            : !all.length ? <span class="muted">Your library is empty. Make a book, then add your documents to it.</span> : ""}
-        </div>
-
-        <div class="continue">
-          {lastBook ? (
-            <button class="btn" onClick={continueReading}>
-              Continue · {lastFile ? lastFile.name.replace(/\.[^.]+$/, "") : lastBook.name}
-              {lastFile && <small>page {(last.page || 0) + 1}</small>} <Icon n="right" size={16} />
-            </button>
-          ) : !all.length ? (
-            <div class="row wrap" style={{ justifyContent: "center" }}>
-              <button class="btn" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" />New book</button>
-              <button class="btn ghost" onClick={async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); }}><Icon n="upload" />Add files</button>
-            </div>
-          ) : null}
-        </div>
-
-        <div class="home-actions">
-          <button class="qa" onClick={() => { if (!continueReading()) { if (all[0]) openBook(all[0].id); else toast("Make a book first."); } }}><Icon n="read" />Read</button>
-          <button class="qa" onClick={() => openPanel("dates")}><Icon n="clock" />What needs you</button>
-          <button class="qa" onClick={() => openPanel("reports")}><Icon n="reports" />Reports</button>
-          <button class="qa" onClick={() => openPanel("write")}><Icon n="edit" />Write</button>
-          <button class="qa" onClick={() => openPanel("scan")}><Icon n="camera" />Scan</button>
-          <button class="qa" onClick={() => { if (!books.value.length) { toast("Make a book first."); return; } if (!settings.value.last) openBook(books.value[0].id); openPanel("study"); }}><Icon n="star" />Study cards</button>
-          <button class="qa" onClick={(e) => openMenu(e, addItems())}><Icon n="upload" />Add</button>
-          {store.value.canPick && <button class="qa" onClick={(e) => openMenu(e, [
-            { label: "A whole folder (it becomes a book)...", icon: "book", run: () => addFolderFromDrive() },
-            { label: "Some files...", icon: "upload", run: () => addFromDrive() },
-          ])}><Icon n="drive" />From Drive</button>}
-          <button class="qa" onClick={() => openPanel("settings")}><Icon n="palette" />Frame colours</button>
-        </div>
+        </div>)}
+        {mode !== "list" && <div class="hovername">{hover ? <>{hover.name} <span class="muted small">· {hover.files.length} file{hover.files.length === 1 ? "" : "s"}</span></> : ""}</div>}
       </div>
       {drag && <div class="dropzone">Drop to add to your library</div>}
     </div>

@@ -552,3 +552,83 @@ table.rows tr.click{cursor:pointer}
 @media (prefers-reduced-motion:reduce){.gbtn.callout{animation:none}}
 /* a spine with its icon: the name stands above the icon, never under it */
 .spine.withmedal .t{top:calc((var(--h,170px) - var(--ms,28px) - 10px) / 2);max-width:calc(var(--h,170px) - var(--ms,28px) - 58px)}
+
+/* =================== 1.0 CALM: quiet surfaces, one purple, gold only in hairlines, the soft aurora frame ========== */
+:root{--bg:#F6F5F2;--bg2:#EFEDE8;--panel2:#FAF9F6;--muted:#6B6878;--faint:#9A97A6;--line:#E4E2DC;--line2:#D9D6CE;
+  --accent:#5B4FD6;--accent2:#7A6FE6;--accent-soft:#EEECFB;--ok:#2E8B57;--warn:#C98A12;--bad:#C2413A;
+  --fw:9px;--fwr:42px;--shadow:0 8px 24px rgba(30,28,43,.10);--shadow2:0 2px 8px rgba(30,28,43,.08)}
+.frame{filter:none}
+.window{background:var(--bg)}
+/* the frame's icons: small, quiet, a word when you point */
+.fb{width:30px;height:30px;border-radius:8px;background:transparent;box-shadow:none;color:rgba(255,255,255,.92);position:relative}
+.fb:hover{background:rgba(255,255,255,.18);transform:none}
+.fb.on{background:rgba(255,255,255,.28)}
+.fb svg{filter:none}
+.fbsep{width:16px;height:1px;background:rgba(255,255,255,.35);margin:4px 0}
+.fbtip{position:absolute;right:38px;top:50%;transform:translateY(-50%);background:#fff;color:var(--ink);font-size:12px;font-weight:700;white-space:nowrap;
+  padding:4px 9px;border-radius:6px;box-shadow:var(--shadow2);opacity:0;pointer-events:none;transition:opacity .12s}
+.fb:hover .fbtip{opacity:1}
+/* full screen: a quiet button */
+.fullbtn{background:var(--panel);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line2);animation:none;font-weight:700}
+.fullbtn svg{animation:none;filter:none}
+.fullbtn.small{width:36px;height:36px}
+/* Home, calm */
+.home.calm{background:var(--bg)}
+.home.calm .home-in{max-width:1240px;padding:24px 32px 40px;display:flex;flex-direction:column;gap:18px}
+.home.calm .home-top{gap:12px}
+.home.calm .home-top h1{font:600 26px/1.15 var(--f-display);letter-spacing:-.01em}
+.home.calm .home-top .date{font-size:13px}
+.home.calm .needlink{color:var(--warn);font-weight:700;cursor:pointer}
+.home.calm .home-find{flex:0 1 300px;height:38px;border-radius:9px;font-size:13.5px;box-shadow:none}
+.seg{display:flex;background:var(--bg2);border-radius:9px;padding:3px}
+.seg button{display:flex;align-items:center;gap:6px;border:0;background:none;padding:5px 11px;border-radius:7px;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(30,28,43,.12);font-weight:700}
+.contcard{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px 10px 14px;font-size:14px}
+.contcard .grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contcard.empty .grow{white-space:normal}
+/* the shelf: dark walnut, no decorations; on it, ring binders */
+.home.calm .bookcase-wrap{display:flex;justify-content:center;margin:6px 0 0;width:100%}
+.home.calm .bookcase{filter:drop-shadow(0 18px 24px rgba(40,25,15,.22))}
+.home.calm .bc-body{padding:12px 12px 0;border-radius:8px;background:linear-gradient(180deg,#4A3326,#3A281E)}
+.home.calm .bc-back{min-height:230px;padding:24px 20px 0;background:linear-gradient(180deg,#2A1E17,#33251C 70%,#2A1E17);
+  box-shadow:inset 0 10px 18px rgba(0,0,0,.35)}
+.home.calm .bc-back .booksrun{justify-content:flex-start;gap:5px}
+.home.calm .bc-board{height:12px;margin:0 -12px 12px;background:linear-gradient(180deg,#6B4A35,#4E3526);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.home.calm .bc-shelf:last-child .bc-board{margin-bottom:0;border-radius:0 0 8px 8px}
+.home.calm .addspine{width:34px;height:34px;border-radius:50%;border:1.5px dashed rgba(232,200,120,.55);background:none;color:rgba(232,200,120,.9);margin:0 0 8px 10px;display:flex;align-items:center;justify-content:center}
+.home.calm .addspine span{display:none}
+/* a ring binder (lever-arch file): flat spine in its colour, a label window with the name, the finger hole */
+.home.calm .spine{border-radius:3px 3px 1px 1px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),2px 0 3px rgba(0,0,0,.22)}
+.home.calm .spine .lbl{position:absolute;left:7px;right:7px;top:14px;bottom:62px;border-radius:3px;background:#FBFAF6;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 2px 3px rgba(0,0,0,.08)}
+.home.calm .spine.withmedal .lbl{bottom:calc(66px + var(--ms,28px))}
+.home.calm .spine .t{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);max-width:calc(var(--h,170px) - 90px);
+  color:var(--ink);text-shadow:none;font:700 12px var(--f-body);letter-spacing:.02em}
+.home.calm .spine.withmedal .t{max-width:calc(var(--h,170px) - 94px - var(--ms,28px));top:50%}
+.home.calm .spine .medal{bottom:46px}
+.home.calm .spine .hole{position:absolute;left:50%;bottom:18px;width:18px;height:18px;margin-left:-9px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#1c1410,#3a2c22);box-shadow:0 0 0 2px rgba(220,200,160,.75),inset 0 2px 3px rgba(0,0,0,.6)}
+.home.calm .spine:hover,.home.calm .spine:focus-visible{transform:translateY(-10px);box-shadow:0 0 0 1.5px #E3C77A,0 10px 16px rgba(0,0,0,.35)}
+.home.calm .hovername{min-height:20px;font-size:13px}
+/* the library as a list */
+.booklist{display:flex;flex-direction:column;gap:12px}
+.bl-bar{display:flex;align-items:center;gap:12px}
+.bl-find{display:flex;align-items:center;gap:8px;height:36px;width:300px;padding:0 11px;border:1px solid var(--line2);border-radius:9px;background:#fff;color:var(--faint)}
+.bl-find input{border:0;outline:none;flex:1;min-width:0;background:none;font-size:13.5px;color:var(--ink)}
+.bl-table{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.bl-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 150px 80px;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px}
+.bl-row:last-child{border-bottom:0}
+.bl-row:not(.head):hover{background:var(--accent-soft)}
+.bl-row.head{cursor:default;background:#FBFAF8;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 16px}
+.bl-name{display:flex;align-items:center;gap:11px;min-width:0} .bl-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl-open{color:var(--accent);font-weight:700;display:flex;align-items:center;gap:3px;justify-content:flex-end;opacity:0}
+.bl-row:hover .bl-open{opacity:1}
+@media (max-width:700px){.bl-row{grid-template-columns:minmax(0,1fr) 70px} .bl-row>span:nth-child(3),.bl-row>span:nth-child(4){display:none} .home.calm .home-find{display:none}}
+/* binder, take two: one tall label window with the name (and the icon at its foot), the finger hole below */
+.home.calm .bc-back{min-height:262px}
+.home.calm .spine .lbl{top:12px;bottom:46px}
+.home.calm .spine.withmedal .lbl{bottom:46px}
+.home.calm .spine .t,.home.calm .spine.withmedal .t{top:calc(50% - var(--mh,0px) / 2);max-width:calc(var(--h,190px) - 74px - var(--mh,0px))}
+.home.calm .spine.withmedal{--mh:calc(var(--ms,28px) * .75 + 8px)}
+.home.calm .spine .medal{left:50%;bottom:5px;transform:translateX(-50%);opacity:1}
+.home.calm .spine .hole{bottom:14px}
