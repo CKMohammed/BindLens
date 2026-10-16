@@ -1,0 +1,232 @@
+{
+ "books": [
+  {
+   "name": "Clients",
+   "files": [
+    {
+     "name": "Client list.pdf",
+     "path": "Clients/Client%20list.pdf",
+     "mime": "application/pdf",
+     "size": 4929
+    },
+    {
+     "name": "Proposal - Harbour Cafe website.pdf",
+     "path": "Clients/Proposal%20-%20Harbour%20Cafe%20website.pdf",
+     "mime": "application/pdf",
+     "size": 5608
+    },
+    {
+     "name": "Quote 112 - Office fit-out.pdf",
+     "path": "Clients/Quote%20112%20-%20Office%20fit-out.pdf",
+     "mime": "application/pdf",
+     "size": 2282
+    }
+   ]
+  },
+  {
+   "name": "Contracts",
+   "files": [
+    {
+     "name": "Lease - Main Street.pdf",
+     "path": "Contracts/Lease%20-%20Main%20Street.pdf",
+     "mime": "application/pdf",
+     "size": 2309
+    },
+    {
+     "name": "Service agreement - IT support.pdf",
+     "path": "Contracts/Service%20agreement%20-%20IT%20support.pdf",
+     "mime": "application/pdf",
+     "size": 2274
+    }
+   ]
+  },
+  {
+   "name": "Home manuals",
+   "files": [
+    {
+     "name": "Boiler manual.pdf",
+     "path": "Home%20manuals/Boiler%20manual.pdf",
+     "mime": "application/pdf",
+     "size": 1825
+    }
+   ]
+  },
+  {
+   "name": "Insurance",
+   "files": [
+    {
+     "name": "Car insurance.pdf",
+     "path": "Insurance/Car%20insurance.pdf",
+     "mime": "application/pdf",
+     "size": 1847
+    },
+    {
+     "name": "Home insurance - policy.pdf",
+     "path": "Insurance/Home%20insurance%20-%20policy.pdf",
+     "mime": "application/pdf",
+     "size": 1854
+    }
+   ]
+  },
+  {
+   "name": "Invoices 2026",
+   "files": [
+    {
+     "name": "Invoice 4471 - Office supplies.pdf",
+     "path": "Invoices%202026/Invoice%204471%20-%20Office%20supplies.pdf",
+     "mime": "application/pdf",
+     "size": 2672
+    },
+    {
+     "name": "Invoice 4502 - Cleaning.pdf",
+     "path": "Invoices%202026/Invoice%204502%20-%20Cleaning.pdf",
+     "mime": "application/pdf",
+     "size": 1849
+    }
+   ]
+  },
+  {
+   "name": "Lecture notes",
+   "files": [
+    {
+     "name": "Economics 101 - Lecture 3.pdf",
+     "path": "Lecture%20notes/Economics%20101%20-%20Lecture%203.pdf",
+     "mime": "application/pdf",
+     "size": 2012
+    },
+    {
+     "name": "Statistics - Week 5.pdf",
+     "path": "Lecture%20notes/Statistics%20-%20Week%205.pdf",
+     "mime": "application/pdf",
+     "size": 1635
+    }
+   ]
+  },
+  {
+   "name": "Meeting notes",
+   "files": [
+    {
+     "name": "Meeting notes - 8 November.docx",
+     "path": "Meeting%20notes/Meeting%20notes%20-%208%20November.docx",
+     "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+     "size": 36982
+    },
+    {
+     "name": "Team meeting - 4 October.pdf",
+     "path": "Meeting%20notes/Team%20meeting%20-%204%20October.pdf",
+     "mime": "application/pdf",
+     "size": 2299
+    }
+   ]
+  },
+  {
+   "name": "Projects",
+   "files": [
+    {
+     "name": "Budget 2026.pdf",
+     "path": "Projects/Budget%202026.pdf",
+     "mime": "application/pdf",
+     "size": 1846
+    },
+    {
+     "name": "Project plan - Website launch.pdf",
+     "path": "Projects/Project%20plan%20-%20Website%20launch.pdf",
+     "mime": "application/pdf",
+     "size": 2953
+    }
+   ]
+  },
+  {
+   "name": "Research papers",
+   "files": [
+    {
+     "name": "Digital archives in practice.pdf",
+     "path": "Research%20papers/Digital%20archives%20in%20practice.pdf",
+     "mime": "application/pdf",
+     "size": 1647
+    },
+    {
+     "name": "Remote work and productivity.pdf",
+     "path": "Research%20papers/Remote%20work%20and%20productivity.pdf",
+     "mime": "application/pdf",
+     "size": 2001
+    }
+   ]
+  },
+  {
+   "name": "Summer photos",
+   "files": [
+    {
+     "name": "Summer 01.jpg",
+     "path": "Summer%20photos/Summer%2001.jpg",
+     "mime": "image/jpeg",
+     "size": 20351
+    },
+    {
+     "name": "Summer 02.jpg",
+     "path": "Summer%20photos/Summer%2002.jpg",
+     "mime": "image/jpeg",
+     "size": 16912
+    },
+    {
+     "name": "Summer 03.jpg",
+     "path": "Summer%20photos/Summer%2003.jpg",
+     "mime": "image/jpeg",
+     "size": 19138
+    },
+    {
+     "name": "Summer 04.jpg",
+     "path": "Summer%20photos/Summer%2004.jpg",
+     "mime": "image/jpeg",
+     "size": 15608
+    },
+    {
+     "name": "Summer 05.jpg",
+     "path": "Summer%20photos/Summer%2005.jpg",
+     "mime": "image/jpeg",
+     "size": 17381
+    }
+   ]
+  },
+  {
+   "name": "Taxes 2025",
+   "files": [
+    {
+     "name": "Expenses October.xlsx",
+     "path": "Taxes%202025/Expenses%20October.xlsx",
+     "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+     "size": 5056
+    },
+    {
+     "name": "Receipts - October.pdf",
+     "path": "Taxes%202025/Receipts%20-%20October.pdf",
+     "mime": "application/pdf",
+     "size": 1857
+    },
+    {
+     "name": "Tax return summary.pdf",
+     "path": "Taxes%202025/Tax%20return%20summary.pdf",
+     "mime": "application/pdf",
+     "size": 1847
+    }
+   ]
+  },
+  {
+   "name": "Thesis",
+   "files": [
+    {
+     "name": "Chapter 1 - Introduction.pdf",
+     "path": "Thesis/Chapter%201%20-%20Introduction.pdf",
+     "mime": "application/pdf",
+     "size": 2310
+    },
+    {
+     "name": "Chapter 2 - Literature review.pdf",
+     "path": "Thesis/Chapter%202%20-%20Literature%20review.pdf",
+     "mime": "application/pdf",
+     "size": 1997
+    }
+   ]
+  }
+ ]
+}

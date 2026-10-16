@@ -1,0 +1,196 @@
+// Small helpers used everywhere.
+
+export const BOOK_COLORS = ["#F08A4B", "#E9A13B", "#4CC38A", "#4FB6C6", "#5B8DEF", "#8E6CF0", "#E06C9F", "#9A93A8",
+  "#E5734A", "#F5B841", "#3FB28F", "#5AA9E6", "#B07CE8", "#EF6F6C"];
+
+export function colorFor(name) {
+  let h = 0;
+  for (const c of name || "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return BOOK_COLORS[h % BOOK_COLORS.length];
+}
+
+export function initials(name) {
+  const words = (name || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+export function ext(name) {
+  const m = /\.([^.]+)$/.exec(name || "");
+  return m ? m[1].toLowerCase() : "";
+}
+
+export function baseName(name) {
+  return (name || "").replace(/\.[^.]+$/, "");
+}
+
+const KINDS = {
+  pdf: "pdf",
+  png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", bmp: "image", tif: "image", tiff: "image",
+  heic: "image",
+  mp4: "video", webm: "video", mov: "video", m4v: "video", ogv: "video",
+  mp3: "audio", m4a: "audio", wav: "audio", ogg: "audio",
+  docx: "word", doc: "word", odt: "word", rtf: "word",
+  xlsx: "excel", xls: "excel", ods: "excel", csv: "excel",
+  pptx: "powerpoint", ppt: "powerpoint", odp: "powerpoint",
+  txt: "text", md: "text", html: "text", htm: "text",
+  epub: "ebook", xps: "ebook", cbz: "ebook", fb2: "ebook",
+};
+
+export function kindOf(name, mime) {
+  const k = KINDS[ext(name)];
+  if (k) return k;
+  if (mime) {
+    if (mime === "application/pdf") return "pdf";
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("text/")) return "text";
+  }
+  return "other";
+}
+
+export function mimeOf(name) {
+  const e = ext(name);
+  return ({
+    pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+    webp: "image/webp", bmp: "image/bmp", tif: "image/tiff", tiff: "image/tiff",
+    mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", m4v: "video/mp4",
+    mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", ogg: "audio/ogg",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    csv: "text/csv", txt: "text/plain", md: "text/markdown", html: "text/html", htm: "text/html",
+    epub: "application/epub+zip", json: "application/json",
+  })[e] || "application/octet-stream";
+}
+
+// files the engine can show as pages
+export function isPaged(kind) {
+  return ["pdf", "image", "word", "excel", "powerpoint", "text", "ebook"].includes(kind);
+}
+
+export function debounce(fn, ms) {
+  let t = null;
+  const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  d.flush = (...a) => { clearTimeout(t); fn(...a); };
+  return d;
+}
+
+export function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+}
+
+export function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+export function fmtSize(n) {
+  if (n == null) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return Math.round(n / 1024) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+  "November", "December"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export function fmtDate(d, long = false) {
+  if (!d) return "";
+  if (!(d instanceof Date)) d = new Date(d);
+  if (isNaN(d)) return "";
+  return long ? `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+    : `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+}
+
+export function todayISO() {
+  const d = new Date();
+  return isoDate(d);
+}
+
+export function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function daysBetween(a, b) {
+  const A = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const B = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((B - A) / 86400000);
+}
+
+export function whenText(days) {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+  if (days < 0) return `${-days} days ago`;
+  return `In ${days} days`;
+}
+
+export function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return "Good night";
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+export function monthName(i) { return MONTHS[i]; }
+export function dayName(i) { return DAYS[i]; }
+
+export function download(bytesOrBlob, name, mime) {
+  const blob = bytesOrBlob instanceof Blob ? bytesOrBlob : new Blob([bytesOrBlob], { type: mime || mimeOf(name) });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+export function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+export function rgbToHex(c) {
+  if (!c) return "#000000";
+  return "#" + c.slice(0, 3).map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0")).join("");
+}
+
+export function mix(a, b, t) {
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return rgbToHex(A.map((v, i) => v + (B[i] - v) * t));
+}
+
+export function cleanName(s) {
+  return (s || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function uniqueName(name, taken) {
+  const set = new Set(taken.map(t => t.toLowerCase()));
+  if (!set.has(name.toLowerCase())) return name;
+  const b = baseName(name), e = ext(name);
+  for (let i = 2; i < 1000; i++) {
+    const n = `${b} (${i})${e ? "." + e : ""}`;
+    if (!set.has(n.toLowerCase())) return n;
+  }
+  return name;
+}
+
+export function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+export async function sha256(text) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+export function isPhone() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
+export function natCompare(a, b) {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
