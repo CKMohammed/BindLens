@@ -1,6 +1,6 @@
 // Reports: choose what you want, where to look - and get the rows, exactly as they are in your documents.
 import { useState } from "preact/hooks";
-import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook } from "../state.js";
+import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange } from "../state.js";
 import { Dialog, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { REPORTS, runReport } from "../reports/run.js";
@@ -138,6 +138,7 @@ export function Reports() {
         const name = uniqueName(`${rep.title.replace(/[\\/:*?"<>|]/g, " ")} - ${fmtDate(new Date())}.xlsx`, b.files.map(f => f.name));
         const f = await store.value.create(b.id, name, bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         addFileToBook(b.id, f);
+        logChange("Saved the report", name, b.name);
         toast(`Saved "${name}" in "${b.name}".`, "ok");
       } })),
     ]);

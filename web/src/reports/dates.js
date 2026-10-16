@@ -8,13 +8,15 @@ const perFile = new Map(); // id:md5 -> items
 
 export function itemKey(it) { return `${it.fileId}|${it.page}|${isoDate(it.date)}|${it.what}`; }
 
-async function fileDeadlines(book, file) {
+async function fileDeadlines(book, file, cachedOnly = false) {
   const k = file.id + ":" + (file.md5 || file.modified);
   if (perFile.has(k)) return perFile.get(k);
   const out = [];
   if (!isPaged(file.kind) || file.kind === "image" || (file.size && file.size > 25e6)) { perFile.set(k, out); return out; }
   try {
-    const { pages } = await wordsOf(file);
+    const w = await wordsOf(file, { cachedOnly });
+    if (!w) return out;               // not read yet: no dates from it for now (and nothing remembered)
+    const { pages } = w;
     pages.forEach((pt, page) => {
       const lines = (pt || "").split(/\n+/).map(s => s.trim()).filter(Boolean);
       lines.forEach((line, i) => {
@@ -35,12 +37,12 @@ async function fileDeadlines(book, file) {
   return uniq;
 }
 
-export async function allDeadlines(onProgress) {
+export async function allDeadlines(onProgress, cachedOnly = false) {
   const out = [];
   const list = books.value.flatMap(b => b.files.map(f => [b, f]));
   let n = 0;
   for (const [b, f] of list) {
-    out.push(...await fileDeadlines(b, f));
+    out.push(...await fileDeadlines(b, f, cachedOnly));
     n++;
     onProgress && onProgress(n, list.length);
   }
@@ -56,7 +58,7 @@ export function needs(items) {
 }
 
 export async function needsCount() {
-  return needs(await allDeadlines()).length;
+  return needs(await allDeadlines(null, true)).length;
 }
 
 export function status(days) {

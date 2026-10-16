@@ -14,6 +14,7 @@ const ACTIONS = [
   { label: "What needs you (dates and deadlines)", icon: "clock", words: "dates deadlines expiry renewal due calendar reminders what needs you", run: () => openPanel("dates") },
   { label: "Write a new document", icon: "edit", words: "write new document letter page template notes invoice", run: () => openPanel("write") },
   { label: "Scan pages", icon: "camera", words: "scan camera photo phone paper", run: () => openPanel("scan") },
+  { label: "Study cards (my highlights)", icon: "star", words: "study cards flashcards review revise learn exam highlights", run: () => openPanel("study") },
   { label: "Photos as a gallery", icon: "image", words: "photos gallery pictures slideshow", run: () => openPanel("gallery") },
   { label: "Print", icon: "print", words: "print printer paper", run: () => openPanel("print") },
   { label: "Reading mode", icon: "read", words: "read reading calm mode", run: () => { if (view.value !== "book") continueReading(); readMode.value = true; } },

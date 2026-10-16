@@ -86,7 +86,8 @@ label.chk{display:flex;align-items:center;gap:8px;cursor:pointer}
 .brand b{font:700 17px var(--f-display)} .brand b span{color:var(--accent)}
 .tools{display:flex;align-items:center;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px}
 .findbox{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:0 10px;height:38px;
-  min-width:160px;max-width:280px;flex:1;color:var(--muted);cursor:text}
+  min-width:44px;max-width:280px;flex:1 1 120px;color:var(--muted);cursor:text;overflow:hidden}
+.topbar > *{flex-shrink:0} .topbar > .findbox{flex-shrink:1}
 .findbox:hover{border-color:var(--line2)}
 .findbox kbd{margin-left:auto;font-size:11px;color:var(--faint)}
 .swatch{width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(0,0,0,.15)}
@@ -313,7 +314,8 @@ table.rows tr.click{cursor:pointer}
 .thumbs img{width:64px;height:84px;object-fit:cover;border-radius:6px;box-shadow:var(--shadow2)}
 
 /* ---------- phone */
-@media (max-width:1280px){.brand b,.savestate{display:none}}
+@media (max-width:1480px){.brand b{display:none}.findbox kbd{display:none}}
+@media (max-width:1180px){.savestate{display:none}}
 @media (max-width:760px){
   :root{--fw:5px}
   .topbar{padding:6px 8px;gap:2px;min-height:52px;flex-wrap:nowrap;overflow-x:auto}

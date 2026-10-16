@@ -113,7 +113,13 @@ export function removeFile(id) {
   books.value = books.value.map(b => ({ ...b, files: b.files.filter(x => x.id !== id) }));
 }
 
+export const unlockedBooks = signal(new Set());  // books with their own PIN, opened in this visit
+
 export function openBook(id, fid = null, page = 0) {
+  if ((settings.value.books || {})[id]?.locked && settings.value.pin && !unlockedBooks.value.has(id)) {
+    panel.value = { type: "bookpin", id, fid, page };
+    return;
+  }
   batch(() => {
     bookId.value = id;
     view.value = "book";
@@ -129,6 +135,12 @@ export function openBook(id, fid = null, page = 0) {
 
 export function goHome() {
   batch(() => { view.value = "home"; panel.value = null; readMode.value = false; });
+}
+
+// what BindLens changed in the Drive, newest first (Settings shows it): the same idea as the Windows app's list
+export function logChange(what, name, book = "") {
+  const log = [{ at: Date.now(), what, name, book }, ...(settings.value.log || [])].slice(0, 300);
+  setSetting("log", log);
 }
 
 export function rememberPlace() {

@@ -1,6 +1,6 @@
 // Write: a new page or a new document - a letter, notes, an invoice - straight into a book, as a PDF.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { panel, books, currentBook, toast, store, addFileToBook, openBook } from "../state.js";
+import { panel, books, currentBook, toast, store, addFileToBook, openBook, logChange } from "../state.js";
 import { Dialog, ask } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { call, fileFor, pageOp } from "../docs.js";
@@ -54,6 +54,7 @@ export function Write({ book: bid, into, at }) {
       const bytes = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
       if (target) {
         await pageOp(target, "insertPages", at ?? 0, bytes);
+        logChange("Wrote a page in", target.name);
         toast(`The page is in "${target.name}".`, "ok");
         close();
         scrollTo.value = { fileId: target.id, page: at ?? 0 };
@@ -67,6 +68,7 @@ export function Write({ book: bid, into, at }) {
       name = uniqueName(cleanName(name).replace(/\.pdf$/i, "") + ".pdf", b.files.map(f => f.name));
       const f = await store.value.create(b.id, name, bytes, "application/pdf");
       addFileToBook(b.id, f);
+      logChange("Wrote", name, b.name);
       toast(`"${name}" is saved in "${b.name}".`, "ok");
       close();
       openBook(b.id, f.id, 0);

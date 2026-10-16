@@ -1,6 +1,6 @@
 // Scan: photos of paper (the phone's camera, or photos you have) -> straight, clean pages -> a PDF in your book.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { panel, books, currentBook, toast, store, addFileToBook, openBook } from "../state.js";
+import { panel, books, currentBook, toast, store, addFileToBook, openBook, logChange } from "../state.js";
 import { Dialog, ask } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { call, fileFor, pageOp, getDoc } from "../docs.js";
@@ -156,6 +156,7 @@ export function Scan({ book: bid, into, at }) {
         name = uniqueName(cleanName(name).replace(/\.pdf$/i, "") + ".pdf", b.files.map(f => f.name));
         file = await store.value.create(b.id, name, bytes, "application/pdf");
         addFileToBook(b.id, file);
+        logChange("Scanned", name, b.name);
         file = { ...file, kind: "pdf" };
         openBook(b.id, file.id, 0);
         toast(`"${name}" is in "${b.name}".`, "ok");

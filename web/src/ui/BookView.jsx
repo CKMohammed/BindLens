@@ -1,14 +1,14 @@
 // The book view: the tools at the top, the library at the left, the pages in the middle.
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
-  redoStack, store, goHome, openBook, currentBook, settings, toast, narrow } from "../state.js";
+  redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { Viewer, docState, scrollTo, selectedMark, searchHits, textSel } from "./Viewer.jsx";
 import { STAMPS, PEN_COLORS, HL_COLORS, stampSpec } from "./marks.js";
 import { undo, redo, allMarks, fileFor, pageOp, getDoc, call, afterEdit } from "../docs.js";
 import { uploadFiles, pickFiles, newBook, renameBook, deleteBook, renameFile, deleteFile, moveFileTo, moveFileInBook,
-  openPanel, addFromDrive, refresh, setBookColor } from "../actions.js";
+  openPanel, addFromDrive, refresh, setBookColor, toggleBookLock } from "../actions.js";
 import { initials, isPaged, fmtDate, rgbToHex, BOOK_COLORS, isPhone } from "../util.js";
 import { AccountButton } from "./Home.jsx";
 
@@ -82,7 +82,7 @@ function TopBar({ book }) {
     { label: "A blank page after this one", icon: "addpage", run: () => addBlankPage() },
   ]);
   const curFile = fileFor(fileId.value);
-  const saveText = s.error ? "Not saved" : s.n ? "Saving..." : s.last ? "Saved in your Drive" : store.value.kind === "demo" ? "Example: nothing is saved" : "";
+  const saveText = s.error ? "Not saved" : s.n ? "Saving..." : store.value.kind === "demo" ? "Example" : s.last ? "Saved" : "";
   if (narrow.value) {
     // on a phone: the tools in one button, the rest under "more"
     const TOOLS = [["select", "select", "Select and move"], ["pen", "pen", "Pen"], ["highlight", "highlighter", "Highlighter"],
@@ -141,7 +141,7 @@ function TopBar({ book }) {
       <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0}><Icon n="search" size={17} /><span class="ellipsis">Find a document or a word</span><kbd>Ctrl+K</kbd></div>
       <button class={"btn " + (readMode.value ? "" : "ghost") + " small hide-phone"} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={17} />Read</button>
       <button class="btn small" onClick={() => openPanel("reports")}><Icon n="reports" size={17} /><span class="hide-phone">Reports</span></button>
-      <span class={"savestate" + (s.error ? " bad" : "")} title={s.error || ""}>{saveText}</span>
+      <span class={"savestate" + (s.error ? " bad" : "")} title={s.error || (store.value.kind === "demo" ? "The example library: nothing is saved" : "Saved in your Google Drive")}>{saveText}</span>
       <T n="print" label="Print (Ctrl+P)" onClick={() => openPanel("print")} />
       <T n="full" label="Full screen" onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); }} />
       <AccountButton />
@@ -205,6 +205,12 @@ function fileMenu(e, book, f) {
     { label: "Download a copy", icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
     store.value.kind === "drive" && { label: "Open in Google Drive", icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
     f.kind === "image" && { label: "Open the photos as a gallery", icon: "image", run: () => openPanel("gallery", { fileId: f.id }) },
+    f.kind === "pdf" && { label: "Read the words of its scanned pages", icon: "type", run: async () => {
+      const { readScannedDoc } = await import("../ocr.js");
+      toast("Reading the scanned pages (it takes a moment)...");
+      const n = await readScannedDoc(f);
+      toast(n ? `${n} words read in "${f.name}".` : `"${f.name}" has no scanned pages without words.`, n ? "ok" : "");
+    } },
     "-",
     { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteFile(book, f) },
   ]);
@@ -281,7 +287,48 @@ function SearchList({ book }) {
   );
 }
 
+// read aloud: the browser's own voice reads the page, then goes on to the next one
+let speaking = null;
+function stopReading() { speaking = null; try { speechSynthesis.cancel(); } catch (e) {} }
+async function readAloud(book, setOn) {
+  if (speaking) { stopReading(); setOn(false); return; }
+  if (!("speechSynthesis" in window)) { toast("This browser cannot read aloud."); return; }
+  const token = {};
+  speaking = token;
+  setOn(true);
+  const { wordsOf } = await import("../docs.js");
+  while (speaking === token) {
+    const f = fileFor(fileId.value);
+    if (!f) break;
+    let text = "";
+    try { text = ((await wordsOf(f)).pages[pageNo.value] || "").replace(/\s+/g, " ").trim(); } catch (e) {}
+    if (text) {
+      await new Promise((res) => {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = document.documentElement.lang || "en";
+        u.onend = res; u.onerror = res;
+        speechSynthesis.speak(u);
+      });
+    }
+    if (speaking !== token) break;
+    // the next page of the book
+    const files = book.files.filter(x => isPaged(x.kind));
+    const n = docState.value[f.id]?.pages?.length || 1;
+    if (pageNo.value + 1 < n) pageNo.value = pageNo.value + 1;
+    else {
+      const i = files.findIndex(x => x.id === f.id);
+      if (i < 0 || i + 1 >= files.length) break;
+      fileId.value = files[i + 1].id; pageNo.value = 0;
+    }
+    scrollTo.value = { fileId: fileId.value, page: pageNo.value };
+  }
+  if (speaking === token) speaking = null;
+  setOn(false);
+}
+
 function ReadingSide({ book }) {
+  const [aloud, setAloud] = useState(false);
+  useEffect(() => () => stopReading(), []);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
   const total = book.files.reduce((a, f) => a + (docState.value[f.id]?.pages?.length || (isPaged(f.kind) ? 1 : 0)), 0);
@@ -296,6 +343,8 @@ function ReadingSide({ book }) {
         <div class="row"><span class="big">{book.files.length}</span><span class="small muted">documents · {total} pages</span></div>
         <div class="bar"><i style={{ width: pct + "%" }} /></div>
         <div class="tiny muted">Page {before} of {total} · {pct}% of the book</div>
+        <button class={"btn small " + (aloud ? "" : "soft")} style={{ marginTop: 10 }} onClick={() => readAloud(book, setAloud)}>
+          <Icon n={aloud ? "pause" : "play"} size={16} />{aloud ? "Stop reading" : "Read aloud"}</button>
       </div>
       <FilesList book={book} />
       <div style={{ padding: 14 }}>
@@ -316,6 +365,7 @@ function Side({ book }) {
   const bookMenu = (e, b) => openMenu(e, [
     { title: b.name },
     { label: "Rename", icon: "rename", run: () => renameBook(b) },
+    { label: bookMeta(b.id).locked ? "Open it without the PIN" : "Lock it with the PIN", icon: "lock", run: () => toggleBookLock(b) },
     { title: "Colour" },
     ...BOOK_COLORS.slice(0, 8).map(c => ({ label: "", swatch: c, run: () => setBookColor(b, c) })),
     "-",
@@ -401,6 +451,12 @@ function PageBar({ book }) {
       pdf && { label: "A blank page after it", icon: "addpage", run: addBlankPage },
       pdf && { label: "Write a page after it...", icon: "edit", run: () => openPanel("write", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
       pdf && { label: "Scan pages after it...", icon: "camera", run: () => openPanel("scan", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
+      pdf && { label: "Read the words of this page (a scan)", icon: "type", run: async () => {
+        toast("Reading the words of the page...");
+        const { readScannedPage } = await import("../ocr.js");
+        const n = await readScannedPage(f, pageNo.value);
+        toast(n ? `${n} words read: you can find, copy and change them now.` : "This page has its words already, or none were found.", n ? "ok" : "");
+      } },
       pdf && "-",
       pdf && (docState.value[f.id]?.pages?.length || 1) > 1 && { label: "Take this page out", icon: "trash", danger: true, run: async () => {
         const { confirm } = await import("./dialogs.jsx");
@@ -433,6 +489,7 @@ function RRail() {
       <button class="ib" title="Photos as a gallery" onClick={() => openPanel("gallery")}><Icon n="image" /></button>
       <button class="ib" title="Scan" onClick={() => openPanel("scan")}><Icon n="camera" /></button>
       <button class="ib" title="Write" onClick={() => openPanel("write")}><Icon n="edit" /></button>
+      <button class="ib" title="Study cards (your highlights)" onClick={() => openPanel("study")}><Icon n="star" /></button>
       <span class="grow" />
       <button class="ib" title="Lock with a PIN" onClick={() => openPanel("pin")}><Icon n="lock" /></button>
       <button class="ib" title="Help" onClick={() => openPanel("help")}><Icon n="help" /></button>

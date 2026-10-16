@@ -73,6 +73,18 @@ export function Settings() {
         </div>
       </> : <p class="small">This is the example library: what you change here is not saved. <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>Sign in with Google</a> to keep your own books.</p>}
 
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>What BindLens changed</h3>
+      {!(settings.value.log || []).length ? <p class="small muted" style={{ margin: 0 }}>Nothing yet. Every change BindLens makes in your Drive (files added, renamed, moved, marks saved) is written down here.</p> : (
+        <div class="rep-out" style={{ maxHeight: 220 }}>
+          <table class="rows">
+            <tbody>{(settings.value.log || []).slice(0, 120).map((l, i) => (
+              <tr key={i}><td class="small" style={{ whiteSpace: "nowrap" }}>{new Date(l.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                <td class="small"><b>{l.what}</b> {l.name}{l.book ? <span class="muted"> · {l.book}</span> : ""}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>About</h3>
       <p class="small muted" style={{ margin: 0 }}>BindLens Web 1.0 · made by Mohammed Chahboune Kadi. Free software under the GNU AGPL 3.0: the source is at <a href="https://github.com/CKMohammed/BindLens" target="_blank" rel="noopener">github.com/CKMohammed/BindLens</a>. Pages are drawn with MuPDF (Artifex, AGPL).</p>
     </Dialog>
@@ -117,7 +129,12 @@ const HELP = [
   ["clock", "What needs you", "The dates in your documents that need something: renewals, due dates, 'valid until', deadlines. Add them to Google Calendar or Outlook with a click."],
   ["camera", "Scan", "On a phone, take photos of paper; on a computer, choose photos. BindLens straightens the page and makes a PDF in your book."],
   ["print", "Print", "Print opens the document in a new tab of your browser, where you print it with your printer."],
-  ["lock", "PIN", "On a shared computer, lock BindLens with a four-digit PIN (Settings)."],
+  ["lock", "PIN", "On a shared computer, lock BindLens with a four-digit PIN (Settings). A single book can have the PIN too: right-click the book, Lock it with the PIN."],
+  ["read", "Reading mode", "Read opens a calm view with the contents beside the page, the date and the time. Read aloud reads the pages to you."],
+  ["star", "Study cards", "Your highlights and notes of a book become cards to review: the words on the front, where they come from on the back."],
+  ["type", "Scanned pages", "A scanned PDF has no words, only a picture. In the Pages button, Read the words of this page makes it searchable; then you can also change its words."],
+  ["video", "Videos", "Videos play inside the book. In a corner keeps one playing small while you read; you can move it."],
+  ["list", "What BindLens changed", "Settings lists every change BindLens made in your Drive: files added, renamed, moved, marks saved."],
   ["drive", "Your Drive", "BindLens has no servers: it reads and saves straight in your Google Drive and sees only the files it made or that you gave it. You can open the same books in the BindLens folder of your Drive."],
 ];
 

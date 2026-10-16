@@ -1,7 +1,7 @@
 // Things people do with books and files - used by Home, the book view, menus and Find (Ctrl+K).
 import { batch } from "@preact/signals";
 import { store, books, settings, setSetting, setBookMeta, toast, openBook, bookId, fileId, pageNo, view, panel,
-  addFileToBook, removeFile, reloadLibrary, currentBook } from "./state.js";
+  addFileToBook, removeFile, reloadLibrary, currentBook, logChange } from "./state.js";
 import { ask, confirm } from "./ui/dialogs.jsx";
 import { cleanName, uniqueName, mimeOf, kindOf, colorFor } from "./util.js";
 import { saveAll } from "./docs.js";
@@ -32,6 +32,7 @@ export async function newBook(name) {
     const b = await store.value.createBook(name);
     books.value = [...books.value, { id: b.id, name: b.name, color: colorFor(b.name), files: [], modified: b.modified }];
     setSetting("bookOrder", books.value.map(x => x.id));
+    logChange("Made the book", name);
     toast(`"${name}" is ready. Add files to it.`, "ok");
     return books.value.find(x => x.id === b.id);
   } catch (e) {
@@ -57,6 +58,7 @@ export async function uploadFiles(book, files, { open = true } = {}) {
       const bytes = await f.arrayBuffer();
       const made1 = await store.value.create(book.id, name, bytes, f.type || mimeOf(name));
       addFileToBook(book.id, made1);
+      logChange("Added", name, book.name);
       made.push(made1);
       n++;
     } catch (e) {
@@ -81,6 +83,7 @@ export async function addFromDrive(book) {
       const meta = await store.value.meta(p.id);
       const f = await store.value.copy(meta, book.id, uniqueName(meta.name, book.files.map(x => x.name)));
       addFileToBook(book.id, f);
+      logChange("Added from your Drive", f.name, book.name);
       n++;
     }
     if (n) toast(`${n} file${n > 1 ? "s" : ""} added to "${book.name}".`, "ok");
@@ -93,6 +96,7 @@ export async function renameBook(book) {
   const name = await ask("Rename the book", { value: book.name, ok: "Rename" });
   if (!name || name === book.name) return;
   await store.value.rename(book.id, cleanName(name));
+  logChange("Renamed the book", `${book.name} → ${cleanName(name)}`);
   books.value = books.value.map(b => b.id === book.id ? { ...b, name: cleanName(name) } : b);
 }
 
@@ -103,11 +107,20 @@ export async function deleteBook(book) {
   if (!ok) return;
   await saveAll();
   await store.value.trash(book.id);
+  logChange("Moved the book to the bin", book.name);
   batch(() => {
     books.value = books.value.filter(b => b.id !== book.id);
     if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
   });
   toast(`"${book.name}" is in the bin.`);
+}
+
+export async function toggleBookLock(book) {
+  const { bookMeta, setBookMeta, settings: st, panel: pnl } = await import("./state.js");
+  if (!st.value.pin) { toast("Choose a PIN first (Settings), then lock the book with it."); pnl.value = { type: "pin" }; return; }
+  const locked = !bookMeta(book.id).locked;
+  setBookMeta(book.id, { locked });
+  toast(locked ? `"${book.name}" opens only with your PIN now.` : `"${book.name}" opens without a PIN now.`, "ok");
 }
 
 export function setBookColor(book, color) {
@@ -132,6 +145,7 @@ export async function renameFile(book, file) {
   name = cleanName(name);
   if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) name += ext;
   await store.value.rename(file.id, name);
+  logChange("Renamed", `${file.name} → ${name}`, book.name);
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, name, kind: kindOf(name, f.mime) } : f) } : b);
 }
 
@@ -141,6 +155,7 @@ export async function deleteFile(book, file) {
   if (!ok) return;
   await saveAll();
   await store.value.trash(file.id);
+  logChange("Moved to the bin", file.name, book.name);
   removeFile(file.id);
   if (fileId.value === file.id) {
     const b = books.value.find(x => x.id === book.id);
@@ -155,6 +170,7 @@ export async function moveFileTo(book, file, toBook) {
   const f = await store.value.move(file.id, book.id, toBook.id);
   removeFile(file.id);
   addFileToBook(toBook.id, f);
+  logChange("Moved", `${file.name}: ${book.name} → ${toBook.name}`, toBook.name);
   toast(`Moved to "${toBook.name}".`, "ok");
 }
 

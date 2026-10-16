@@ -89,7 +89,7 @@ export function Pip() {
   };
   return (
     <div class="pip" ref={ref} style={pos ? { left: pos.x + "px", top: pos.y + "px", right: "auto", bottom: "auto" } : null}>
-      <video src={p.src} controls autoPlay playsInline />
+      <video src={p.src} controls autoPlay playsInline onLoadedMetadata={(e) => { if (p.t) e.target.currentTime = p.t; }} />
       <div class="bar" onPointerDown={startDrag}>
         <button class="ib" title="Big" onClick={() => { panel.value = { type: "gallery", fileId: p.file.id }; pip.value = null; }}><Icon n="expand" size={16} /></button>
         <button class="ib" title="Close" onClick={() => { pip.value = null; }}><Icon n="close" size={16} /></button>

@@ -1,12 +1,13 @@
 // Home: a modern library. The books stand on shelves; pull one out to open it.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { books, settings, store, openBook, toast } from "../state.js";
+import { books, settings, store, openBook, toast, bookMeta } from "../state.js";
 import { greeting, fmtDate, mix, initials } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, openPanel, continueReading,
-  addFromDrive, signOut } from "../actions.js";
+  addFromDrive, signOut, toggleBookLock } from "../actions.js";
 import { needsCount } from "../reports/dates.js";
+import { indexLibrary, indexed } from "../docs.js";
 import { BOOK_COLORS } from "../util.js";
 
 function hashOf(s) { let h = 0; for (const c of s) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h; }
@@ -65,6 +66,7 @@ function Spine({ b, h, onHover, lean }) {
     { label: "Open", icon: "read", run: () => openBook(b.id) },
     { label: "Add files to it", icon: "upload", run: async () => uploadFiles(b, await pickFiles(), { open: false }) },
     { label: "Rename", icon: "rename", run: () => renameBook(b) },
+    { label: bookMeta(b.id).locked ? "Open it without the PIN" : "Lock it with the PIN", icon: "lock", run: () => toggleBookLock(b) },
     { title: "Colour" },
     ...BOOK_COLORS.slice(0, 8).map(c => ({ label: c === b.color ? "This colour" : "", swatch: c, run: () => setBookColor(b, c) })),
     "-",
@@ -84,6 +86,7 @@ function Spine({ b, h, onHover, lean }) {
       onDragOver={(e) => { e.preventDefault(); setDrop(true); }} onDragLeave={() => setDrop(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDrop(false); uploadFiles(b, [...e.dataTransfer.files], { open: false }); }}>
       <i class="b1" /><span class="t">{b.name}</span><i class="b2" />
+      {bookMeta(b.id).locked && <span class="cnt">🔒</span>}
     </button>
   );
 }
@@ -115,8 +118,11 @@ export function Home() {
   }, []);
   useEffect(() => {
     let alive = true;
-    needsCount().then(n => { if (alive) setNeeds(n); }).catch(() => {});
-    return () => { alive = false; };
+    const count = () => needsCount().then(n => { if (alive) setNeeds(n); }).catch(() => {});
+    count();
+    indexed.listeners.add(count);
+    indexLibrary();
+    return () => { alive = false; indexed.listeners.delete(count); };
   }, [all.length]);
 
   // the books on two or three shelves, spread evenly and centred, never more than fit on one shelf
@@ -194,6 +200,7 @@ export function Home() {
           <button class="qa" onClick={() => openPanel("reports")}><Icon n="reports" />Reports</button>
           <button class="qa" onClick={() => openPanel("write")}><Icon n="edit" />Write</button>
           <button class="qa" onClick={() => openPanel("scan")}><Icon n="camera" />Scan</button>
+          <button class="qa" onClick={() => { if (!books.value.length) { toast("Make a book first."); return; } if (!settings.value.last) openBook(books.value[0].id); openPanel("study"); }}><Icon n="star" />Study cards</button>
           <button class="qa" onClick={async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); }}><Icon n="upload" />Add files</button>
           {store.value.kind === "drive" && <button class="qa" onClick={() => addFromDrive()}><Icon n="drive" />From Drive</button>}
           <button class="qa" onClick={() => openPanel("settings")}><Icon n="palette" />Frame colours</button>

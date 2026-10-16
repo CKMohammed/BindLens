@@ -15,9 +15,11 @@ const Gallery = lazy(() => import("./Gallery.jsx").then(m => ({ default: m.Galle
 const Print = lazy(() => import("./Print.jsx").then(m => ({ default: m.Print })));
 const Signature = lazy(() => import("./Signature.jsx").then(m => ({ default: m.Signature })));
 const Pages = lazy(() => import("./Pages.jsx").then(m => ({ default: m.Pages })));
+const Study = lazy(() => import("./Study.jsx").then(m => ({ default: m.Study })));
+const BookPin = lazy(() => import("./BookPin.jsx").then(m => ({ default: m.BookPin })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
-  gallery: Gallery, print: Print, signature: Signature, pages: Pages };
+  gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

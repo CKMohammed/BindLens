@@ -9,6 +9,7 @@ import { Icon, fileIcon } from "./icons.jsx";
 import { confirm, openMenuAt } from "./dialogs.jsx";
 import { stampSpec } from "./marks.js";
 import { openPanel } from "../actions.js";
+import { pip } from "./Gallery.jsx";
 
 export const docState = signal({});        // fileId -> {status, pages, readOnly, error, v}
 export const searchHits = signal(null);    // {query, list:[{fileId, page, quads}], cur}
@@ -246,7 +247,20 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     if (t === "edit") {
       const doc = await getDoc(file);
       const line = await call("lineAt", doc.key, page, p);
-      if (!line) { toast("Click on a line of text to change it."); return; }
+      if (!line) {
+        if (!(await call("hasText", doc.key, page))) {
+          const ok = await confirm("This page is a scan", "To change its words, BindLens first reads them (it takes a moment). Read the words of this page?", { ok: "Read the words" });
+          if (ok) {
+            toast("Reading the words of the page...");
+            const { readScannedPage } = await import("../ocr.js");
+            const n = await readScannedPage(file, page);
+            toast(n ? `${n} words read. Click a line to change it.` : "No words were found on this page.", n ? "ok" : "");
+          }
+          return;
+        }
+        toast("Click on a line of text to change it.");
+        return;
+      }
       setEdit({ x: line.bbox.x - 2, y: line.bbox.y - 2, w: Math.max(line.bbox.w + 40, 120), h: line.bbox.h + 6, kind: "edit", value: line.text, size: line.size, line });
     }
   };
@@ -494,7 +508,12 @@ function MediaBlock({ file, maxW }) {
   }, [file.id]);
   return (
     <div class="mediacard" ref={ref} data-file={file.id} data-page={0} style={{ "--pw": maxW + "px" }}>
-      {kind === "video" ? (src ? <video src={src} controls playsInline preload="metadata" /> : <div class="other"><Icon n="video" size={28} />{file.name}</div>)
+      {kind === "video" ? (src ? <>
+        <video src={src} controls playsInline preload="metadata" />
+        <div class="row" style={{ padding: "6px 10px" }}><Icon n="video" size={16} /><span class="small grow ellipsis">{file.name}</span>
+          <button class="btn plain small" title="Keep it playing in a corner while you read" onClick={(e) => { const v = e.currentTarget.closest(".mediacard").querySelector("video"); v.pause(); pip.value = { file, src, t: v.currentTime }; }}><Icon n="pip" size={16} />In a corner</button>
+          <button class="btn plain small" onClick={() => openPanel("gallery", { fileId: file.id })}><Icon n="expand" size={16} />Big</button></div>
+      </> : <div class="other"><Icon n="video" size={28} />{file.name}</div>)
         : kind === "audio" ? (<div style={{ padding: 16 }}><div class="row" style={{ marginBottom: 10 }}><Icon n="audio" size={24} /><b>{file.name}</b></div>{src && <audio src={src} controls />}</div>)
           : (
             <div class="other">

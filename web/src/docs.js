@@ -2,7 +2,7 @@
 import { call } from "./engine/client.js";
 import { toHtml, OFFICE_CSS } from "./engine/office.js";
 import { idb } from "./idb.js";
-import { store, saving, patchFile, toast, undoStack, redoStack, addFileToBook, books, bookId } from "./state.js";
+import { store, saving, patchFile, toast, undoStack, redoStack, addFileToBook, books, bookId, logChange, settings } from "./state.js";
 import { baseName, debounce, isPaged, uniqueName } from "./util.js";
 
 const open = new Map();     // file id -> Promise<{key, pages, isPDF, converted}>
@@ -120,6 +120,11 @@ export async function saveNow(fileId) {
     const f = await store.value.write(file, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
     pendingSave.delete(fileId);
     patchFile({ ...f, kind: file.kind });
+    const last = (settings.value.log || [])[0];
+    if (!last || last.name !== file.name || last.what !== "Saved your marks in" || Date.now() - last.at > 60000) {
+      const b = books.value.find(x => x.files.some(y => y.id === fileId));
+      logChange("Saved your marks in", file.name, b ? b.name : "");
+    }
     saving.value = { n: pendingSave.size, last: Date.now(), error: "" };
     textCacheDrop(fileId);
   } catch (e) {
@@ -224,6 +229,7 @@ export async function pdfCopyOf(file, book) {
   const name = uniqueName(baseName(file.name) + ".pdf", book.files.map(f => f.name));
   const f = await store.value.create(book.id, name, pdf, "application/pdf");
   addFileToBook(book.id, f);
+  logChange("Made a PDF copy to mark", name, book.name);
   toast(`Made "${name}" so you can mark it. The original is unchanged.`, "ok", 5000);
   return f;
 }
@@ -237,12 +243,13 @@ function textCacheDrop(id) {
   for (const k of [...textMem.keys()]) if (k.startsWith("t2:" + id + ":")) textMem.delete(k);
 }
 
-export async function wordsOf(file) {
+export async function wordsOf(file, { cachedOnly = false } = {}) {
   if (!isPaged(file.kind) || file.kind === "image") return { pages: [], words: [] };
   const k = textKey(file);
   if (textMem.has(k)) return textMem.get(k);
   const hit = await idb.get("text", k);
   if (hit) { textMem.set(k, hit); return hit; }
+  if (cachedOnly) return null;
   const v = await readOnce(file, async (key) => ({ pages: await call("plainText", key), words: await call("words", key) }));
   textMem.set(k, v);
   idb.set("text", k, v);
@@ -257,6 +264,28 @@ export async function setScannedWords(file, page, text) {
   v.ocr = { ...(v.ocr || {}), [page]: true };
   textMem.set(k, v);
   idb.set("text", k, v);
+}
+
+// read the words of the library slowly in the background (a file at a time, small ones first), so Home's
+// "dates need you", Find and Reports are ready without waiting - and without downloading big files at once
+export const indexed = { n: 0, of: 0, running: false, listeners: new Set() };
+export async function indexLibrary() {
+  if (indexed.running) return;
+  indexed.running = true;
+  try {
+    const list = books.value.flatMap(b => b.files).filter(f => isPaged(f.kind) && f.kind !== "image" && (!f.size || f.size < 15e6))
+      .sort((a, b) => (a.size || 0) - (b.size || 0));
+    indexed.of = list.length; indexed.n = 0;
+    for (const f of list) {
+      const was = await wordsOf(f, { cachedOnly: true });
+      if (!was) {
+        try { await wordsOf(f); } catch (e) {}
+        await new Promise(r => setTimeout(r, 400));
+      }
+      indexed.n++;
+      if (indexed.n % 4 === 0 || indexed.n === list.length) for (const fn of indexed.listeners) try { fn(); } catch (e) {}
+    }
+  } finally { indexed.running = false; }
 }
 
 export { call };

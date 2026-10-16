@@ -102,7 +102,7 @@ function textWidth(font, s, size) {
   return w * size;
 }
 
-function addTextToPage(d, pageIndex, items) {
+function addTextToPage(d, pageIndex, items, cover) {
   // items: [{x, y (baseline, page coords from the top), text, size, family, bold, italic, color:[r,g,b]}]
   const page = d.pdf.loadPage(pageIndex);
   const pobj = page.getObject();
@@ -115,6 +115,13 @@ function addTextToPage(d, pageIndex, items) {
   const m = page.getTransform(); // page -> MuPDF space; we need the inverse for user units
   const inv = mupdf.Matrix.invert(m);
   let cs = "q\n";
+  if (cover) {
+    // on a scan the old words are part of the picture: paint them over with the paper's colour first
+    const tp = (x, y) => [inv[0] * x + inv[2] * y + inv[4], inv[1] * x + inv[3] * y + inv[5]];
+    const a = tp(cover.rect[0], cover.rect[1]), b = tp(cover.rect[2], cover.rect[3]);
+    const [cr, cg, cb] = cover.color || [1, 1, 1];
+    cs += `${cr.toFixed(3)} ${cg.toFixed(3)} ${cb.toFixed(3)} rg ${Math.min(a[0], b[0]).toFixed(2)} ${Math.min(a[1], b[1]).toFixed(2)} ${Math.abs(b[0] - a[0]).toFixed(2)} ${Math.abs(b[1] - a[1]).toFixed(2)} re f\n`;
+  }
   for (const it of items) {
     const fam = BASE14[it.family] ? it.family : "sans";
     const base = BASE14[fam][(it.bold ? 1 : 0) + (it.italic ? 2 : 0)];
@@ -622,11 +629,32 @@ const api = {
     const d = get(key);
     return op(d, "Change the text", () => {
       const p = loadPDFPage(d, page);
+      // is the line on a picture (a scanned page)? then the old words are painted over, in the paper's colour
+      let cover = null;
+      const js = stextOf(p);
+      const onImage = js.blocks.some(b => b.type === "image" && b.bbox.x < rect[2] && b.bbox.x + b.bbox.w > rect[0] && b.bbox.y < rect[3] && b.bbox.y + b.bbox.h > rect[1]);
+      if (onImage) {
+        let color = [1, 1, 1];
+        try {
+          // the colour of the paper just around the line
+          const pix = p.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false, false);
+          const px = pix.getPixels(), W = pix.getWidth(), H = pix.getHeight(), n = pix.getNumberOfComponents();
+          const samples = [];
+          for (const [x, y] of [[rect[0] - 3, rect[1] - 3], [rect[2] + 3, rect[1] - 3], [rect[0] - 3, rect[3] + 3], [rect[2] + 3, rect[3] + 3]]) {
+            const xi = Math.max(0, Math.min(W - 1, Math.round(x))), yi = Math.max(0, Math.min(H - 1, Math.round(y)));
+            const o = (yi * W + xi) * n;
+            samples.push([px[o] / 255, px[o + 1] / 255, px[o + 2] / 255]);
+          }
+          samples.sort((a, b) => (b[0] + b[1] + b[2]) - (a[0] + a[1] + a[2]));
+          color = samples[0];
+        } catch (e) {}
+        cover = { rect: [rect[0] - 1, rect[1] - 1, rect[2] + 1, rect[3] + 1], color };
+      }
       const r = p.createAnnotation("Redact");
       r.setRect(rect);
       r.update();
       p.applyRedactions(false, 0, 0, 0);
-      addTextToPage(d, page, items);
+      addTextToPage(d, page, items, cover);
       p.update();
       d.st = null;
       return true;
