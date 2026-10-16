@@ -7,7 +7,7 @@ import { mimeOf } from "../util.js";
 
 export const CLIENT_ID = "537962235577-p6sgr9cnbqvvv0v75a7jbpla1op629n7.apps.googleusercontent.com";
 export const APP_ID = "537962235577"; // the Google Cloud project number (for the Drive picker)
-export const PICKER_KEY = "";          // a browser API key for "Add from Drive" (set when there is one)
+export const PICKER_KEY = "AIzaSyDH4g7NE_v7U8CuQ55bFrWgWx-JjS2gwno"; // browser API key for "Add from Drive" (Picker only; bindlens.com + docs.google.com)
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const API = "https://www.googleapis.com/drive/v3";
 const UP = "https://www.googleapis.com/upload/drive/v3";
