@@ -45,7 +45,7 @@ export function toolMenus(book, side) {
       ...[["Small", 6], ["Medium", 9], ["Big", 14]].map(([l, z]) => ({ label: l + ((o.quickSize || 9) === z ? " (now)" : ""), run: () => setOpt("quickSize", z) })),
       "-",
       { label: (o.quickOwn !== false ? "✓ " : "") + "Their own colours (green tick, red cross)", run: () => setOpt("quickOwn", true) },
-      { label: (o.quickOwn === false ? "✓ " : "") + "The colour chosen at the top", run: () => setOpt("quickOwn", false) },
+      { label: (o.quickOwn === false ? "✓ " : "") + "The colour chosen in Colours and sizes", run: () => setOpt("quickOwn", false) },
     ] },
     { title: "Hide or erase the PDF's own text" },
     { label: "White box: drag over the text", icon: "rect", run: () => { tool.value = "whitebox"; toast("Drag a box over the text to hide. Later you can erase what is under it for good."); } },

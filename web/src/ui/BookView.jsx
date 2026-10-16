@@ -1,4 +1,4 @@
-// The book view: the tools at the top, the library at the left, the pages in the middle.
+// The book view: a slim bar at the top, the library at the left, the pages in the middle (the tools are on the frame).
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
   redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta, panel, subView, visibleFiles,
@@ -70,11 +70,15 @@ function TopBar({ book }) {
           { label: "Redo", icon: "redo", run: redo },
           { label: "Reports", icon: "reports", run: () => openPanel("reports") },
           { label: "What needs you", icon: "clock", run: () => openPanel("dates") },
+          { label: "Comments", icon: "comment", run: () => { commentsOpen.value = {}; } },
+          { label: "Tasks", icon: "task", run: () => openPanel("tasks") },
+          { label: "Share this book...", icon: "share", run: () => openPanel("share", { id: book.id }) },
           { label: "Photos as a gallery", icon: "image", run: () => openPanel("gallery") },
           { label: "Print", icon: "print", run: () => openPanel("print") },
           "-",
           { label: "Settings", icon: "settings", run: () => openPanel("settings") },
           { label: "Help", icon: "help", run: () => openPanel("help") },
+          { label: "Send feedback...", icon: "feedback", run: () => openPanel("feedback") },
         ])}><Icon n="more" /></button>
       </div>
     );

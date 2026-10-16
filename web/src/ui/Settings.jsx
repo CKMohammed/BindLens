@@ -99,7 +99,7 @@ export function Settings() {
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>View</h3>
       <div class="row wrap" style={{ gap: 18 }}>
-        <label class="chk"><input type="checkbox" checked={!settings.value.hideRail} onChange={(e) => setSetting("hideRail", !e.target.checked)} />The quick bar on the right of a book</label>
+        <label class="chk"><input type="checkbox" checked={!settings.value.hideRail} onChange={(e) => setSetting("hideRail", !e.target.checked)} />The small icons on the frame (the tools to mark, Reports, Scan...). Off: the tools go back to the top bar</label>
         {installPrompt.value && <button class="btn soft small" onClick={installApp}><Icon n="download" size={16} />Install BindLens as an app</button>}
       </div>
       <Doing />
@@ -195,7 +195,7 @@ export function Pin() {
 const HELP = [
   ["book", "Books", "A book is a folder in your Google Drive, inside the BindLens folder. Every PDF, Word file, spreadsheet, photo and video in it is one book you scroll through. Make one with + on Home or in the Library."],
   ["upload", "Add files", "Drag files onto the window, or use Add files. From the Library you can also add files that are already in your Drive (From my Drive)."],
-  ["highlighter", "Mark", "Choose a tool at the top: the highlighter, the pen, text, a sticky note, shapes, a tick or a cross, stamps and your signature. Your marks are saved inside the PDF in your Drive, so any PDF program shows them. Ctrl+Z undoes."],
+  ["highlighter", "Mark", "Choose a tool on the frame at the right of the window (on a phone: the tool button at the top): the highlighter, the pen, text, a sticky note, shapes, a tick or a cross, stamps and your signature. Your marks are saved inside the PDF in your Drive, so any PDF program shows them. Ctrl+Z undoes."],
   ["select", "Change a mark", "With the arrow, click a mark to choose it: drag it, give it another colour or take it off (Delete). Double-click a text or a sticky note to change its words."],
   ["edit", "Change the text", "The pencil with a line changes the words of the PDF itself, in the same size and a similar font. Click a line, type, press Enter."],
   ["search", "Find", "Ctrl+K finds a book, a document, a word inside any document, or something to do. The Search tab in the Library finds a word in this book and shows every place."],

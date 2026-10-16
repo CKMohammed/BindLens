@@ -37,6 +37,7 @@ function Person({ name }) {
 
 export function startComment() {
   tool.value = "comment";
+  if (window.matchMedia("(max-width: 760px)").matches) commentsOpen.value = null;    // on a phone the page is under the comments
   toast("Click on the page where the comment goes.");
 }
 

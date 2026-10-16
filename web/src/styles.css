@@ -857,3 +857,24 @@ textarea.ftext{padding:2px 3px;line-height:1.2}
 .ov.tool-comment{cursor:copy}
 .savestate.off{color:#9A6A0C;background:#FBF1DE;border-radius:999px;padding:3px 9px}
 .savestate.off svg{color:#9A6A0C}
+/* Home on a phone: the greeting and the account on one line, Shelf / List and Add under it */
+@media (max-width:760px){
+  .home.calm .home-in{padding:14px 14px 30px;gap:12px}
+  .home.calm .home-top{gap:8px 10px;flex-wrap:wrap}
+  .home.calm .home-top .logo-wrap{width:36px!important;height:36px!important;margin:0}
+  .home.calm .home-top .logo-wrap svg{width:32px;height:32px}
+  .home.calm .home-top > .grow{flex:1 1 0;min-width:0}
+  .home.calm .home-top h1{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .home.calm .home-top .date{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .home.calm .home-top > .ib{order:1;margin-left:0}
+  .home.calm .home-top .fullbtn{display:none}
+  .home.calm .home-top .home-find{display:flex;order:2;flex:1 1 100%;height:38px}
+  .home.calm .home-top .home-find kbd{display:none}
+  .home.calm .home-top .seg{order:3}
+  .home.calm .home-top > .btn{order:4;margin-left:auto}
+  .contcard{flex-wrap:wrap}
+  .home-main{gap:14px}
+  .gjob{top:8px;flex-wrap:wrap;justify-content:center}
+  .comments{position:absolute;inset:0;width:auto;z-index:8}
+  .keys{grid-template-columns:1fr}
+}
