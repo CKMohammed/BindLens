@@ -550,3 +550,5 @@ table.rows tr.click{cursor:pointer}
 .gbtn.callout{animation:callout 1.5s ease-in-out 4}
 @keyframes callout{0%,100%{box-shadow:0 0 0 0 rgba(108,92,255,0)}50%{box-shadow:0 0 0 8px rgba(108,92,255,.28)}}
 @media (prefers-reduced-motion:reduce){.gbtn.callout{animation:none}}
+/* a spine with its icon: the name stands above the icon, never under it */
+.spine.withmedal .t{top:calc((var(--h,170px) - var(--ms,28px) - 10px) / 2);max-width:calc(var(--h,170px) - var(--ms,28px) - 58px)}

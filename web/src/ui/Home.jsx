@@ -71,8 +71,8 @@ function Spine({ b, h, onHover, lean }) {
   const [out, setOut] = useState(false);
   const open = () => { setOut(true); setTimeout(() => openBook(b.id), 260); };
   return (
-    <button ref={ref} class={"spine" + (lean ? " lean" : "") + (out ? " out" : "")} title={b.name}
-      style={{ height: h + "px", width: w + "px", "--sc": c, "--h": h + "px",
+    <button ref={ref} class={"spine" + (lean ? " lean" : "") + (out ? " out" : "") + (m.icon && m.icon !== "letters" ? " withmedal" : "")} title={b.name}
+      style={{ height: h + "px", width: w + "px", "--sc": c, "--h": h + "px", "--ms": Math.round(w * 0.62) + "px",
         background: `linear-gradient(90deg, ${mix(c, "#000000", 0.32)} 0%, ${mix(c, "#000000", 0.08)} 9%, ${mix(c, "#ffffff", 0.22)} 26%, ${c} 46%, ${mix(c, "#000000", 0.1)} 80%, ${mix(c, "#000000", 0.34)} 100%)`,
         outline: drop ? "3px solid var(--accent)" : "" }}
       onClick={open}
@@ -85,6 +85,12 @@ function Spine({ b, h, onHover, lean }) {
       {m.locked && <span class="cnt">🔒</span>}
     </button>
   );
+}
+
+// a spine that shows its icon is a little taller, so its whole name fits above the icon
+function medalRoom(b) {
+  const m = bookMeta(b.id);
+  return m.icon && m.icon !== "letters" ? (42 + Math.min(20, b.files.length * 2.5)) * 0.62 + 12 : 0;
 }
 
 function LyingBooks({ seed = 0 }) {
@@ -202,7 +208,7 @@ export function Home() {
                   <div class="bc-back">
                     {si % 3 === 1 && <div class="bc-deco left"><LyingBooks seed={si} /></div>}
                     <div class="booksrun">
-                      {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.74 : 1) * Math.min(208, Math.max(150 + (hashOf(b.name) % 40), b.name.length * 7.6 + 64))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
+                      {row.map((b, bi) => <Spine key={b.id} b={b} h={(phone ? 0.74 : 1) * Math.min(208, Math.max(150 + (hashOf(b.name) % 40), b.name.length * 7.6 + 64 + medalRoom(b)))} onHover={setHover} lean={bi === row.length - 1 && si !== addAt && row.length > 3} />)}
                       {si === addAt && <button class="addspine" title="Add a book" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={22} /><span>Add</span></button>}
                     </div>
                     <div class="bc-deco right">{si % 3 === 0 ? <><LyingBooks seed={si + 3} /><Bookend /></> : si % 3 === 1 ? <Hourglass /> : <Plant />}</div>
