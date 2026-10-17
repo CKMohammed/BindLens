@@ -207,6 +207,9 @@ export function rememberPlace() {
   all[last.book] = { ...(all[last.book] || {}), last: { file: last.file, page: last.page } };
   settings.value = { ...settings.value, books: all };
   setSetting("last", last);
+  // the documents opened lately (Home shows them)
+  const rec = settings.value.recent || [];
+  if (last.file && (!rec[0] || rec[0].file !== last.file)) setSetting("recent", [{ book: last.book, file: last.file, at: last.at }, ...rec.filter(r => r.file !== last.file)].slice(0, 8));
 }
 
 // the library as it is now, kept in this browser: BindLens opens it without a network (Drive and OneDrive)

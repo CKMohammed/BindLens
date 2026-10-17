@@ -9,6 +9,15 @@ for (let i = 0; i < 25; i++) { const a = (126 + (234 - 126) * i / 24) * K; ARC.p
 ARC.push([cx + rr * Math.cos(234 * K), 159], [101, 159]);
 const ARC_D = "M" + ARC.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L");
 
+// the same logo, still, as SVG text (for the corner and the foot of a report)
+export function logoSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 220 220" width="64" height="64"><rect x="18" y="18" width="220" height="220" rx="52" fill="#111218"/>`
+    + `<rect x="74" y="48" width="27" height="151" rx="3.3" fill="#FFFFFF"/>` + [80, 120, 160].map(y => `<circle cx="87" cy="${y}" r="4.6" fill="#111218"/>`).join("")
+    + `<path d="${ARC_D}" fill="none" stroke="#FF85C2" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>`
+    + `<rect x="99" y="165" width="65.5" height="12.5" rx="5.6" fill="#FFFFFF"/><rect x="99" y="180" width="70.5" height="8.5" rx="3.8" fill="#FFFFFF"/><rect x="99" y="191" width="76" height="8.5" rx="3.8" fill="#FFFFFF"/>`
+    + `<circle cx="153" cy="121" r="27" fill="none" stroke="#FFC83D" stroke-width="16"/><path d="M172.5 140.5 L196 164" stroke="#FFC83D" stroke-width="14" stroke-linecap="round"/></svg>`;
+}
+
 export function Logo({ size = 54, title = "BindLens", still = false }) {
   const busy = saving.value.n > 0;
   return (

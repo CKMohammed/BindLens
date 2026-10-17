@@ -179,6 +179,45 @@ function NeedsCard() {
   );
 }
 
+// beside the shelf, under What needs you: the documents opened lately, and the reports you made
+function agoText(t) {
+  const s = (Date.now() - (t || 0)) / 1000;
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  if (s < 86400 * 7) return Math.round(s / 86400) + (s < 172800 ? " day ago" : " days ago");
+  return fmtDate(new Date(t));
+}
+function SideCards() {
+  const st = settings.value;
+  const rec = (st.recent || []).map(r => { const b = books.value.find(x => x.id === r.book); const f = b && b.files.find(x => x.id === r.file); return b && f ? { ...r, b, f } : null; }).filter(Boolean).slice(1, 5);
+  const runs = (st.repRuns || []).slice(0, 3);
+  if (!rec.length && !runs.length) return null;
+  return (
+    <aside class="needcard sidecard">
+      {rec.length > 0 && <>
+        <div class="nc-head"><Icon n="file" size={16} /><b>Opened lately</b></div>
+        {rec.map(r => (
+          <button key={r.file} class="sc-item" onClick={() => openBook(r.b.id, r.f.id, (bookMeta(r.b.id).last && bookMeta(r.b.id).last.file === r.f.id && bookMeta(r.b.id).last.page) || 0)} title={r.f.name}>
+            <BookTile book={r.b} meta={{ ...bookMeta(r.b.id), tstyle: "flat" }} size={22} />
+            <span class="nc-txt"><b class="ellipsis">{r.f.name.replace(/\.[^.]+$/, "")}</b><span class="tiny muted ellipsis">{r.b.name} · {agoText(r.at)}</span></span>
+          </button>
+        ))}
+      </>}
+      {runs.length > 0 && <>
+        <div class="nc-head" style={rec.length ? { marginTop: 8 } : null}><Icon n="reports" size={16} /><b>Reports you made</b><span class="grow" />
+          <button class="btn plain small" onClick={() => openPanel("reports")}>All reports<Icon n="right" size={14} /></button></div>
+        {runs.map((r, i) => (
+          <button key={i} class="sc-item" onClick={() => openPanel("reports", { rerun: { ...r } })} title={"Make it again with the documents as they are now: " + r.title}>
+            <span class="sc-ico"><Icon n="reports" size={15} /></span>
+            <span class="nc-txt"><b class="ellipsis">{r.title}</b><span class="tiny muted ellipsis">{r.where || ""}{r.rows != null ? ` · ${r.rows} rows` : ""} · {r.at ? agoText(r.at) : r.when}</span></span>
+            <Icon n="refresh" size={14} />
+          </button>
+        ))}
+      </>}
+    </aside>
+  );
+}
+
 // the shelves: one per name (a brass plate on its board), books without a shelf on the last one
 export function shelfItems(b) {
   const names = settings.value.shelves || [];
@@ -339,7 +378,7 @@ export function Home() {
               </div>)}
             {mode !== "list" && <div class="hovername">{hover ? <>{hover.name} <span class="muted small">· {hover.files.length} file{hover.files.length === 1 ? "" : "s"}{bookMeta(hover.id).shelf ? " · " + bookMeta(hover.id).shelf : ""}</span></> : ""}</div>}
           </div>
-          <NeedsCard />
+          <div class="home-side"><NeedsCard /><SideCards /></div>
         </div>
       </div>
       {drag && <div class="dropzone">Drop to add to your library</div>}

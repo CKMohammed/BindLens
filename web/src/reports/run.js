@@ -25,6 +25,7 @@ export const REPORTS = [
   { id: "person", title: "Everything about one person", icon: "people", desc: "Every place a person appears, with the emails and phones next to them.", ask: "The person's name" },
   { id: "money", title: "Invoices & money", icon: "money", desc: "Each amount with its line: totals, prices, what is due." },
   { id: "marks", title: "My highlights & notes", icon: "highlighter", desc: "Everything you marked, by document." },
+  { id: "case", title: "Case files: what is missing", icon: "checklist", desc: "Book by book: the checklist documents still missing, the files waiting and the open tasks." },
   { id: "Emails", title: "Emails", icon: "at", desc: "Every email address, with the line it is in." },
   { id: "Phones", title: "Phone numbers", icon: "phone", desc: "Every phone and mobile number." },
   { id: "Names", title: "Names of people", icon: "people", desc: "Every person named in your documents." },
@@ -341,6 +342,37 @@ async function forms(scope, progress) {
   return { columns: ["Label", "Answer", "Document", "Page"], rows };
 }
 
+// case files: what each book still needs - from its checklist, the status of its files and its tasks
+async function caseFiles(scope) {
+  const { bookMeta, statusOf, settings } = await import("../state.js");
+  const rows = [];
+  let without = 0;
+  const today = new Date();
+  const WAIT = new Set(["Pending", "Urgent", "Waiting"]);
+  for (const b of scope) {
+    const list = bookMeta(b.id).checklist || [];
+    const done = list.filter(x => x.done).length;
+    const prog = list.length ? `${done} of ${list.length}` : "";
+    if (!list.length) without++;
+    for (const it of list) if (!it.done) rows.push({ kind: "missing", st: "bad", cells: [b.name, "Missing", "Document: " + it.text, prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
+    for (const f of b.files) {
+      const s = statusOf(f.id);
+      if (WAIT.has(s)) rows.push({ kind: "file", st: s === "Urgent" ? "bad" : "warn", cells: [b.name, s, f.name, prog, f.modified ? fmtDate(new Date(f.modified)) : ""], go: where(b, f, 0) });
+    }
+    for (const t of (settings.value.tasks || [])) {
+      if (t.done || t.bookId !== b.id) continue;
+      const due = t.due ? new Date(t.due + "T00:00") : null;
+      const days = due ? daysBetween(today, due) : null;
+      const f = t.fileId && b.files.find(x => x.id === t.fileId);
+      rows.push({ kind: "task", st: due ? status(days).cls : "", cells: [b.name, due ? (days < 0 ? "Task, late" : "Task") : "Task", t.text + (t.who ? " - " + t.who : "") + (t.file ? ` ("${t.file}")` : ""), prog, due ? fmtDate(due) : ""], go: f ? where(b, f, t.page || 0) : b.files[0] ? where(b, b.files[0], 0) : null });
+    }
+    if (list.length && done === list.length && !rows.some(r => r.cells[0] === b.name)) rows.push({ kind: "ok", st: "ok", cells: [b.name, "Complete", "Every document of the checklist is here", prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
+  }
+  const order = { missing: 0, file: 1, task: 2, ok: 3 };
+  rows.sort((a, c) => a.cells[0].localeCompare(c.cells[0]) || order[a.kind] - order[c.kind]);
+  return { columns: ["Book", "State", "What", "Checklist", "Date"], stCol: "State", rows, facts: { books: scope.length, without } };
+}
+
 async function statusReport(scope) {
   const { statusOf } = await import("../state.js");
   const rows = [];
@@ -600,6 +632,7 @@ export async function runReport(id, scope, { q = "", progress = () => {} } = {})
     case "person": return person(scope, progress, q);
     case "money": return money(scope, progress);
     case "marks": return marks(scope, progress);
+    case "case": return caseFiles(scope);
     default: return extract(id, scope, progress);
   }
 }

@@ -51,7 +51,7 @@ export function Legal() {
     <Dialog title="Licence, privacy and legal" icon="info" onClose={close} cls="mid">
       <h3 style={{ margin: "0 0 6px" }}>Licence</h3>
       <p class="small">BindLens is free software, made by Mohammed Chahboune Kadi, under the GNU Affero General Public License 3.0 (AGPL). You may use it, study it, change it and share it under that licence. The full source code of BindLens Web and of the Windows app is at <a href="https://github.com/CKMohammed/BindLens" target="_blank" rel="noopener">github.com/CKMohammed/BindLens</a>.</p>
-      <p class="small">BindLens Web is built with MuPDF (Artifex Software, AGPL), Preact (MIT), SheetJS (Apache 2.0), mammoth (BSD), JSZip (MIT) and Tesseract.js (Apache 2.0).</p>
+      <p class="small">BindLens Web is built with MuPDF (Artifex Software, AGPL), Preact (MIT), SheetJS (Apache 2.0), ExcelJS (MIT), mammoth (BSD), JSZip (MIT) and Tesseract.js (Apache 2.0).</p>
       <h3 style={{ margin: "16px 0 6px" }}>Privacy</h3>
       <ul class="small" style={{ paddingLeft: 18, lineHeight: 1.55 }}>
         <li>BindLens Web has <b>no servers and no accounts of its own</b>. The app runs in your browser; you sign in with Google.</li>

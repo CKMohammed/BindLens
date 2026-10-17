@@ -1438,7 +1438,8 @@ const api = {
   // ---- making PDFs
   htmlToPdf(html, css, w = 595, h = 842, margin = 54, keepSource = false) {
     // a written page or document: MuPDF lays out the HTML on A4 pages
-    const full = `<html><head><style>@page{margin:${margin}pt} body{margin:0} ${css || ""}</style></head><body>${html}</body></html>`;
+    const mg = typeof margin === "number" ? margin + "pt" : String(margin);
+    const full = `<html><head><style>@page{margin:${mg}} body{margin:0} ${css || ""}</style></head><body>${html}</body></html>`;
     const hd = mupdf.Document.openDocument(new TextEncoder().encode(full), "text/html");
     hd.layout(w, h, 11);
     const out = new mupdf.Buffer();
@@ -1490,6 +1491,87 @@ const api = {
       for (let i = 0; i < src.countPages(); i++) map.graftPage(at++, src, i);
     }
     const u8 = pdf.saveToBuffer("compress").asUint8Array().slice();
+    return { __transfer: [u8.buffer], value: u8 };
+  },
+
+  // a report's pages: a thin frame with the colours on its top edge (the institution's or BindLens'), the title on
+  // top of the pages after the first, and the foot: "Made with BindLens" with the logo, the date, "Page i of n"
+  decorateReport(bytes, spec) {
+    const pdf = mupdf.Document.openDocument(new Uint8Array(bytes), "application/pdf").asPDF();
+    const n = pdf.countPages();
+    const fR = pdf.addSimpleFont(new mupdf.Font("Helvetica"), "Latin");
+    const fB = pdf.addSimpleFont(new mupdf.Font("Helvetica-Bold"), "Latin");
+    const HR = new mupdf.Font("Helvetica"), HB = new mupdf.Font("Helvetica-Bold");
+    let logo = null;
+    try { if (spec.logo) logo = pdf.addImage(new mupdf.Image(new Uint8Array(spec.logo))); } catch (e) { logo = null; }
+    const rgb = (hex) => { const h = String(hex || "#000000").replace("#", ""); const v = h.length === 3 ? h.split("").map(c => c + c).join("") : h; return [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16) / 255); };
+    const col = (hex, op) => rgb(hex).map(x => x.toFixed(3)).join(" ") + " " + op;
+    const lerp = (a, b, t) => { const A = rgb(a), B = rgb(b); return A.map((x, i) => x + (B[i] - x) * t); };
+    const stops = (spec.frame && spec.frame.length ? spec.frame : ["#111218", "#FF85C2", "#FFC83D", "#FF85C2", "#111218"]);
+    const fit = (font, s, size, max) => { let t = String(s || ""); while (t.length > 3 && textWidth(font, t, size) > max) t = t.slice(0, -2); return t === String(s || "") ? t : t.replace(/\s+\S*$/, "") + "..."; };
+    for (let i = 0; i < n; i++) {
+      const page = pdf.loadPage(i);
+      const [bx0, by0, bx1, by1] = page.getBounds();
+      const W = bx1 - bx0, H = by1 - by0;
+      const m = 15, r = 9, x0 = m, y0 = m, x1 = W - m, y1 = H - m;
+      const k = 0.5523 * r;
+      const rr = `${x0 + r} ${y0} m ${x1 - r} ${y0} l ${x1 - r + k} ${y0} ${x1} ${y0 + r - k} ${x1} ${y0 + r} c ${x1} ${y1 - r} l ${x1} ${y1 - r + k} ${x1 - r + k} ${y1} ${x1 - r} ${y1} c ${x0 + r} ${y1} l ${x0 + r - k} ${y1} ${x0} ${y1 - r + k} ${x0} ${y1 - r} c ${x0} ${y0 + r} l ${x0} ${y0 + r - k} ${x0 + r - k} ${y0} ${x0 + r} ${y0} c h`;
+      let cs = "q\n";
+      // the colours along the top edge, inside the rounded frame
+      cs += `q ${rr} W n\n`;
+      const segs = 90, bw = (x1 - x0) / segs;
+      for (let s = 0; s < segs; s++) {
+        const t = s / (segs - 1) * (stops.length - 1), a = Math.min(stops.length - 2, Math.floor(t));
+        const c = lerp(stops[a], stops[a + 1], t - a).map(x => x.toFixed(3)).join(" ");
+        cs += `${c} rg ${(x0 + s * bw).toFixed(2)} ${(y1 - 3.2).toFixed(2)} ${(bw + 0.4).toFixed(2)} 3.2 re f\n`;
+      }
+      cs += "Q\n";
+      cs += `${col(spec.line || "#CFCBD8", "RG")} 0.6 w ${rr} S\n`;
+      const txt = (font, name, size, x, y, s, hex, anchor = "left") => {
+        const w = textWidth(font, s, size);
+        const tx = anchor === "right" ? x - w : anchor === "center" ? x - w / 2 : x;
+        return `BT /${name} ${size} Tf ${col(hex, "rg")} 1 0 0 1 ${tx.toFixed(2)} ${y.toFixed(2)} Tm ${pdfString(s)} Tj ET\n`;
+      };
+      // the title on top of the next pages
+      if (i > 0) {
+        cs += txt(HB, "BLRB", 7.5, 38, H - 31, fit(HB, spec.title, 7.5, W * 0.55), "#3B3946");
+        if (spec.right) cs += txt(HR, "BLRR", 7.5, W - 38, H - 31, fit(HR, spec.right, 7.5, W * 0.3), "#6B6878", "right");
+      }
+      // the foot
+      const fy = 24;
+      let fx = 38;
+      if (logo) { cs += `q 9 0 0 9 ${fx} ${fy - 2} cm /BLRL Do Q\n`; fx += 13; }
+      cs += txt(HR, "BLRR", 7, fx, fy, spec.foot || "Made with BindLens", "#8A8796");
+      if (spec.mid) cs += txt(spec.alert ? HB : HR, spec.alert ? "BLRB" : "BLRR", 7, W / 2, fy, spec.mid, spec.alert ? "#9B1C1C" : "#8A8796", "center");
+      cs += txt(HB, "BLRB", 7, W - 38, fy, `Page ${i + 1} of ${n}`, "#3B3946", "right");
+      cs += "Q\n";
+      const pobj = page.getObject();
+      let res = pobj.getInheritable("Resources");
+      if (!res || res.isNull()) { res = pdf.newDictionary(); pobj.put("Resources", res); }
+      else if (res.isIndirect()) res = res.resolve();
+      let fonts = res.get("Font");
+      if (!fonts || fonts.isNull()) { fonts = pdf.newDictionary(); res.put("Font", fonts); }
+      else if (fonts.isIndirect()) fonts = fonts.resolve();
+      fonts.put("BLRR", fR); fonts.put("BLRB", fB);
+      if (logo) {
+        let xo = res.get("XObject");
+        if (!xo || xo.isNull()) { xo = pdf.newDictionary(); res.put("XObject", xo); }
+        else if (xo.isIndirect()) xo = xo.resolve();
+        xo.put("BLRL", logo);
+      }
+      // the page's own drawing goes inside q ... Q, so ours starts from the plain page (not from its last transform)
+      const arr = pdf.newArray();
+      arr.push(pdf.addStream("q\n", {}));
+      const contents = pobj.get("Contents");
+      if (contents.isArray()) { for (let j = 0; j < contents.length; j++) arr.push(contents.get(j)); }
+      else if (!contents.isNull()) arr.push(contents);
+      arr.push(pdf.addStream("\nQ\n", {}));
+      arr.push(pdf.addStream(cs, {}));
+      pobj.put("Contents", arr);
+    }
+    // the title and the maker in the file's own details
+    try { pdf.setMetaData("info:Title", spec.title || "Report"); pdf.setMetaData("info:Creator", "BindLens"); pdf.setMetaData("info:Producer", "BindLens (MuPDF)"); } catch (e) {}
+    const u8 = pdf.saveToBuffer("garbage=1,compress").asUint8Array().slice();
     return { __transfer: [u8.buffer], value: u8 };
   },
 

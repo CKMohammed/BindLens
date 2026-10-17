@@ -1,5 +1,7 @@
 // Reports: choose what you want, where to look - and get the rows, exactly as they are in your documents.
-import { useState, useEffect } from "preact/hooks";
+// On top: a few figures, and for dates and money a chart. Rows that were not there the last time are in blue.
+// Out: a PDF in the colours of your institution (or of BindLens), a styled Excel file, CSV, or a copy.
+import { useState, useEffect, useRef } from "preact/hooks";
 import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange,
   STATUSES, setStatus } from "../state.js";
 import { parseDatesAt } from "../reports/patterns.js";
@@ -7,74 +9,20 @@ import { Dialog, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { REPORTS, runReport } from "../reports/run.js";
 import { goToWord } from "./Find.jsx";
-import { download, escapeHtml, fmtDate, uniqueName, isoDate, uid, brandOf, mix } from "../util.js";
+import { download, fmtDate, uniqueName, isoDate, uid } from "../util.js";
 import { call } from "../docs.js";
+import { idb } from "../idb.js";
+import { countOf, summaryOf, chartOf, chartSvg, repTheme, visibleCols, toTsv, toCsv, reportXlsx, reportPdfHtml, reportPdfSpec,
+  printsOf, markNew, rowPrint } from "../reports/out.js";
 
-function visibleCols(columns, rows) {
-  return columns.map((c, j) => j).filter(j => rows.some(r => (r.cells[j] || "").toString().trim() !== ""));
-}
+// the reports most people need, first; the others under More reports
+export const ESSENTIALS = ["contacts", "deadlines", "money", "tables", "case", "find", "person", "marks"];
 
-function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
-
-function asSheets(rep) {
-  if (rep.pictures) return [{ name: rep.title, rows: [["Name or value", "Where", "The row"], ...rep.pictures.flatMap(sc => sc.items.map(it => [sc.title, it.title, it.text || ""]))] }];
-  if (rep.tables) return rep.tables.map(t => ({ name: t.title, rows: [...(t.header ? [t.header] : []), ...t.rows] }));
-  const cols = visibleCols(rep.columns, rep.rows);
-  return [{ name: rep.title, rows: [cols.map(j => rep.columns[j]), ...rep.rows.map(r => cols.map(j => r.cells[j] ?? ""))] }];
-}
-
-async function toXlsx(rep) {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
-  const used = new Set();
-  for (const s of asSheets(rep)) {
-    let name = s.name.replace(/[\\/?*[\]:]/g, " ").slice(0, 28) || "Rows";
-    let k = 2;
-    while (used.has(name.toLowerCase())) name = name.slice(0, 25) + " " + k++;
-    used.add(name.toLowerCase());
-    const ws = XLSX.utils.aoa_to_sheet(s.rows);
-    ws["!cols"] = (s.rows[0] || []).map((_, j) => ({ wch: Math.min(60, Math.max(10, ...s.rows.map(r => String(r[j] ?? "").length))) }));
-    XLSX.utils.book_append_sheet(wb, ws, name);
-  }
-  return XLSX.write(wb, { type: "array", bookType: "xlsx" });
-}
-
-function toTsv(rep) {
-  return asSheets(rep).map(s => (rep.tables ? s.name + "\n" : "") + s.rows.map(r => r.map(c => String(c ?? "").replace(/\t|\n/g, " ")).join("\t")).join("\n")).join("\n\n");
-}
-
-function toCsv(rep) {
-  const q = (c) => { const s = String(c ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  return "﻿" + asSheets(rep).map(s => s.rows.map(r => r.map(q).join(",")).join("\r\n")).join("\r\n\r\n");
-}
-
-function toHtml(rep) {
-  const br = brandOf(settings.value);
-  const head = br && br.reports !== false ? `<table style="width:100%;border-collapse:collapse;border-bottom:3pt solid ${br.c1};margin:0 0 10pt"><tr>${br.logo ? `<td style="border:0;padding:0 8pt 5pt 0;width:1%"><img src="${br.logo}" style="height:30pt"></td>` : ""}<td style="border:0;padding:0 0 5pt;vertical-align:bottom"><b style="color:${br.accent};font-size:11pt;letter-spacing:.04em">${escapeHtml(br.name || "")}</b></td></tr></table>` : "";
-  let h = `${head}<h1${br && br.reports !== false ? ` style="color:${br.accent}"` : ""}>${escapeHtml(rep.title)}</h1><p style="color:#666">${escapeHtml(rep.where)} · ${fmtDate(new Date())} · BindLens</p>`;
-  if (rep.pictures) {
-    for (const sc of rep.pictures) {
-      h += `<h3>${escapeHtml(sc.title)}</h3>`;
-      if (!sc.items.length) h += "<p>Not found.</p>";
-      for (const it of sc.items) {
-        h += `<p style="margin:8pt 0 2pt;color:#555;font-size:8pt">${escapeHtml(it.title)}</p>`;
-        h += it.png ? `<p style="margin:0"><img src="data:image/png;base64,${b64(it.png)}" style="width:${Math.min(780, Math.round(it.w || 500))}px"></p>` : `<p>${escapeHtml(it.text || "")}</p>`;
-      }
-    }
-    return h;
-  }
-  for (const s of asSheets(rep)) {
-    if (rep.tables) h += `<h3>${escapeHtml(s.name)}</h3>`;
-    h += "<table>" + s.rows.map((r, i) => "<tr>" + r.map(c => (i === 0 ? "<th>" : "<td>") + escapeHtml(c) + (i === 0 ? "</th>" : "</td>")).join("") + "</tr>").join("") + "</table>";
-  }
-  return h;
-}
-const PDF_CSS0 = "body{font-family:sans-serif;font-size:9pt} h1{font-size:16pt;margin:0} table{border-collapse:collapse;width:100%;margin:6pt 0 12pt} td,th{border:0.5pt solid #bbb;padding:3pt 4pt;text-align:left;vertical-align:top} th{background:#eee}";
-// the reports in the institution's colours, when it has them (Settings > Colours)
-function pdfCss() {
-  const br = brandOf(settings.value);
-  if (!br || br.reports === false) return PDF_CSS0;
-  return PDF_CSS0 + ` th{background:${br.soft};color:${br.accent}} h3{color:${br.accent}} td,th{border-color:${mix(br.c1, "#FFFFFF", 0.6)}}`;
+export async function reportPdf(rep) {
+  const { html, css, theme } = await reportPdfHtml(rep);
+  const raw = await call("htmlToPdf", html, css, 842, 595, "46pt 38pt 42pt 38pt");
+  const spec = await reportPdfSpec(rep, theme);
+  return call("decorateReport", raw, spec);
 }
 
 // right-click on a row: open its page, a reminder on its date, the status of its file, copy it
@@ -104,6 +52,40 @@ function Pic({ png, w }) {
   return u ? <img src={u} alt="" style={{ width: w ? Math.round(w * 1.25) + "px" : undefined, maxWidth: "100%", display: "block", border: "1px solid var(--line)", borderRadius: 6, background: "#fff" }} /> : null;
 }
 
+// the figures on top
+function Summary({ rep }) {
+  const s = summaryOf(rep);
+  if (!s.length) return null;
+  return (
+    <div class="repsum">
+      {s.map((x, i) => <div key={i} class="rs"><b>{x.v}</b><span>{x.st ? <i class={"rsd " + x.st} /> : null}{x.l}</span></div>)}
+      {rep.newCount > 0 && <div class="rs new"><b>{rep.newCount}</b><span><i class="rsd new" />New since {fmtDate(rep.newSince)}</span></div>}
+    </div>
+  );
+}
+
+// the chart: drawn once as SVG; pointing at a column or a bar says what it is
+function RepChart({ ch }) {
+  const [tip, setTip] = useState(null);
+  const box = useRef();
+  const dark = document.documentElement.dataset.theme === "dark";
+  const { svg } = chartSvg(ch, repTheme(), { w: 760, dark });
+  const move = (e) => {
+    const i = e.target?.dataset?.i;
+    if (i == null) { setTip(null); return; }
+    const it = ch.items[+i];
+    const r = box.current.getBoundingClientRect();
+    setTip({ x: e.clientX - r.left, y: e.clientY - r.top, v: ch.kind === "col" ? `${it.v} ${it.v === 1 ? ch.unit[0] : ch.unit[1]}` : (it.text || String(it.v)), l: it.tip || it.label });
+  };
+  return (
+    <div class="repchart" ref={box} onPointerMove={move} onPointerLeave={() => setTip(null)}>
+      <div class="rc-h"><b>{ch.title}</b><span class="tiny muted">{ch.sub}</span></div>
+      <div class="rc-svg" dangerouslySetInnerHTML={{ __html: svg }} />
+      {tip && <div class="rc-tip" style={{ left: Math.min(tip.x + 12, (box.current?.clientWidth || 600) - 180) + "px", top: tip.y - 44 + "px" }}><b>{tip.v}</b><span>{tip.l}</span></div>}
+    </div>
+  );
+}
+
 function RowsTable({ rep, onGo }) {
   if (rep.pictures) {
     return rep.pictures.map((sc, i) => (
@@ -124,11 +106,11 @@ function RowsTable({ rep, onGo }) {
     return rep.tables.map((t, i) => (
       <div key={i} style={{ marginBottom: 16 }}>
         <div class="row" style={{ marginBottom: 6 }}><b class="grow">{t.title}</b><span class="tiny muted">{t.rows.length} rows</span>
-          <button class="btn plain small" onClick={() => onGo(t.go)}>Open</button></div>
+          {t.go && <button class="btn plain small" onClick={() => onGo(t.go)}>Open</button>}</div>
         <div class="rep-out" style={{ maxHeight: "40vh" }}>
           <table class="rows">
             {t.header && <thead><tr>{t.header.map((h, j) => <th key={j}>{h}</th>)}</tr></thead>}
-            <tbody>{t.rows.map((r, k) => <tr key={k} onContextMenu={(e) => rowMenu(e, r, t.go, onGo)}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
+            <tbody>{t.rows.map((r, k) => <tr key={k} class={t.isNew && t.isNew[k] ? "new" : ""} onContextMenu={(e) => rowMenu(e, r, t.go, onGo)}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
           </table>
         </div>
       </div>
@@ -136,30 +118,64 @@ function RowsTable({ rep, onGo }) {
   }
   if (!rep.rows.length) return <p class="muted">Nothing found here.</p>;
   const cols = visibleCols(rep.columns, rep.rows);
+  const stCol = rep.stCol || "When";
   return (
     <div class="rep-out">
       <table class="rows">
         <thead><tr>{cols.map(j => <th key={j}>{rep.columns[j]}</th>)}</tr></thead>
         <tbody>
-          {rep.rows.map((r, k) => (
-            <tr key={k} class="click" title="Double-click to open the page · right-click for more" onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
-              {cols.map(j => <td key={j}>{rep.columns[j] === "When" && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : rep.id === "compare" && j === 0 ? <span class={"chipst " + (r.cells[0] === "Changed" ? "warn" : r.cells[0].includes("first") ? "bad" : "ok")}>{r.cells[j]}</span> : r.cells[j]}</td>)}
+          {rep.rows.slice(0, 3000).map((r, k) => (
+            <tr key={k} class={"click" + (r.isNew ? " new" : "")} title={(r.isNew ? "New since the last time · " : "") + "Double-click to open the page · right-click for more"} onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
+              {cols.map(j => <td key={j}>{rep.columns[j] === stCol && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : rep.id === "compare" && j === 0 ? <span class={"chipst " + (r.cells[0] === "Changed" ? "warn" : r.cells[0].includes("first") ? "bad" : "ok")}>{r.cells[j]}</span> : r.cells[j]}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
+      {rep.rows.length > 3000 && <p class="tiny muted" style={{ padding: "6px 10px" }}>The first 3,000 rows are here; Excel, CSV and the PDF have all {rep.rows.length.toLocaleString("en-GB")}.</p>}
     </div>
   );
 }
 
-export function Reports({ compare, pickId }) {
+function ago(t) {
+  if (!t) return "";
+  const s = (Date.now() - t) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  if (s < 86400 * 7) return Math.round(s / 86400) + (s < 86400 * 2 ? " day ago" : " days ago");
+  return fmtDate(new Date(t));
+}
+
+// the reports you made: open one again (the rows are read again, so they are as the documents are now)
+export function ReportsMade({ onOpen, max = 8, compact = false }) {
+  const runs = (settings.value.repRuns || []).slice(0, max);
+  if (!runs.length) return null;
+  return (
+    <div class={"repmade" + (compact ? " compact" : "")}>
+      {runs.map((r, i) => {
+        const def = REPORTS.find(x => x.id === r.id);
+        return (
+          <button key={i} class="rm" onClick={() => onOpen(r)} title={"Make it again: " + r.title}>
+            <Icon n={def?.icon || "reports"} size={17} />
+            <span class="grow rm-t"><b class="ellipsis">{r.title}</b><span class="tiny muted ellipsis">{r.where || ""}{r.rows != null ? ` · ${r.rows} row${r.rows === 1 ? "" : "s"}` : ""} · {r.at ? ago(r.at) : r.when}</span></span>
+            <span class="rm-go"><Icon n="refresh" size={14} />{compact ? "" : "Open again"}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function Reports({ compare, pickId, rerun }) {
   const [pick, setPick] = useState(() => (pickId && REPORTS.find(r => r.id === pickId)) || null);
   const [scope, setScope] = useState(currentBook.value ? "book" : "all");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(null);
   const [rep, setRep] = useState(null);
+  const [more, setMore] = useState(() => { try { return localStorage.getItem("bl-repmore") === "1"; } catch (e) { return false; } });
   const [some, setSome] = useState(() => settings.value.repBooks || (currentBook.value ? [currentBook.value.id] : []));
+  const [making, setMaking] = useState("");
   const close = () => { panel.value = null; };
   const toggleSome = (id) => { const n = some.includes(id) ? some.filter(x => x !== id) : [...some, id]; setSome(n); setSetting("repBooks", n); };
   const book = currentBook.value;
@@ -180,25 +196,44 @@ export function Reports({ compare, pickId }) {
       setBusy(null);
     })();
   }, [compare?.a, compare?.b]);
+  useEffect(() => { if (rerun) { setQ(rerun.q || ""); run(rerun.id, rerun.scope, rerun.q || "", rerun); } }, [rerun]);
 
-  const run = async (id = pick?.id, sc = scope, qq = q) => {
+  // where to look: this book, this document, all books, or some books (kept with the run, to make it again later)
+  const resolve = (sc, saved) => {
+    if (sc === "some") { const ids = saved?.ids || some; const list = books.value.filter(b => ids.includes(b.id)); return { list, ids, where: list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books` }; }
+    if (sc === "book" || sc === "doc") {
+      const b = books.value.find(x => x.id === (saved?.ids?.[0] || book?.id));
+      if (b && sc === "book") return { list: [b], ids: [b.id], where: `Book: ${b.name}` };
+      const f = b && b.files.find(x => x.id === (saved?.fid || file?.id));
+      if (b && f) return { list: [{ ...b, files: [f] }], ids: [b.id], fid: f.id, where: `Document: ${f.name}` };
+    }
+    return { list: books.value, ids: [], where: "All books" };
+  };
+
+  const run = async (id = pick?.id, sc = scope, qq = q, saved = null) => {
     const def = REPORTS.find(r => r.id === id);
     if (!def) return;
     if (def.ask && !qq.trim()) { setPick(def); return; }
-    let list, where;
-    if (sc === "some") { list = books.value.filter(b => some.includes(b.id)); where = list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books`; if (!list.length) { toast("Choose the books to look in."); return; } }
-    else if (sc === "book" && book) { list = [book]; where = `Book: ${book.name}`; }
-    else if (sc === "doc" && book && file) { list = [{ ...book, files: [file] }]; where = `Document: ${file.name}`; }
-    else { list = books.value; where = "All books"; }
+    const { list, ids, fid, where } = resolve(sc, saved);
+    if (sc === "some" && !list.length) { toast("Choose the books to look in."); return; }
     setPick(def);
     setRep(null);
     setBusy({ n: 0, of: list.reduce((a, b) => a + b.files.length, 0), name: "" });
     try {
       const r = await runReport(id, list, { q: qq.trim(), progress: (n, of, name) => setBusy({ n, of, name }) });
       const title = def.title + (def.ask ? `: ${qq.trim()}` : "");
-      setRep({ ...r, title, where, id });
-      const runs = [{ id, scope: sc, q: qq.trim(), title, when: fmtDate(new Date()) }, ...(settings.value.repRuns || []).filter(x => !(x.id === id && x.q === qq.trim()))].slice(0, 8);
-      setSetting("repRuns", runs);
+      const full = { ...r, title, where, id };
+      // what is new since the last time this same report was made
+      const key = `rep:${id}|${sc}|${ids.join(",")}|${fid || ""}|${qq.trim().toLowerCase()}`;
+      try {
+        const prev = await idb.get("kv", key);
+        full.newCount = markNew(full, prev);
+        if (full.newCount) full.newSince = prev.at;
+        await idb.set("kv", key, { at: Date.now(), hashes: printsOf(full).slice(0, 60000) });
+      } catch (e) {}
+      setRep(full);
+      const entry = { id, scope: sc, ids, fid, q: qq.trim(), title, where, rows: countOf(full), at: Date.now(), when: fmtDate(new Date()) };
+      setSetting("repRuns", [entry, ...(settings.value.repRuns || []).filter(x => !(x.id === id && (x.q || "") === qq.trim() && x.scope === sc && (x.ids || []).join(",") === ids.join(",")))].slice(0, 12));
     } catch (e) {
       toast("The report did not finish: " + e.message, "bad");
     }
@@ -214,41 +249,61 @@ export function Reports({ compare, pickId }) {
     goToWord(b, f, go.page || 0, String(go.q || "").slice(0, 60));
   };
 
-  const saveInBook = async (e) => {
+  const fileBase = () => `${rep.title.replace(/[\\/:*?"<>|]/g, " ").trim()} - ${fmtDate(new Date())}`;
+  const busyDo = async (what, fn) => { setMaking(what); try { await fn(); } catch (e) { toast("Could not make it: " + (e.message || e), "bad"); } setMaking(""); };
+  const asPdf = () => busyDo("pdf", async () => { const u8 = await reportPdf(rep); window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank"); });
+  const asXlsx = () => busyDo("xlsx", async () => download(await reportXlsx(rep), fileBase() + ".xlsx"));
+  const saveIn = (pdf, b) => busyDo(pdf ? "pdf" : "xlsx", async () => {
+    const bytes = pdf ? await reportPdf(rep) : await reportXlsx(rep);
+    const name = uniqueName(`${fileBase()}.${pdf ? "pdf" : "xlsx"}`, b.files.map(f => f.name));
+    const f = await store.value.create(b.id, name, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    addFileToBook(b.id, f);
+    logChange("Saved the report", name, b.name);
+    toast(`Saved "${name}" in "${b.name}".`, "ok");
+  });
+  const saveInBook = (e) => {
+    const list = (pdf) => books.value.map(b => ({ label: b.name, swatch: b.color, run: () => saveIn(pdf, b) }));
     openMenu(e, [
-      { title: rep.pictures ? "Save the PDF in..." : "Save the Excel file in..." },
-      ...books.value.map(b => ({ label: b.name, swatch: b.color, run: async () => {
-        const pdf = !!rep.pictures;
-        const bytes = pdf ? await call("htmlToPdf", toHtml(rep), pdfCss(), 842, 595, 30) : await toXlsx(rep);
-        const name = uniqueName(`${rep.title.replace(/[\\/:*?"<>|]/g, " ")} - ${fmtDate(new Date())}.${pdf ? "pdf" : "xlsx"}`, b.files.map(f => f.name));
-        const f = await store.value.create(b.id, name, pdf ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes, pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        addFileToBook(b.id, f);
-        logChange("Saved the report", name, b.name);
-        toast(`Saved "${name}" in "${b.name}".`, "ok");
-      } })),
+      { title: "Save the report in a book" },
+      { label: "As a PDF", icon: "file", sub: list(true) },
+      !rep.pictures && { label: "As an Excel file", icon: "excel", sub: list(false) },
     ]);
   };
 
-  const shown = REPORTS.filter(r => !filter || (r.title + " " + r.desc).toLowerCase().includes(filter.toLowerCase()));
-  const count = rep ? (rep.pictures ? rep.pictures.reduce((a, sc) => a + sc.items.length, 0) : rep.tables ? rep.tables.reduce((a, t) => a + t.rows.length, 0) : rep.rows.length) : 0;
+  const match = (r) => !filter || (r.title + " " + r.desc).toLowerCase().includes(filter.toLowerCase());
+  const ess = ESSENTIALS.map(id => REPORTS.find(r => r.id === id)).filter(Boolean).filter(match);
+  const rest = REPORTS.filter(r => !ESSENTIALS.includes(r.id)).filter(match);
+  const count = rep ? countOf(rep) : 0;
+  const ch = rep && !rep.pictures ? chartOf(rep) : null;
+  const card = (r) => (
+    <button key={r.id} class={"cardopt" + (pick?.id === r.id ? " on" : "")} onClick={() => { setPick(r); if (!r.ask) run(r.id); }}>
+      <Icon n={r.icon} /><span><b>{r.title}</b><span class="small muted">{r.desc}</span></span>
+    </button>
+  );
+  const showMore = more || !!filter;
 
   return (
     <Dialog title={rep ? rep.title : "Reports"} icon="reports" onClose={close} cls="wide"
       foot={rep ? <>
         <button class="btn plain" onClick={() => setRep(null)}><Icon n="left" size={17} />Other reports</button>
-        <span class="grow small muted">{count} row{count === 1 ? "" : "s"} · {rep.where}</span>
+        <span class="grow small muted">{count.toLocaleString("en-GB")} row{count === 1 ? "" : "s"}{rep.newCount ? <b class="newn"> · {rep.newCount} new</b> : null} · {rep.where}</span>
         <button class="btn plain" onClick={() => { navigator.clipboard?.writeText(toTsv(rep)); toast("Copied: paste it in Excel or a document."); }}><Icon n="copy" size={17} />Copy</button>
-        <button class="btn plain" onClick={async () => download(await toXlsx(rep), rep.title + ".xlsx")}><Icon n="excel" size={17} />Excel</button>
-        <button class="btn plain hide-phone" onClick={() => download(toCsv(rep), rep.title + ".csv", "text/csv")}>CSV</button>
-        <button class="btn plain" onClick={async () => { const u8 = await call("htmlToPdf", toHtml(rep), pdfCss(), 842, 595, 30); window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank"); }}><Icon n="print" size={17} />PDF</button>
-        <button class="btn" onClick={saveInBook}><Icon n="drive" size={17} />Save in a book</button>
+        {!rep.pictures && <button class="btn plain" disabled={!!making} onClick={asXlsx}><Icon n="excel" size={17} />{making === "xlsx" ? "Making..." : "Excel"}</button>}
+        <button class="btn plain hide-phone" onClick={() => download(toCsv(rep), fileBase() + ".csv", "text/csv")}>CSV</button>
+        <button class="btn plain" disabled={!!making} onClick={asPdf}><Icon n="print" size={17} />{making === "pdf" ? "Making..." : "PDF"}</button>
+        <button class="btn" disabled={!!making} onClick={saveInBook}><Icon n="drive" size={17} />Save in a book</button>
       </> : null}>
       {busy ? (
         <div style={{ textAlign: "center", padding: 30 }}>
           <div class="spinner" />
           <p class="muted small">Reading {busy.name || "your documents"}... {busy.n} of {busy.of}</p>
         </div>
-      ) : rep ? <RowsTable rep={rep} onGo={onGo} /> : <>
+      ) : rep ? <>
+        <Summary rep={rep} />
+        {rep.id === "case" && rep.facts?.without > 0 && <p class="small muted" style={{ margin: "0 0 10px" }}><Icon n="checklist" size={14} /> {rep.facts.without} book{rep.facts.without === 1 ? " has" : "s have"} no checklist yet: the Checklist tab of a book (or a template) says which documents it needs.</p>}
+        {ch && <RepChart ch={ch} />}
+        <RowsTable rep={rep} onGo={onGo} />
+      </> : <>
         <div class="row wrap" style={{ marginBottom: 12 }}>
           <span class="small muted">Look in</span>
           {book && <button class={"btn small " + (scope === "book" ? "" : "plain")} onClick={() => setScope("book")}>This book ({book.name})</button>}
@@ -266,12 +321,6 @@ export function Reports({ compare, pickId }) {
             ))}
           </div>
         )}
-        {(settings.value.repRuns || []).length > 0 && !filter && (
-          <div class="row wrap" style={{ marginBottom: 12 }}>
-            <span class="tiny muted">Made lately:</span>
-            {(settings.value.repRuns || []).map((r, i) => <button key={i} class="btn soft small" onClick={() => { setQ(r.q || ""); run(r.id, r.scope, r.q || ""); }}>{r.title}</button>)}
-          </div>
-        )}
         {pick && pick.ask && (
           <div class="cardopt on" style={{ marginBottom: 12, alignItems: "center" }}>
             <Icon n={pick.icon} /><b style={{ flex: "none" }}>{pick.title}</b>
@@ -279,15 +328,22 @@ export function Reports({ compare, pickId }) {
             <button class="btn" disabled={!q.trim()} onClick={() => run(pick.id)}>Make it</button>
           </div>
         )}
-        <div class="rep-list">
-          {shown.map(r => (
-            <button key={r.id} class={"cardopt" + (pick?.id === r.id ? " on" : "")} onClick={() => { setPick(r); if (!r.ask) run(r.id); }}>
-              <Icon n={r.icon} /><span><b>{r.title}</b><span class="small muted">{r.desc}</span></span>
-            </button>
-          ))}
-        </div>
-        <p class="tiny muted" style={{ marginBottom: 0 }}>Reports show the rows exactly as they are written in your documents - nothing is rewritten or summarised. Double-click a row to open its page.</p>
+        {!filter && (settings.value.repRuns || []).length > 0 && <>
+          <div class="rep-sec">Reports you made</div>
+          <ReportsMade max={4} onOpen={(r) => { setQ(r.q || ""); setScope(r.scope); run(r.id, r.scope, r.q || "", r); }} />
+        </>}
+        {ess.length > 0 && <div class="rep-sec">The essentials</div>}
+        <div class="rep-list">{ess.map(card)}</div>
+        {rest.length > 0 && <>
+          <button class="rep-more" onClick={() => { const v = !more; setMore(v); try { localStorage.setItem("bl-repmore", v ? "1" : "0"); } catch (e) {} }}>
+            <Icon n={showMore ? "down" : "right"} size={14} />More reports <span class="muted">({rest.length})</span>
+          </button>
+          {showMore && <div class="rep-list">{rest.map(card)}</div>}
+        </>}
+        <p class="tiny muted" style={{ margin: "12px 0 0" }}>Reports show the rows exactly as they are written in your documents - nothing is rewritten or summarised. Double-click a row to open its page; rows new since the last time are in blue.</p>
       </>}
     </Dialog>
   );
 }
+
+export { rowPrint };
