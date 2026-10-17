@@ -133,8 +133,10 @@ export class DemoStore {
     return { ...f };
   }
 
-  async create(bookId, name, bytes, mime) {
+  async create(bookId, name, bytes, mime, opt = {}) {
     const buf = bytes instanceof ArrayBuffer ? bytes : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    // the example library has no network: it shows the progress all the same, quickly
+    if (opt.onProgress) for (let k = 1; k <= 4; k++) { if (opt.signal?.aborted) throw Object.assign(new Error("Stopped"), { name: "AbortError" }); await new Promise(r => setTimeout(r, Math.min(400, 60 + buf.byteLength / 40000))); opt.onProgress(buf.byteLength * k / 4, buf.byteLength); }
     const w = this.placeOf(bookId);
     const f = { id: "f-" + uid(), name, mime, size: buf.byteLength, modified: new Date().toISOString(), md5: uid(), book: w ? w.book : bookId, parent: bookId, sub: w ? w.path : "" };
     this.files.push(f);

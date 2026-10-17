@@ -47,29 +47,12 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
     book = currentBook.value || books.value[0] || await newBook();
     if (!book) return [];
   }
-  const made = [];
+  if (store.value.offline) { toast("You are offline: new files can be added when the network is back.", "bad"); return []; }
   const where = parent || book.id;
-  const taken = [...book.files.filter(f => (f.parent || book.id) === where).map(f => f.name)];
-  let n = 0;
-  if (!quiet) toast(files.length === 1 ? `Adding ${files[0].name}...` : `Adding ${files.length} files...`);
-  for (const f of files) {
-    try {
-      const name = uniqueName(cleanName(f.name) || "file", taken);
-      taken.push(name);
-      const bytes = await f.arrayBuffer();
-      const made1 = await store.value.create(where, name, bytes, f.type || mimeOf(name));
-      made1.parent = where;
-      addFileToBook(book.id, made1);
-      logChange("Added", name, book.name);
-      made.push(made1);
-      n++;
-    } catch (e) {
-      toast(`Could not add ${f.name}: ${e.message}`, "bad", 6000);
-    }
-  }
-  if (n && !quiet) toast(n === 1 ? `Added to "${book.name}" in your Drive.` : `${n} files added to "${book.name}" in your Drive.`, "ok");
-  if (open && made.length) openBook(book.id, made[0].id);
-  return made;
+  // the panel in the corner shows them going up (three at a time); the first opens as soon as it is in
+  const { queueUploads } = await import("./uploads.js");
+  void quiet;
+  return queueUploads(files.filter(f => !f.name.startsWith(".")).map(file => ({ file, bookId: book.id, where })), { open });
 }
 
 export async function addFromDrive(book) {
@@ -342,8 +325,7 @@ export async function addFolder(book = null) {
   if (!book) book = await newBook(top);
   if (!book) return;
   const subIds = new Map((book.subs || []).map(x => [x.path, x]));
-  let n = 0;
-  toast(`Adding ${files.length} files...`);
+  const jobs = [];
   for (const f of files) {
     if (f.name.startsWith(".")) continue;
     const parts = (f.webkitRelativePath || f.name).split("/").slice(1, -1);   // the folders inside the chosen one
@@ -359,21 +341,25 @@ export async function addFolder(book = null) {
       }
       parent = subIds.get(path);
     }
-    const cur = books.value.find(b => b.id === book.id);
-    await uploadFiles(cur, [f], { open: false, quiet: true, parent: parent ? parent.id : null }).then(m => { n += m.length; });
+    jobs.push({ file: f, bookId: book.id, where: parent ? parent.id : book.id });
   }
-  toast(`${n} files added to "${book.name}".`, "ok");
+  // the folders are made first; then every file goes up, three at a time, with the panel in the corner
   openBook(book.id);
+  const { queueUploads } = await import("./uploads.js");
+  await queueUploads(jobs, { open: false });
 }
 
 // documents from the computer, each one its own book
 export async function addDocsAsBooks() {
   const files = await pickFiles();
+  const jobs = [];
   for (const f of files) {
     const b = await newBook(f.name.replace(/\.[^.]+$/, ""));
-    if (b) await uploadFiles(books.value.find(x => x.id === b.id), [f], { open: false, quiet: true });
+    if (b) jobs.push({ file: f, bookId: b.id, where: b.id });
   }
-  if (files.length) toast(`${files.length} new book${files.length === 1 ? "" : "s"}.`, "ok");
+  if (!jobs.length) return;
+  const { queueUploads } = await import("./uploads.js");
+  await queueUploads(jobs, { open: false });
 }
 
 // out of BindLens, but kept in the Drive ("My Drive"): a book (its folder) or a file

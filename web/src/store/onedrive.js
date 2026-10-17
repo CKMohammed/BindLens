@@ -182,15 +182,16 @@ export class OneDriveStore {
   }
 
   // over 4 MB: an upload session, in parts of 5 MB (a multiple of 320 KB, as OneDrive wants)
-  async session(url, bytes) {
-    const s = await this.json(url, { method: "POST", headers: { "Content-Type": "application/json" },
+  async session(url, bytes, opt = {}) {
+    const s = await this.json(url, { method: "POST", signal: opt.signal, headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item: { "@microsoft.graph.conflictBehavior": "replace" } }) });
     const size = bytes.byteLength, part = 320 * 1024 * 16;
     let last;
     for (let at = 0; at < size; at += part) {
       const end = Math.min(size, at + part);
-      const r = await fetch(s.uploadUrl, { method: "PUT", headers: { "Content-Range": `bytes ${at}-${end - 1}/${size}` }, body: bytes.slice(at, end) });
+      const r = await fetch(s.uploadUrl, { method: "PUT", signal: opt.signal, headers: { "Content-Range": `bytes ${at}-${end - 1}/${size}` }, body: bytes.slice(at, end) });
       if (!r.ok) throw new Error("OneDrive: the upload stopped (" + r.status + ")");
+      if (opt.onProgress) opt.onProgress(end, size);
       last = r;
     }
     return last.json();
@@ -205,13 +206,14 @@ export class OneDriveStore {
     return f;
   }
 
-  async create(parentId, name, bytes, mime) {
+  async create(parentId, name, bytes, mime, opt = {}) {
     const path = `${G}/me/drive/items/${parentId}:/${encodeURIComponent(name)}:`;
     let it;
-    if (bytes.byteLength > 4 * 1024 * 1024) it = await this.session(`${path}/createUploadSession`, bytes);
-    else it = await this.json(`${path}/content?@microsoft.graph.conflictBehavior=rename`, { method: "PUT", headers: { "Content-Type": mime || mimeOf(name) }, body: bytes });
+    if (bytes.byteLength > 4 * 1024 * 1024) it = await this.session(`${path}/createUploadSession`, bytes, opt);
+    else it = await this.json(`${path}/content?@microsoft.graph.conflictBehavior=rename`, { method: "PUT", signal: opt.signal, headers: { "Content-Type": mime || mimeOf(name) }, body: bytes });
+    if (opt.onProgress) opt.onProgress(bytes.byteLength, bytes.byteLength);
     const f = this.norm(it);
-    if (bytes.byteLength < 60 * 1024 * 1024) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
+    if (bytes.byteLength < (opt.keep === false ? 0 : 20 * 1024 * 1024)) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
     return f;
   }
 

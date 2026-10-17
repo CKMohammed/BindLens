@@ -353,20 +353,66 @@ export class DriveStore {
     return f;
   }
 
-  async create(bookId, name, bytes, mime) {
+  // a request that says how far the bytes have gone (fetch cannot), and stops if nothing moves for a minute
+  async tokenNow() {
+    if (!this.token || Date.now() > this.expires) {
+      if (this.onNeedSignIn) await this.onNeedSignIn();
+      else await this.signIn(true);
+    }
+    return this.token;
+  }
+  xhr(method, url, { headers = {}, body = null, onProgress = null, signal = null, auth = true } = {}) {
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open(method, url);
+      for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
+      if (auth) x.setRequestHeader("Authorization", "Bearer " + this.token);
+      let last = Date.now(), stalled = false;
+      const dog = setInterval(() => { if (Date.now() - last > 60000) { stalled = true; x.abort(); } }, 5000);
+      x.upload.onprogress = (e) => { last = Date.now(); if (onProgress && e.lengthComputable) onProgress(e.loaded, e.total); };
+      const end = () => clearInterval(dog);
+      x.onload = () => { end(); resolve({ status: x.status, text: x.responseText, header: (n) => x.getResponseHeader(n) }); };
+      x.onerror = () => { end(); reject(new Error("Failed to fetch: the network stopped")); };
+      x.onabort = () => { end(); reject(stalled ? new Error("The upload stopped: nothing moved for a minute (is the network there?)") : Object.assign(new Error("Stopped"), { name: "AbortError" })); };
+      if (signal) { if (signal.aborted) { end(); reject(Object.assign(new Error("Stopped"), { name: "AbortError" })); return; } signal.addEventListener("abort", () => x.abort(), { once: true }); }
+      x.send(body);
+    });
+  }
+  driveError(r) { let msg = String(r.status); try { msg = JSON.parse(r.text).error.message || msg; } catch (e) {} return new Error("Google Drive: " + msg); }
+
+  async create(bookId, name, bytes, mime, opt = {}) {
     if (this.offline) throw new Error("You are offline: new files can be added when the network is back");
     mime = mime || mimeOf(name);
     const meta = { name, parents: [bookId] };
+    const { onProgress = null, signal = null } = opt;
     let json;
-    if (bytes.byteLength > 4 * 1024 * 1024) json = await this.resumable("POST", `${UP}/files?fields=${FIELDS}`, meta, bytes, mime);
-    else {
-      const form = new FormData();
-      form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
-      form.append("file", new Blob([bytes], { type: mime }));
-      json = await (await this.fetch(`${UP}/files?uploadType=multipart&fields=${FIELDS}`, { method: "POST", body: form })).json();
+    if (bytes.byteLength > 4 * 1024 * 1024) {
+      // big files: Google gives an address for the bytes, then they go up with their progress
+      const start = await this.fetch(`${UP}/files?fields=${FIELDS}&uploadType=resumable`, {
+        method: "POST", signal, headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": mime, "X-Upload-Content-Length": String(bytes.byteLength) },
+        body: JSON.stringify(meta),
+      });
+      const loc = start.headers.get("Location") || start.headers.get("location");
+      if (!loc) throw new Error("Google Drive did not start the upload");
+      const r = await this.xhr("PUT", loc, { headers: { "Content-Type": mime }, body: bytes, onProgress, signal, auth: false });
+      if (r.status >= 300) throw new Error("Google Drive: the upload stopped (" + r.status + ")");
+      json = JSON.parse(r.text);
+    } else {
+      const form = () => {
+        const fd = new FormData();
+        fd.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+        fd.append("file", new Blob([bytes], { type: mime }));
+        return fd;
+      };
+      await this.tokenNow();
+      let r = await this.xhr("POST", `${UP}/files?uploadType=multipart&fields=${FIELDS}`, { body: form(), onProgress, signal });
+      if (r.status === 401) { this.token = null; await this.tokenNow(); r = await this.xhr("POST", `${UP}/files?uploadType=multipart&fields=${FIELDS}`, { body: form(), onProgress, signal }); }
+      if (r.status >= 300) throw this.driveError(r);
+      json = JSON.parse(r.text);
     }
     const f = this.norm(json);
-    if (bytes.byteLength < 60 * 1024 * 1024) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
+    // a copy in this browser opens it at once - only for files that are not big (a big copy is slow to keep)
+    if (bytes.byteLength < (opt.keep === false ? 0 : 20 * 1024 * 1024)) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
     return f;
   }
 

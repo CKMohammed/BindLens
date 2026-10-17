@@ -1114,3 +1114,29 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .sc-item:hover{background:var(--bg)}
 .sc-item > svg{color:var(--muted);flex:none}
 .sc-ico{width:22px;height:22px;border-radius:6px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
+
+/* ---------- 1.0 adding files: the panel in the corner */
+.upq{position:fixed;right:calc(var(--fwr) + 14px);bottom:calc(var(--fw) + 14px);width:min(360px,calc(100vw - 32px));z-index:70;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;animation:pop .2s}
+.upq-h{display:flex;align-items:center;gap:8px;padding:10px 10px 8px 12px}
+.upq-h b{font-size:14px}
+.upq-h .ib{width:28px;height:28px}
+.upq-i{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);flex:none}
+.upq.alldone .upq-i{background:#DDF3E8;color:var(--ok)} .upq.hasbad .upq-i{background:#FDE3E3;color:var(--bad)}
+.upq-i.spin svg{animation:upbob 1.1s ease-in-out infinite}
+@keyframes upbob{0%,100%{transform:translateY(1px)}50%{transform:translateY(-2px)}}
+.upq-bar{height:3px;background:var(--line);margin:0 12px 6px;border-radius:3px;overflow:hidden}
+.upq-bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+.upq.alldone .upq-bar i{background:var(--ok)}
+.upq-list{max-height:min(260px,40vh);overflow:auto;padding:0 6px 6px}
+.upq-r{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px}
+.upq-r:hover{background:var(--bg)}
+.upq-s{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none;color:var(--faint)}
+.upq-r.ok .upq-s{color:var(--ok)} .upq-r.bad .upq-s,.upq-r.stop .upq-s{color:var(--bad)}
+.upq-r .sdot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s ease-in-out infinite}
+.upq-n{display:flex;flex-direction:column;min-width:0;font-size:13px}
+.upq-n .tiny{color:var(--muted)} .upq-r.bad .upq-n .tiny{color:var(--bad)}
+.upq-r .btn.small{padding:3px 8px;font-size:12px}
+.upq-f{display:flex;align-items:center;gap:8px;padding:8px 12px 10px;border-top:1px solid var(--line)}
+.upq.small .upq-bar{margin-bottom:10px}
+@media (max-width:760px){.upq{right:12px;left:12px;width:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 72px)}}

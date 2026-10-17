@@ -17,6 +17,7 @@ import { Icon } from "./icons.jsx";
 import { Pip } from "./Gallery.jsx";
 import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Band } from "./Band.jsx";
+import { UploadPanel } from "./Uploads.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix, brandOf } from "../util.js";
 
@@ -213,6 +214,7 @@ export function App() {
       {ready && <FrameBar />}
       {ready && panel.value && <Panels />}
       {ready && <Pip />}
+      {ready && <UploadPanel />}
       {ready && locked.value && <Lock />}
       <Modals />
       <Menu />
