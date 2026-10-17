@@ -125,6 +125,7 @@ function PageCanvas({ file, page, w, h, k, v }) {
   const vis = useRef(false);
   const wrap = useRef();
   const [drawn, setDrawn] = useState(false);
+  const [failed, setFailed] = useState("");
   const drawRef = useRef(null);
   useEffect(() => {
     const el = wrap.current;
@@ -160,13 +161,16 @@ function PageCanvas({ file, page, w, h, k, v }) {
       prio: () => (vis.current ? 10 : 0) - (want.current !== sig ? 100 : 0),
       run: async () => {
         if (want.current !== sig) return;
-        const doc = await getDoc(file);
-        const r = await call("render", doc.key, page, scale, true);
+        let r = null;
+        for (let tries = 0; tries < 2 && !r; tries++) {
+          try { const doc = await getDoc(file); r = await call("render", doc.key, page, scale, true); }
+          catch (e) { if (tries) { setFailed(String(e.message || e)); want.current = null; return; } await new Promise(z => setTimeout(z, 600)); }
+        }
         const c = ref.current;
-        if (!c) return;
+        if (!c || !r) return;
         c.width = r.w; c.height = r.h;
         c.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(r.px.buffer || r.px), r.w, r.h), 0, 0);
-        setDrawn(true);
+        setDrawn(true); setFailed("");
       },
     });
   }, [k, v, w, h]);
@@ -175,7 +179,10 @@ function PageCanvas({ file, page, w, h, k, v }) {
   return (
     <div ref={wrap} style={{ position: "absolute", inset: 0 }}>
       <canvas ref={ref} />
-      {!drawn && <div class="loading">Page {page + 1}</div>}
+      {!drawn && !failed && <div class="loading">Page {page + 1}</div>}
+      {failed && <div class="pagefail"><Icon n="info" size={22} /><b>Page {page + 1} could not be drawn</b><span class="tiny muted">{failed.slice(0, 120)}</span>
+        <span class="row" style={{ gap: 6 }}><button class="btn small" onClick={() => { setFailed(""); want.current = null; draw(); }}>Try again</button>
+          {store.value.webLink && <button class="btn ghost small" onClick={() => window.open(store.value.webLink(file), "_blank")}>Open it in {store.value.cloud || "Drive"}</button>}</span></div>}
     </div>
   );
 }
@@ -825,7 +832,14 @@ function InlineEdit({ ed, k, onDone }) {
   );
 }
 
-function DocBlock({ book, file, k, maxW }) {
+// "Opening..." - and after a few seconds, why it takes long
+function Opening({ file }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSlow(true), 5000); return () => clearTimeout(t); }, [file.id]);
+  return <div class="loading">{slow ? <>Still opening {file.name}{file.size ? ` (${fmtSize(file.size)})` : ""} - {["word", "excel", "powerpoint"].includes(file.kind) ? "BindLens turns it into pages first" : "a big file takes a moment"}...</> : <>Opening {file.name}...</>}</div>;
+}
+
+function DocBlock({ book, file, k, maxW, grid }) {
   const st = docState.value[file.id] || {};
   const elRef = useRef();
   useEffect(() => {
@@ -843,9 +857,11 @@ function DocBlock({ book, file, k, maxW }) {
         <div class="page" key={i} data-file={file.id} data-page={i} ref={i === 0 ? elRef : null}
           style={{ width: p.w * k * PT + "px", height: p.h * k * PT + "px" }}>
           {st.status === "ready" && <PageCanvas file={file} page={i} w={p.w} h={p.h} k={k} v={st.v || 0} />}
-          {st.status !== "ready" && <div class="loading">Opening {file.name}...</div>}
-          {st.status === "ready" && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
-          {st.status === "ready" && st.form && !st.readOnly && <FormLayer file={file} page={i} k={k} v={st.v || 0} />}
+          {st.status !== "ready" && i === 0 && <Opening file={file} />}
+          {st.status !== "ready" && i > 0 && <div class="loading">Page {i + 1}</div>}
+          {st.status === "ready" && !grid && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
+          {grid && <button class="gridpick" title={`Open page ${i + 1}`} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; fileId.value = file.id; pageNo.value = i; setTimeout(() => { scrollTo.value = { fileId: file.id, page: i }; }, 60); }} />}
+          {st.status === "ready" && st.form && !st.readOnly && !grid && <FormLayer file={file} page={i} k={k} v={st.v || 0} />}
           <span class="num">{i + 1}</span>
         </div>
       ))}
@@ -959,7 +975,10 @@ export function Viewer({ book }) {
   // the scale: fit the widest page to the window, or the zoom the user chose
   let maxPt = 595;
   for (const f of files) { const st = docState.value[f.id]; if (st && st.pages) for (const p of st.pages) maxPt = Math.max(maxPt, Math.min(p.w, 1400)); }
-  const avail = Math.max(240, W - (W < 700 ? 16 : 90));
+  // reading mode, two pages side by side: each page half the room
+  const spread = readMode.value && (settings.value.reading || {}).spread && W > 900;
+  const avail0 = Math.max(240, W - (W < 700 ? 16 : 90));
+  const avail = spread ? avail0 / 2 - 14 : avail0;
   let fitK = Math.min(avail / (maxPt * PT), readMode.value ? 1.35 : 1.6);
   if (fitPage.value) {
     const cur = docState.value[fileId.value]?.pages?.[pageNo.value] || { w: 595, h: 842 };
@@ -967,6 +986,7 @@ export function Viewer({ book }) {
   }
   const k = fitWidth.value ? fitK * zoom.value : zoom.value;
   const maxW = Math.min(avail, 900 * k);
+  const grid = !spread && maxPt * k * PT < avail * 0.36;           // small pages: side by side, a click opens one
 
   // which page is in the middle of the screen
   const onScroll = useCallback(debounce(() => {
@@ -1059,13 +1079,13 @@ export function Viewer({ book }) {
     const commit = () => {
       if (!g) return;
       const z0 = zoom.value;
-      const z = Math.max(0.3, Math.min(5, z0 * g.s));
+      const z = Math.max(0.08, Math.min(5, z0 * g.s));
       anchor.current = g.a;
       g = null;
       if (Math.abs(z - z0) < 0.005) { const inn = inner(); if (inn) inn.style.transform = ""; return; }
       zoom.value = z;
     };
-    const limit = (s) => { const z0 = zoom.value; return Math.max(0.3 / z0, Math.min(5 / z0, s)); };
+    const limit = (s) => { const z0 = zoom.value; return Math.max(0.08 / z0, Math.min(5 / z0, s)); };
     const wheel = (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
@@ -1139,14 +1159,14 @@ export function Viewer({ book }) {
       onDragLeave={(e) => { if (e.target === e.currentTarget) setDrop(false); }}
       onDrop={async (e) => { e.preventDefault(); setDrop(false); const { uploadFiles } = await import("../actions.js"); uploadFiles(book, [...e.dataTransfer.files], { open: false }); }}
       onPointerDown={(e) => { if (e.target === e.currentTarget || e.target.classList.contains("pages-in")) { selectedMark.value = null; textSel.value = null; } }}>
-      <div class="pages-in" style={{ "--pw": maxW + "px" }}>
+      <div class={"pages-in" + (grid ? " grid" : "") + (spread ? " spread" : "")} style={{ "--pw": maxW + "px" }}>
         {files.map((f) => (
           <div key={f.id} style={{ display: "contents" }}>
             {files.length > 1 && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
               <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
               {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} page{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
             </div>}
-            <DocBlock book={book} file={f} k={k} maxW={maxW} />
+            <DocBlock book={book} file={f} k={k} maxW={maxW} grid={grid} />
           </div>
         ))}
       </div>

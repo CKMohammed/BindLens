@@ -1,6 +1,8 @@
 // The top of the frame, as in the Windows app: the bar lives in the frame itself - where you are on the left
 // (logo, Home, the library, the book and the document), Find in the middle, Reports, saved and you on the right.
-import { view, readMode, leftOpen, saving, store, offline, currentBook, bookMeta, books } from "../state.js";
+import { view, readMode, leftOpen, saving, store, offline, currentBook, bookMeta, books, settings, setSetting, fileId, pageNo } from "../state.js";
+import { docState } from "./Viewer.jsx";
+import { contentsOpen } from "./Reading.jsx";
 import { goHome } from "../state.js";
 import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
@@ -22,6 +24,26 @@ function Saved() {
   return <span class="bd-saved" title={`Everything is saved in your ${where}${at ? " (" + at + ")" : ""}`}><Icon n="check" size={14} />{s.last ? "Saved · " + at : "Saved"}</span>;
 }
 
+// reading mode: where you are, and how it looks (background, two pages side by side, what is beside the page)
+function ReadingChip({ book }) {
+  const r = settings.value.reading || {};
+  const set = (ch) => setSetting("reading", { ...r, ...ch });
+  const c = settings.value.clock || {};
+  let total = 0, cur = 0;
+  for (const f of book.files) { const n = docState.value[f.id]?.pages?.length || 0; if (f.id === fileId.value) cur = total + pageNo.value + 1; total += n; }
+  return (
+    <button class="bd-chip" title="How reading mode looks" onClick={(e) => openMenu(e, [
+      { title: "Reading mode" },
+      { label: "Background", icon: "palette", sub: [["calm", "Calm"], ["soft", "Soft colours of the frame"], ["paper", "Warm paper"], ["dark", "Dark"]].map(([k, l]) => ({ label: ((r.bg || "calm") === k ? "✓ " : "") + l, run: () => set({ bg: k }) })) },
+      { label: (r.spread ? "✓ " : "") + "Two pages side by side", icon: "grid", run: () => set({ spread: !r.spread }) },
+      { label: (contentsOpen.value ? "✓ " : "") + "The contents beside the page", icon: "list", run: () => { contentsOpen.value = !contentsOpen.value; } },
+      { label: (!c.hidden ? "✓ " : "") + "The clock and the calendar", icon: "clock", run: () => setSetting("clock", { ...c, hidden: !c.hidden }) },
+      { label: (r.map !== false ? "✓ " : "") + "The map of the book", icon: "book", run: () => set({ map: r.map === false }) },
+      { label: (settings.value.night ? "✓ " : "") + "Night pages", icon: "moon", run: () => setSetting("night", !settings.value.night) },
+    ])}><Icon n="read" size={13} />Reading{total ? ` · page ${cur} of ${total}` : ""}<Icon n="down" size={10} /></button>
+  );
+}
+
 export function Band() {
   const inBook = view.value === "book";
   const book = currentBook.value;
@@ -37,7 +59,7 @@ export function Band() {
         </button>
         <Icon n="right" size={12} />
         <DocSwitch book={book} />
-        {readMode.value && <span class="bd-chip"><Icon n="read" size={13} />Reading</span>}
+        {readMode.value && <ReadingChip book={book} />}
       </>}
       <span class="grow" />
       <div class="bd-find" onClick={() => openPanel("find")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}

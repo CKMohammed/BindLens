@@ -13,13 +13,36 @@ import { openPanel } from "../actions.js";
 
 function pagesOf(f) { return docState.value[f.id]?.pages?.length || (isPaged(f.kind) ? 1 : 0); }
 
+// the parts of each document (bookmarks, a printed contents page, or its headings), found once and kept
+const secMem = new Map();
+const secTick = signal(0);
+function secKey(f) { return f.id + ":" + (f.md5 || f.modified || ""); }
+function partsOf(f) {
+  const k = secKey(f);
+  if (secMem.has(k)) return secMem.get(k);
+  secMem.set(k, null);
+  (async () => {
+    let r = { items: [] };
+    try {
+      const { readOnce, call } = await import("../docs.js");
+      if (isPaged(f.kind) && f.kind !== "image") r = await readOnce(f, (key) => call("sections", key));
+    } catch (e) { r = { items: [] }; }
+    secMem.set(k, r.items || []);
+    secTick.value++;
+  })();
+  return null;
+}
+
 function go(f, page = 0) { fileId.value = f.id; pageNo.value = page; scrollTo.value = { fileId: f.id, page }; }
 
 // the contents card (open or folded to a small button; remembered in this browser)
 export const contentsOpen = signal((() => { try { return localStorage.getItem("bl-contents") !== "0"; } catch (e) { return true; } })());
-export function Contents({ book, aloud, onAloud }) {
+export function Contents({ book, aloud, onAloud, compact }) {
   const files = visibleFiles(book);
-  const open = contentsOpen.value;
+  const open = contentsOpen.value && !compact;
+  const [shut, setShut] = useState({});
+  const [q, setQ] = useState("");
+  void secTick.value;
   const toggle = () => { contentsOpen.value = !open; try { localStorage.setItem("bl-contents", open ? "0" : "1"); } catch (e) {} };
   const total = files.reduce((a, f) => a + pagesOf(f), 0);
   let before = 0;
@@ -28,7 +51,7 @@ export function Contents({ book, aloud, onAloud }) {
   const m = bookMeta(book.id);
   const color = m.color || book.color;
   const maxP = Math.max(1, ...files.map(pagesOf));
-  if (!open) return <button class="contents-pill" onClick={toggle}><Icon n="list" size={16} />Contents <span class="muted">· {pct}%</span></button>;
+  if (!open) return <button class="contents-pill" onClick={compact ? () => { import("../state.js").then(s => { s.zoom.value = 1; s.fitWidth.value = true; }); } : toggle} title={compact ? "The page is big: the contents step aside. Click to see them (the page fits the width again)" : "Show the contents"}><Icon n="list" size={16} />Contents <span class="muted">· {pct}%</span></button>;
   let at = 0;
   return (
     <div class="contents-card" style={{ "--bk": color }}>
@@ -49,15 +72,35 @@ export function Contents({ book, aloud, onAloud }) {
         </div>
         <div class="tiny muted" style={{ textAlign: "right" }}>{total} pages<br /><b style={{ color: "var(--accent)" }}>{pct}%</b></div>
       </div>
+      {files.length > 3 || files.some(f => (secMem.get(secKey(f)) || []).length > 12) ? <div class="toc-find"><Icon n="search" size={13} /><input value={q} placeholder="Find a part" onInput={(e) => setQ(e.target.value)} /></div> : null}
       <ol class="toc">
         {files.map((f, i) => {
           const start = at + 1; at += pagesOf(f);
           const on = f.id === fileId.value;
+          const parts = (on || shut[f.id] === false) && shut[f.id] !== true ? partsOf(f) : secMem.get(secKey(f));
+          const openParts = parts && parts.length > 0 && (on ? shut[f.id] !== true : shut[f.id] === false);
+          const nq = q.trim().toLowerCase();
+          const shown = parts ? parts.filter(p => !nq || p.t.toLowerCase().includes(nq)) : [];
+          // the part you are in: the last one that starts on this page or before
+          let curPart = -1;
+          if (on && parts) parts.forEach((p, j) => { if (p.page <= pageNo.value) curPart = j; });
+          if (nq && !shown.length && !f.name.toLowerCase().includes(nq)) return null;
           return (
-            <li key={f.id} class={on ? "on" : ""} onClick={() => go(f)}>
-              <span class="no">{String(i + 1).padStart(2, "0")}</span>
-              <span class="nm">{f.sub ? <span class="muted">{f.sub} / </span> : null}{f.name.replace(/\.[^.]+$/, "")}</span>
-              <span class="dots" /><span class="pg">{isPaged(f.kind) ? start : <Icon n={fileIcon(f.kind)} size={13} />}</span>
+            <li key={f.id} class={"tocdoc" + (on ? " on" : "")}>
+              <div class="tocrow" onClick={() => go(f)}>
+                <span class="no">{String(i + 1).padStart(2, "0")}</span>
+                <span class="nm">{f.sub ? <span class="muted">{f.sub} / </span> : null}{f.name.replace(/\.[^.]+$/, "")}</span>
+                <span class="dots" /><span class="pg">{isPaged(f.kind) ? start : <Icon n={fileIcon(f.kind)} size={13} />}</span>
+                {isPaged(f.kind) && f.kind !== "image" && <button class="tocx" title={openParts ? "Hide its parts" : "Its parts"} onClick={(e) => { e.stopPropagation(); setShut({ ...shut, [f.id]: openParts ? true : false }); if (!openParts) partsOf(f); }}><Icon n={openParts ? "down" : "right"} size={12} /></button>}
+              </div>
+              {(openParts || (nq && shown.length > 0)) && <ol class="tocparts">
+                {(nq ? shown : parts).slice(0, 300).map((p, j) => (
+                  <li key={j} class={"lv" + Math.min(4, p.lvl) + (on && j === curPart && !nq ? " cur" : "")} onClick={(e) => { e.stopPropagation(); go(f, p.page); }} title={p.t}>
+                    <span class="nm">{p.t}</span><span class="pg">{start + p.page}</span>
+                  </li>
+                ))}
+              </ol>}
+              {on && parts === null && <div class="tiny muted" style={{ padding: "2px 0 4px 30px" }}>Finding its parts...</div>}
             </li>
           );
         })}
@@ -72,7 +115,29 @@ export function Contents({ book, aloud, onAloud }) {
 
 // the clock with the calendar: one small piece, discreet, in the top right corner - drag it anywhere
 const LOOKS = [["minimal", "Minimal"], ["soft", "Soft"], ["bold", "Bold"]];
-export function ClockCal({ bounds }) {
+// the map of the book beside the page, in the book's colour: each document a piece, as long as its pages; where you are
+export function BookMap({ book }) {
+  const files = visibleFiles(book).filter(f => isPaged(f.kind));
+  const total = files.reduce((a, f) => a + Math.max(1, pagesOf(f)), 0);
+  if (files.length < 1 || total < 2) return null;
+  const m = bookMeta(book.id);
+  const color = m.color || book.color;
+  let at = 0, here = 0;
+  for (const f of files) { if (f.id === fileId.value) { here = at + pageNo.value + 0.5; break; } at += Math.max(1, pagesOf(f)); }
+  at = 0;
+  return (
+    <div class="bookmap" style={{ "--bk": color }} aria-label="Where you are in the book">
+      {files.map((f, i) => {
+        const n = Math.max(1, pagesOf(f)), top = at / total * 100, h = n / total * 100; at += n;
+        return <button key={f.id} class={"bm-doc" + (f.id === fileId.value ? " on" : "")} style={{ top: top + "%", height: `calc(${h}% - 2px)`, opacity: 0.45 + 0.4 * ((i % 2) ? 0.6 : 1) }}
+          onClick={() => go(f)}><span class="bm-tip">{f.name.replace(/\.[^.]+$/, "")} · {n} page{n === 1 ? "" : "s"}</span></button>;
+      })}
+      <i class="bm-here" style={{ top: (here / total * 100) + "%" }} />
+    </div>
+  );
+}
+
+export function ClockCal({ bounds, compact }) {
   const c = settings.value.clock || {};
   const look = c.look || "minimal";
   const [now, setNow] = useState(new Date());
@@ -81,6 +146,8 @@ export function ClockCal({ bounds }) {
   const [pos, setPos] = useState(c.pos || null);           // {right, top} in px from the top right corner
   const drag = useRef(null);
   if (c.hidden) return <button class="clock-pill" title="Show the clock and the calendar" onClick={() => setSetting("clock", { ...c, hidden: false })}><Icon n="clock" size={15} /></button>;
+  // the page is big: the clock steps aside, small, so it never covers the page
+  if (compact) return <div class="clock-mini" title={now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}>{now.toLocaleTimeString(c.h12 ? "en-US" : "en-GB", { hour: "2-digit", minute: "2-digit", hour12: !!c.h12 })}</div>;
   const set = (ch) => setSetting("clock", { ...c, ...ch });
   const down = (e) => {
     if (e.target.closest("button")) return;

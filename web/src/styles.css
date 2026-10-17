@@ -1026,3 +1026,55 @@ textarea.ftext{padding:2px 3px;line-height:1.2}
 .editbar{z-index:12}
 .editbar .rseg button{font-size:12px}
 @media (min-width:761px){.home.calm .home-top > .logo-wrap{display:none} .home.calm .home-top h1{font-size:28px}}
+/* the contents: each document opens to its parts */
+.toc li.tocdoc{display:block;padding:0;margin:0;border-radius:0;cursor:default;font-size:14px}
+.toc li.tocdoc:hover{background:none}
+.toc li.tocdoc.on{background:none;box-shadow:none}
+.tocrow{display:flex;align-items:baseline;gap:8px;padding:6px 8px;margin:0 -8px;border-radius:9px;cursor:pointer}
+.tocrow:hover{background:color-mix(in srgb,var(--bk) 8%,transparent)}
+.tocdoc.on > .tocrow{background:color-mix(in srgb,var(--bk) 12%,transparent);box-shadow:inset 3px 0 0 var(--bk)}
+.tocrow .no{font:700 12.5px var(--f-display);color:var(--faint);flex:none}
+.tocrow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tocrow .dots{flex:1;min-width:10px;border-bottom:1.5px dotted var(--line2);transform:translateY(-3px)}
+.tocrow .pg{font-size:12px;color:var(--muted);flex:none}
+.tocdoc.on > .tocrow .no,.tocdoc.on > .tocrow .nm{color:color-mix(in srgb,var(--bk),#000 25%);font-weight:700}
+.tocx{border:0;background:none;width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none;align-self:center}
+.tocx:hover{background:var(--bg2)}
+.tocparts{list-style:none;margin:2px 0 6px;padding:0 0 0 22px;border-left:1.5px solid color-mix(in srgb,var(--bk) 25%,transparent);margin-left:10px}
+.tocparts li{display:flex;align-items:baseline;gap:8px;padding:3px 6px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--ink)}
+.tocparts li:hover{background:color-mix(in srgb,var(--bk) 8%,transparent)}
+.tocparts li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tocparts li .pg{font-size:11px;color:var(--faint);flex:none}
+.tocparts li.lv1{font-weight:700}
+.tocparts li.lv2{padding-left:16px}
+.tocparts li.lv3{padding-left:28px;font-size:12px;color:var(--muted)}
+.tocparts li.lv4{padding-left:40px;font-size:12px;color:var(--muted)}
+.tocparts li.cur{background:color-mix(in srgb,var(--bk) 14%,transparent);box-shadow:inset 2px 0 0 var(--bk)}
+.toc-find{display:flex;align-items:center;gap:6px;border:1px solid var(--line2);border-radius:8px;padding:0 8px;height:30px;margin:10px 0 0;color:var(--faint)}
+.toc-find input{border:0;outline:none;background:none;flex:1;min-width:0;font-size:12.5px;color:var(--ink)}
+/* the pages side by side (zoomed out), a click opens one */
+.pages-in.grid{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:22px 14px}
+.pages-in.grid .dochead{flex-basis:100%;max-width:none!important}
+.pages-in.grid .page .num{right:0;left:0;bottom:-17px;text-align:center;display:block}
+.gridpick{position:absolute;inset:0;border:0;background:transparent;cursor:zoom-in;z-index:5;border-radius:2px}
+.gridpick:hover{box-shadow:0 0 0 3px var(--accent)}
+.pagefail{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:20px;background:var(--panel2);color:var(--muted)}
+.pagefail b{color:var(--ink)}
+/* the map of the book beside the page (reading mode) */
+.bookmap{position:absolute;right:10px;top:16%;bottom:18%;width:8px;z-index:6}
+.bm-doc{position:absolute;left:0;right:0;border:0;padding:0;border-radius:4px;background:var(--bk);cursor:pointer}
+.bm-doc.on{opacity:1!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--bk) 30%,transparent)}
+.bm-doc:hover{opacity:1!important}
+.bm-tip{position:absolute;right:16px;top:50%;transform:translateY(-50%);white-space:nowrap;background:var(--brand-ink);color:#fff;font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .1s}
+.bm-doc:hover .bm-tip{opacity:1}
+.bm-here{position:absolute;left:-4px;right:-4px;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--brand-ink);box-shadow:0 0 0 1.5px #fff;pointer-events:none;transition:top .25s}
+.clock-mini{position:absolute;right:14px;top:10px;z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font:700 12.5px var(--f-display);color:var(--ink);box-shadow:var(--shadow2)}
+/* reading mode: two pages side by side, and its backgrounds */
+.pages-in.spread{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:20px 18px}
+.pages-in.spread .dochead{flex-basis:100%;max-width:none!important}
+.book-view.reading.rbg-soft .pages{background:radial-gradient(60% 50% at 15% 20%,var(--l2),transparent 70%),radial-gradient(50% 50% at 85% 30%,var(--l3),transparent 70%),radial-gradient(60% 60% at 60% 90%,var(--l1),transparent 70%),var(--bg)}
+.book-view.reading.rbg-paper .pages{background:#EFE7D8}
+.book-view.reading.rbg-dark .pages{background:#1A1A21}
+.book-view.reading.rbg-dark .dochead{color:#cfcfe0}
+button.bd-chip{border:0;cursor:pointer;color:#fff}
+button.bd-chip:hover{background:rgba(255,255,255,.28)}

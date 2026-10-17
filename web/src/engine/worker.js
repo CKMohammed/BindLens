@@ -384,6 +384,123 @@ function paperPattern(kind, w, h) {
   return s;
 }
 
+
+// ---- the parts of a document (sections)
+function secNorm(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim(); }
+const SEC_NUM = /^\s*((?:\d+|[ivxlc]+|[A-Z])(?:[.\-]\d+)*)[.)]?\s+\S/i;
+function secLevelFromNumber(t) { const m = SEC_NUM.exec(t || ""); return m && /\d/.test(m[1]) ? Math.min(4, m[1].split(/[.\-]/).length) : null; }
+// a page's text as visual rows (left to right), from the structured text: [{y, h, parts:[{x, x1, text, size, bold}]}]
+function pageRows(d, pi) {
+  const js = stextOf(d.doc.loadPage(pi));
+  const items = [];
+  for (const b of js.blocks) {
+    if (b.type !== "text") continue;
+    b.lines.forEach((l, li) => { if ((l.text || "").trim()) items.push({ x: l.bbox.x, x1: l.bbox.x + l.bbox.w, y: l.bbox.y, h: l.bbox.h, text: l.text.trim(), size: l.font?.size || 10, bold: l.font?.weight === "bold" || /bold|black|heavy/i.test(l.font?.name || ""), first: li === 0, nl: b.lines.length }); });
+  }
+  items.sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2) || a.x - b.x);
+  const rows = [];
+  for (const it of items) {
+    const yc = it.y + it.h / 2, last = rows[rows.length - 1];
+    if (last && Math.abs(yc - last.yc) <= Math.max(2, it.h * 0.45)) last.parts.push(it);
+    else rows.push({ yc, y: it.y, h: it.h, parts: [it] });
+  }
+  for (const r of rows) r.parts.sort((a, b) => a.x - b.x);
+  return rows;
+}
+function tocRow(r, pageW, nPages) {
+  const last = r.parts[r.parts.length - 1];
+  const m = /^(.*?)[\s.·…_]*?(\d{1,4})$/.exec(last.text);
+  if (!m) return null;
+  const num = Number(m[2]);
+  if (num < 1 || num > nPages * 2 + 60 || (num >= 1900 && num <= 2100 && nPages < 1900)) return null;
+  let title = [...r.parts.slice(0, -1).map(p => p.text), m[1]].join(" ").replace(/[.·…_]{2,}/g, " ").replace(/\s+/g, " ").trim();
+  const leader = /[.·…_]{3,}/.test(r.parts.map(p => p.text).join(" "));
+  if ((title.match(/\p{L}/gu) || []).length < 2 || title.length > 160) return null;
+  const gap = r.parts.length > 1 ? last.x - r.parts[r.parts.length - 2].x1 : 0;
+  if (!(leader || gap > 14 || last.x1 > pageW * 0.62)) return null;
+  return { t: title, num, x: r.parts[0].x };
+}
+function printedToc(d, n) {
+  const pages = [];
+  for (let i = 0; i < Math.min(n, 40); i++) pages.push(i);
+  if (n > 60) for (let i = Math.max(40, n - 15); i < n; i++) pages.push(i);
+  const found = [];
+  let run = [];
+  for (const pi of pages) {
+    let rows = [], pw = 595;
+    try { rows = pageRows(d, pi); pw = d.doc.loadPage(pi).getBounds()[2]; } catch (e) {}
+    const good = rows.map(r => tocRow(r, pw, n)).filter(Boolean);
+    if (good.length >= 4 && good.length >= 0.3 * Math.max(1, rows.length)) {
+      const nums = good.map(g => g.num);
+      let up = 0; for (let i = 1; i < nums.length; i++) if (nums[i] >= nums[i - 1]) up++;
+      if (up >= 0.75 * (nums.length - 1)) { const minx = Math.min(...good.map(g => g.x)); run.push({ pi, es: good.map(g => ({ ...g, x: g.x - minx })) }); continue; }
+    }
+    if (run.length) { found.push(run); run = []; }
+  }
+  if (run.length) found.push(run);
+  if (!found.length) return null;
+  const best = found.sort((a, b) => b.reduce((s, p) => s + p.es.length, 0) - a.reduce((s, p) => s + p.es.length, 0))[0];
+  const tocEnd = best[best.length - 1].pi;
+  const raw = best.flatMap(p => p.es);
+  if (raw.length < 3) return null;
+  const steps = [...new Set(raw.map(e => Math.round(e.x / 6)))].sort((a, b) => a - b);
+  const items = raw.map(e => ({ t: e.t, num: e.num, lvl: secLevelFromNumber(e.t) || Math.min(3, steps.indexOf(Math.round(e.x / 6)) + 1), key: secNorm(e.t).slice(0, 40) }));
+  // which page of the file is printed page 12: find where the first titles really are
+  const textCache = new Map();
+  const text = (pi) => { if (!textCache.has(pi)) { let t = ""; try { t = secNorm(pageRows(d, pi).map(r => r.parts.map(p => p.text).join(" ")).join(" ")); } catch (e) {} textCache.set(pi, t); } return textCache.get(pi); };
+  const offs = new Map();
+  for (const e of items.filter(x => x.key.length >= 5).slice(0, 5)) {
+    for (let pi = tocEnd + 1; pi < Math.min(n, tocEnd + 141); pi++) {
+      if (text(pi).includes(e.key)) { const o = pi - (e.num - 1); offs.set(o, (offs.get(o) || 0) + 1); break; }
+    }
+  }
+  let offset = 0;
+  if (offs.size) offset = [...offs.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  return items.map(e => ({ lvl: e.lvl, t: e.t, page: Math.max(0, Math.min(n - 1, e.num - 1 + offset)) })).slice(0, 600);
+}
+function headingSections(d, n) {
+  if (n > 600) return null;
+  const sizes = new Map(), lines = [];
+  for (let pi = 0; pi < n; pi++) {
+    let page, H = 842, js;
+    try { page = d.doc.loadPage(pi); H = page.getBounds()[3] || 842; js = stextOf(page); } catch (e) { continue; }
+    for (const b of js.blocks) {
+      if (b.type !== "text") continue;
+      b.lines.forEach((l, li) => {
+        const t = (l.text || "").trim();
+        if (!t) return;
+        const size = l.font?.size || 10;
+        const k = Math.round(size);
+        sizes.set(k, (sizes.get(k) || 0) + t.length);
+        const bold = l.font?.weight === "bold" || /bold|black|heavy/i.test(l.font?.name || "");
+        lines.push({ pi, yr: l.bbox.y / H, t, size, bold, first: li === 0, nl: b.lines.length });
+      });
+    }
+  }
+  if (!sizes.size) return null;
+  const body = [...sizes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const cands = [];
+  for (const l of lines) {
+    const t = l.t;
+    if (t.length < 3 || t.length > 90 || (t.match(/\p{L}/gu) || []).length < 3 || !(l.yr > 0.035 && l.yr < 0.94)) continue;
+    if (l.size >= body * 1.25 || (l.bold && l.size >= body * 1.02 && l.first && l.nl <= 3 && t.length <= 70 && !/[.,;:]$/.test(t))) {
+      const c = cands[cands.length - 1];
+      if (c && c.pi === l.pi && Math.abs(c.size - l.size) < 0.6 && l.yr - c.y2 > 0 && l.yr - c.y2 < 0.045 && c.t.length + t.length < 110) { c.t += " " + t; c.y2 = l.yr; continue; }
+      cands.push({ pi: l.pi, yr: l.yr, t, size: l.size, y2: l.yr });
+    }
+  }
+  const many = new Map();
+  for (const c of cands) { const k = secNorm(c.t); many.set(k, (many.get(k) || 0) + 1); }
+  const keep = cands.filter(c => { const k = secNorm(c.t); return k && many.get(k) <= Math.max(2, n * 0.12); });
+  if (keep.length < 2) return null;
+  const big = [...new Set(keep.filter(c => c.size >= body * 1.25).map(c => Math.round(c.size * 2) / 2))].sort((a, b) => b - a);
+  let out = keep.map(c => { const r = Math.round(c.size * 2) / 2; return { lvl: Math.min(4, secLevelFromNumber(c.t) || (big.includes(r) ? big.indexOf(r) + 1 : big.length + 1)), t: c.t, page: c.pi }; });
+  const lv = [...new Set(out.map(o => o.lvl))].sort((a, b) => a - b);
+  out = out.map(o => ({ ...o, lvl: lv.indexOf(o.lvl) + 1 }));
+  while (out.length > Math.max(40, n * 2) && Math.max(...out.map(o => o.lvl)) > 1) { const top = Math.max(...out.map(o => o.lvl)); out = out.filter(o => o.lvl < top); }
+  return out.length >= 2 ? out.slice(0, 400) : null;
+}
+
 function imageFromBytes(bytes) {
   return new mupdf.Image(bytes);
 }
@@ -683,6 +800,21 @@ const api = {
       out.push(lines);
     }
     return out;
+  },
+
+  // the parts of a document, as the Windows app finds them: 1) its bookmarks; 2) else a printed contents page
+  // ("Title ..... 12", page numbers going up, and where printed page 12 really is); 3) else its headings (lines clearly
+  // bigger than the text, or short bold lines starting a paragraph; running heads left out)
+  sections(key) {
+    const d = get(key);
+    const n = d.doc.countPages();
+    let ol = [];
+    try { ol = flatOutline(d.doc.loadOutline()); } catch (e) {}
+    ol = ol.filter(o => o.title.trim() && o.page >= 0 && o.page < n);
+    if (ol.length >= 2 || (ol.length === 1 && n >= 20)) return { src: "bookmarks", items: ol.slice(0, 600).map(o => ({ lvl: o.depth + 1, t: o.title.trim(), page: o.page })) };
+    if (d.pdf && n >= 6) { try { const it = printedToc(d, n); if (it) return { src: "contents", items: it }; } catch (e) {} }
+    try { const h = headingSections(d, n); if (h) return { src: "headings", items: h }; } catch (e) {}
+    return { src: null, items: [] };
   },
 
   // the lines of one page, with where they are (read aloud lights them)

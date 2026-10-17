@@ -17,7 +17,7 @@ import { Logo } from "./Logo.jsx";
 import { BookTile } from "./bookicons.jsx";
 import { FullButton, frameBarOn } from "./FrameBar.jsx";
 import { toolMenus, setTool, RowTools } from "./Tools.jsx";
-import { Contents, ClockCal, DocSwitch, contentsOpen } from "./Reading.jsx";
+import { Contents, ClockCal, DocSwitch, contentsOpen, BookMap } from "./Reading.jsx";
 import { Checklist, checkProgress } from "./Checklist.jsx";
 import { CommentsDrawer } from "./Comments.jsx";
 import { Ribbon } from "./Ribbon.jsx";
@@ -349,7 +349,8 @@ function SearchList({ book }) {
 
 // reading mode: the contents card, with Read aloud (ui/Aloud.jsx reads the book, sentence by sentence)
 function ReadingLayer({ book }) {
-  return <Contents book={book} aloud={aloud.value.on} onAloud={() => toggleAloud()} />;
+  // a big page (zoomed in): the contents step aside so the page has the room
+  return <Contents book={book} aloud={aloud.value.on} onAloud={() => toggleAloud()} compact={zoom.value > 1.05} />;
 }
 
 function Side({ book }) {
@@ -442,7 +443,7 @@ function PageBar({ book }) {
         if (map[e.key]) setTool(map[e.key]);
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) { e.preventDefault(); zoom.value = Math.min(4, zoom.value * 1.15); }
-      if ((e.ctrlKey || e.metaKey) && e.key === "-") { e.preventDefault(); zoom.value = Math.max(0.3, zoom.value / 1.15); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "-") { e.preventDefault(); zoom.value = Math.max(0.08, zoom.value / 1.15); }
       if ((e.ctrlKey || e.metaKey) && e.key === "0") { e.preventDefault(); zoom.value = 1; fitWidth.value = true; }
     };
     window.addEventListener("keydown", k);
@@ -496,7 +497,7 @@ function PageBar({ book }) {
       <span class="pn">{cur || 1} / {total}</span>
       <button class="ib" title="Next page" onClick={() => go(1)}><Icon n="right" /></button>
       <span class="sep" />
-      <button class="ib" title="Smaller" onClick={() => { zoom.value = Math.max(0.3, zoom.value / 1.15); }}><Icon n="zoomout" /></button>
+      <button class="ib" title="Smaller (go on: the pages side by side, then the whole book)" onClick={() => { zoom.value = Math.max(0.08, zoom.value / 1.2); }}><Icon n="zoomout" /></button>
       <span class="small" style={{ minWidth: 42, textAlign: "center" }}>{Math.round(zoom.value * 100)}%</span>
       <button class="ib" title="Bigger" onClick={() => { zoom.value = Math.min(4, zoom.value * 1.15); }}><Icon n="zoomin" /></button>
       <button class={"ib" + (fitWidth.value && zoom.value === 1 && !fitPage.value ? " on" : "")} title="Fit the width" onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; }}><Icon n="fit" /></button>
@@ -579,17 +580,18 @@ export function BookView() {
   useEffect(() => { if (isPhone()) leftOpen.value = false; }, []);
   if (!book) return null;
   return (
-    <div class={"book-view" + (readMode.value ? " reading" : "") + (settings.value.night ? " night" : "")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div class={"book-view" + (readMode.value ? " reading rbg-" + ((settings.value.reading || {}).bg || "calm") : "") + (settings.value.night ? " night" : "")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {narrow.value || !frameBarOn() ? <TopBar book={book} /> : !readMode.value ? <Ribbon book={book} /> : null}
       <div class="main">
         {(!leftOpen.value || readMode.value) && <Rail book={book} />}
         {leftOpen.value && !readMode.value && <Side book={book} />}
-        <div class={"vhost" + (readMode.value && contentsOpen.value && !narrow.value ? " withcontents" : "")} style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
+        <div class={"vhost" + (readMode.value && contentsOpen.value && !narrow.value && zoom.value <= 1.05 ? " withcontents" : "")} style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
           <Viewer book={book} />
           <GoogleJobs book={book} />
           <AloudPlayer />
           {book.files.length > 0 && <PageBar book={book} />}
-          {readMode.value && <ClockCal />}
+          {readMode.value && <ClockCal compact={zoom.value > 1.05 || narrow.value} />}
+          {readMode.value && !narrow.value && (settings.value.reading || {}).map !== false && <BookMap book={book} />}
         </div>
         {readMode.value && <ReadingLayer book={book} />}
         {commentsOpen.value && !readMode.value && <CommentsDrawer book={book} />}
