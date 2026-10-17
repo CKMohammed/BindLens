@@ -6,12 +6,15 @@ import { Icon, fileIcon } from "./icons.jsx";
 import { openPanel, newBook, uploadFiles, pickFiles, signOut, continueReading } from "../actions.js";
 import { searchHits, scrollTo } from "./Viewer.jsx";
 import { BookTile } from "./bookicons.jsx";
-import { bookMeta } from "../state.js";
+import { bookMeta, bookHidden } from "../state.js";
 import { escapeHtml, isPaged, initials } from "../util.js";
 
 const ACTIONS = [
   { label: "New book", icon: "plus", words: "new book folder make create", run: () => newBook().then(b => b && openBook(b.id)) },
   { label: "Add files", icon: "upload", words: "add upload files documents import", run: async () => uploadFiles(null, await pickFiles()) },
+  { label: "Dark mode", icon: "moon", words: "dark night theme black look", run: async () => { const st = await import("../state.js"); st.setSetting("theme", "dark"); } },
+  { label: "Light mode", icon: "sun", words: "light day theme white look", run: async () => { const st = await import("../state.js"); st.setSetting("theme", "light"); } },
+  { label: "Fast: nothing moves", icon: "bolt", words: "fast animations motion still quick", run: async () => { const st = await import("../state.js"); st.setSetting("fast", !st.settings.value.fast); } },
   { label: "Reports", icon: "reports", words: "reports contacts emails phones tables excel data extract", run: () => openPanel("reports") },
   { label: "What needs you (dates and deadlines)", icon: "clock", words: "dates deadlines expiry renewal due calendar reminders what needs you", run: () => openPanel("dates") },
   { label: "Write a new document", icon: "edit", words: "write new document letter page template notes invoice", run: () => openPanel("write") },
@@ -101,7 +104,8 @@ function whenOk(f, w) {
 export function Find() {
   const [q, setQ] = useState(panel.value?.q || "");
   const [flt, setFlt] = useState({ book: panel.value?.book || "", kind: "", status: "", when: "" });
-  const fileOk = (b, f) => (!flt.book || b.id === flt.book) && kindOk(f, flt.kind) && (!flt.status || (settings.value.tags || {})[f.id] === flt.status) && whenOk(f, flt.when);
+  // a book locked with the PIN keeps its files and words to itself until it is opened
+  const fileOk = (b, f) => !bookHidden(b) && (!flt.book || b.id === flt.book) && kindOk(f, flt.kind) && (!flt.status || (settings.value.tags || {})[f.id] === flt.status) && whenOk(f, flt.when);
   const anyF = !!(flt.book || flt.kind || flt.status || flt.when);
   const [words, setWords] = useState([]);
   const [busy, setBusy] = useState(false);

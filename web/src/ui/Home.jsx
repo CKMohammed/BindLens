@@ -189,7 +189,7 @@ function agoText(t) {
 }
 function SideCards() {
   const st = settings.value;
-  const rec = (st.recent || []).map(r => { const b = books.value.find(x => x.id === r.book); const f = b && b.files.find(x => x.id === r.file); return b && f ? { ...r, b, f } : null; }).filter(Boolean).slice(1, 5);
+  const rec = (st.recentDocs || []).map(r => { const b = books.value.find(x => x.id === r.book); const f = b && b.files.find(x => x.id === r.file); return b && f ? { ...r, b, f } : null; }).filter(Boolean).slice(1, 5);
   const runs = (st.repRuns || []).slice(0, 3);
   if (!rec.length && !runs.length) return null;
   return (

@@ -2,7 +2,7 @@
 // "Adding 3 of 8 · 45%", ticks each file, says plainly what failed (Try again), and Cancel stops the rest.
 // The first new document opens as soon as it is in; the words of the others are read later, when they are opened.
 import { signal } from "@preact/signals";
-import { store, books, addFileToBook, logChange, openBook, toast, view, bookId } from "./state.js";
+import { store, books, addFileToBook, logChange, openBook, toast, view, bookId, pulseFrame } from "./state.js";
 import { uniqueName, cleanName, mimeOf, uid } from "./util.js";
 
 export const upq = signal({ items: [], at: 0 });
@@ -69,6 +69,7 @@ async function pump() {
       const w = waiters.get(it.key);
       if (w) { waiters.delete(it.key); w(made); }
       pump();
+      if (!uploadsBusy() && upq.value.items.some(x => x.state === "ok")) pulseFrame();
     });
   }
 }

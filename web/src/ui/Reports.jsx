@@ -3,7 +3,7 @@
 // Out: a PDF in the colours of your institution (or of BindLens), a styled Excel file, CSV, or a copy.
 import { useState, useEffect, useRef } from "preact/hooks";
 import { panel, books, currentBook, currentFile, settings, setSetting, toast, store, addFileToBook, logChange,
-  STATUSES, setStatus } from "../state.js";
+  STATUSES, setStatus, pulseFrame, bookHidden } from "../state.js";
 import { parseDatesAt } from "../reports/patterns.js";
 import { Dialog, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
@@ -200,14 +200,16 @@ export function Reports({ compare, pickId, rerun }) {
 
   // where to look: this book, this document, all books, or some books (kept with the run, to make it again later)
   const resolve = (sc, saved) => {
-    if (sc === "some") { const ids = saved?.ids || some; const list = books.value.filter(b => ids.includes(b.id)); return { list, ids, where: list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books` }; }
+    if (sc === "some") { const ids = saved?.ids || some; const list = books.value.filter(b => ids.includes(b.id) && !bookHidden(b)); return { list, ids, where: list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books` }; }
     if (sc === "book" || sc === "doc") {
       const b = books.value.find(x => x.id === (saved?.ids?.[0] || book?.id));
       if (b && sc === "book") return { list: [b], ids: [b.id], where: `Book: ${b.name}` };
       const f = b && b.files.find(x => x.id === (saved?.fid || file?.id));
       if (b && f) return { list: [{ ...b, files: [f] }], ids: [b.id], fid: f.id, where: `Document: ${f.name}` };
     }
-    return { list: books.value, ids: [], where: "All books" };
+    // the books locked with the PIN stay out until they are opened
+    const open = books.value.filter(b => !bookHidden(b));
+    return { list: open, ids: [], where: open.length < books.value.length ? `All books (not the ${books.value.length - open.length} locked)` : "All books" };
   };
 
   const run = async (id = pick?.id, sc = scope, qq = q, saved = null) => {
@@ -228,7 +230,7 @@ export function Reports({ compare, pickId, rerun }) {
       try {
         const prev = await idb.get("kv", key);
         full.newCount = markNew(full, prev);
-        if (full.newCount) full.newSince = prev.at;
+        if (full.newCount) { full.newSince = prev.at; pulseFrame(); }
         await idb.set("kv", key, { at: Date.now(), hashes: printsOf(full).slice(0, 60000) });
       } catch (e) {}
       setRep(full);

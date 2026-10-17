@@ -116,6 +116,9 @@ export const ribbonTab = signal((() => { try { return localStorage.getItem("bl-t
 export function setTab(t) { ribbonTab.value = t; try { localStorage.setItem("bl-tab", t); } catch (e) {} }
 // reading aloud: {on, paused, fileId, page, i (sentence), n} and the lines being read, lit on the page
 export const aloud = signal({ on: false });
+// the frame lights up once when something new comes in (files added, new rows in a report)
+export const framePulse = signal(false);
+export function pulseFrame() { framePulse.value = false; setTimeout(() => { framePulse.value = true; setTimeout(() => { framePulse.value = false; }, 1300); }, 20); }
 export const aloudMark = signal(null);          // {fileId, page, rects:[[x0,y0,x1,y1]], word:[x0,y0,x1,y1]?}   // no network: what waits to go up to the Drive
 export const commentsOpen = signal(null);      // the comments beside the page: null, or {focus, fileId, draft}
 export function visibleFiles(book) {
@@ -166,6 +169,8 @@ export function removeFile(id) {
 }
 
 export const unlockedBooks = signal(new Set());  // books with their own PIN, opened in this visit
+export function bookHidden(b) { const id = b && (b.id || b); return !!((settings.value.books || {})[id]?.locked && settings.value.pin && !unlockedBooks.value.has(id)); }
+export function openBooks() { return books.value.filter(b => !bookHidden(b)); }
 
 export function openBook(id, fid = null, page = 0) {
   if ((settings.value.books || {})[id]?.locked && settings.value.pin && !unlockedBooks.value.has(id)) {
@@ -208,8 +213,8 @@ export function rememberPlace() {
   settings.value = { ...settings.value, books: all };
   setSetting("last", last);
   // the documents opened lately (Home shows them)
-  const rec = settings.value.recent || [];
-  if (last.file && (!rec[0] || rec[0].file !== last.file)) setSetting("recent", [{ book: last.book, file: last.file, at: last.at }, ...rec.filter(r => r.file !== last.file)].slice(0, 8));
+  const rec = settings.value.recentDocs || [];
+  if (last.file && (!rec[0] || rec[0].file !== last.file)) setSetting("recentDocs", [{ book: last.book, file: last.file, at: last.at }, ...rec.filter(r => r.file !== last.file)].slice(0, 8));
 }
 
 // the library as it is now, kept in this browser: BindLens opens it without a network (Drive and OneDrive)

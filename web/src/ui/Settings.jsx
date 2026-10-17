@@ -144,6 +144,19 @@ export function Settings() {
       </div>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>View</h3>
+      <div class="row wrap" style={{ gap: 12, marginBottom: 10 }}>
+        <span class="small muted">Light or dark</span>
+        <div class="seg">
+          {[["light", "Light", "sun"], ["dark", "Dark", "moon"], ["auto", "As the computer", "settings"]].map(([k, l, ic]) => (
+            <button key={k} class={(settings.value.theme || "light") === k ? "on" : ""} onClick={() => setSetting("theme", k)}><Icon n={ic} size={14} />{l}</button>
+          ))}
+        </div>
+        <span class="tiny muted">The pages stay as paper; Night pages (Read) darkens them too.</span>
+      </div>
+      <div class="row wrap" style={{ gap: 18, marginBottom: 10 }}>
+        <label class="chk"><input type="checkbox" checked={!!settings.value.fast} onChange={(e) => setSetting("fast", e.target.checked)} />Fast: nothing moves (no animations, the frame still)</label>
+        <label class="chk"><input type="checkbox" checked={!!settings.value.ribbonNames} onChange={(e) => setSetting("ribbonNames", e.target.checked)} />Show the names under the tools</label>
+      </div>
       <div class="row wrap" style={{ gap: 18 }}>
         <label class="chk"><input type="checkbox" checked={!settings.value.hideRail} onChange={(e) => setSetting("hideRail", !e.target.checked)} />The small icons on the frame (the tools to mark, Reports, Scan...). Off: the tools go back to the top bar</label>
         {installPrompt.value && <button class="btn soft small" onClick={installApp}><Icon n="download" size={16} />Install BindLens as an app</button>}

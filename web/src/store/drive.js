@@ -104,10 +104,21 @@ export class DriveStore {
   q(s) { return encodeURIComponent(s); }
 
   async init() {
-    // the BindLens folder: find it (BindLens made it before) or make it
+    // the BindLens folder: the one kept from last time (so a flaky search never makes a second one), then a search,
+    // and only if there really is none, a new one.
     let id = null;
-    const found = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false and 'root' in parents`)}&fields=files(id,name)&spaces=drive`);
-    if (found.files.length) id = found.files[0].id;
+    let saved = null;
+    try { saved = localStorage.getItem("bl_root"); } catch (e) {}
+    if (saved) {
+      try {
+        const f = await this.json(`${API}/files/${saved}?fields=id,trashed,mimeType`);
+        if (f && f.id && !f.trashed && f.mimeType === FOLDER) id = f.id;
+      } catch (e) { /* the saved folder is gone or not ours any more: find or make one */ }
+    }
+    if (!id) {
+      const found = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false and 'root' in parents`)}&fields=files(id,name)&spaces=drive`);
+      if (found.files.length) id = found.files[0].id;
+    }
     if (!id) {
       const any = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false`)}&fields=files(id,name)&spaces=drive`);
       if (any.files.length) id = any.files[0].id;

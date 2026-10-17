@@ -1,5 +1,5 @@
 // What needs you: the deadlines found in the documents (renewals, due dates, "valid until", submissions...).
-import { books, settings } from "../state.js";
+import { books, settings, bookHidden } from "../state.js";
 import { wordsOf } from "../docs.js";
 import { deadlineDates } from "./patterns.js";
 import { daysBetween, isoDate, isPaged } from "../util.js";
@@ -39,7 +39,7 @@ async function fileDeadlines(book, file, cachedOnly = false) {
 
 export async function allDeadlines(onProgress, cachedOnly = false) {
   const out = [];
-  const list = books.value.flatMap(b => b.files.map(f => [b, f]));
+  const list = books.value.filter(b => !bookHidden(b)).flatMap(b => b.files.map(f => [b, f]));
   let n = 0;
   for (const [b, f] of list) {
     out.push(...await fileDeadlines(b, f, cachedOnly));

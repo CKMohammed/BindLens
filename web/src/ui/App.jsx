@@ -1,7 +1,8 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
+import "../theme.js";
 import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline, narrow } from "../state.js";
+  currentBook, readMode, offline, narrow, saving, framePulse } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -201,21 +202,23 @@ export function App() {
   }, []);
 
   const ready = phase.value === "ready";
+  // with a PIN, nothing of the library is on the screen (or in the page) before the four digits
+  const shut = ready && locked.value, open = ready && !locked.value;
   const lava = !ready;                        // 1.0 calm: the soft colours only on the sign-in page
   const still = !!(settings.value.frame || {}).still;
   return (
-    <div class={"shell" + (ready && frameBarOn() ? " withbar" : "") + (ready && !narrow.value ? " withtop" : "")} style={frameVars()}>
+    <div class={"shell" + (ready && frameBarOn() ? " withbar" : "") + (ready && !narrow.value ? " withtop" : "") + (saving.value.n > 0 ? " saving" : "") + (framePulse.value ? " pulse" : "")} style={frameVars()}>
       <Frame />
       <div class="titlebar" aria-hidden="true"><span>Bind<b>Lens</b></span></div>
-      {ready && !narrow.value && <Band />}
+      {open && !narrow.value && <Band />}
       <div class={"window" + (lava ? " lavabg" : "") + (still ? " stillbg" : "")}>
-        {!ready ? <Start /> : view.value === "book" ? <BookView /> : <Home />}
+        {!ready ? <Start /> : shut ? null : view.value === "book" ? <BookView /> : <Home />}
       </div>
-      {ready && <FrameBar />}
-      {ready && panel.value && <Panels />}
-      {ready && <Pip />}
-      {ready && <UploadPanel />}
-      {ready && locked.value && <Lock />}
+      {open && <FrameBar />}
+      {open && panel.value && <Panels />}
+      {open && <Pip />}
+      {open && <UploadPanel />}
+      {shut && <Lock />}
       <Modals />
       <Menu />
       <NeedsTap />

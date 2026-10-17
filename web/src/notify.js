@@ -1,6 +1,6 @@
 // Notifications: what needs you today or tomorrow, said by the computer or the phone (while BindLens is open, or
 // installed as an app). Each thing once a day.
-import { settings, toast, openBook } from "./state.js";
+import { settings, toast, openBook, locked } from "./state.js";
 import { needsNow, itemKey } from "./reports/dates.js";
 import { isoDate } from "./util.js";
 
@@ -18,7 +18,7 @@ async function show(title, body, key) {
 }
 
 export async function checkNow() {
-  if (!canNotify || !settings.value.notify || Notification.permission !== "granted") return 0;
+  if (!canNotify || !settings.value.notify || Notification.permission !== "granted" || locked.value) return 0;
   let list = [];
   try { list = await needsNow(true); } catch (e) { return 0; }
   const s = seen();
