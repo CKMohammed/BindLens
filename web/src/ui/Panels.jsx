@@ -29,11 +29,12 @@ const Tasks = lazy(() => import("./Tasks.jsx").then(m => ({ default: m.Tasks }))
 const Share = lazy(() => import("./Share.jsx").then(m => ({ default: m.Share })));
 const Keys = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Keys })));
 const Feedback = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Feedback })));
+const QuickBarChoose = lazy(() => import("./FrameBar.jsx").then(m => ({ default: m.QuickBarChoose })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
   versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal, bookstyle: BookStyle,
-  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback };
+  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

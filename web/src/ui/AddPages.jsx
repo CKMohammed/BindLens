@@ -44,8 +44,9 @@ export function openBeside(url) {
 }
 
 export async function addGooglePages(job, { replace = false } = {}) {
-  // job: {id, kind, name, fileId, at, start?, n?}
+  // job: {id, kind, name, fileId, at, start?, n?, replace?: {start, n}} - "replace": the page goes back in its place
   const s = store.value;
+  if (job.replace && !replace) { replace = true; job = { ...job, start: job.replace.start, n: job.replace.n }; }
   const file = fileFor(job.fileId);
   if (!file) { toast("The document to add the pages to is no longer in the library."); return false; }
   toast(`Bringing the pages of "${job.name}"...`);
@@ -59,6 +60,8 @@ export async function addGooglePages(job, { replace = false } = {}) {
     await pageOp(file, "insertTagged", at, pdf, tag);
   }
   setSetting("googleJobs", (settings.value.googleJobs || []).filter(j => j.id !== job.id || j.fileId !== job.fileId));
+  // the first time a page comes back from Google it is tagged, so its menu can open it there again
+  if (replace && job.replace) job.replace = null;
   logChange(replace ? "Put in anew the pages of " + job.name + " in" : "Added the pages of " + job.name + " to", file.name);
   fileId.value = file.id; pageNo.value = replace ? job.start : at;
   setTimeout(() => { scrollTo.value = { fileId: file.id, page: replace ? job.start : at }; }, 160);

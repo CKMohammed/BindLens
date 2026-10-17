@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
 import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline } from "../state.js";
+  currentBook, readMode, offline, narrow } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -16,6 +16,7 @@ import { engineStarted } from "../engine/client.js";
 import { Icon } from "./icons.jsx";
 import { Pip } from "./Gallery.jsx";
 import { FrameBar, frameBarOn } from "./FrameBar.jsx";
+import { Band } from "./Band.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix, brandOf } from "../util.js";
 
@@ -184,6 +185,10 @@ export function App() {
       else if (mod && e.key === ",") { e.preventDefault(); openPanel("settings"); }
       else if (e.key === "F1") { e.preventDefault(); openPanel("help"); }
       else if (mod && e.key === "/") { e.preventDefault(); openPanel("keys"); }
+      else if (mod && e.key.toLowerCase() === "u" && view.value === "book") { e.preventDefault(); import("./Aloud.jsx").then(a => a.toggleAloud()); }
+      else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); openPanel("study"); }
+      else if (e.key === "F6" && view.value === "book") { e.preventDefault(); readMode.value = !readMode.value; }
+      else if (e.key === "Escape" && readMode.value && !panel.value) { readMode.value = false; }
       else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast("Click the line of text to change."); }
       else if (e.key === "F2" && view.value === "book" && !panel.value) {
         e.preventDefault();
@@ -198,9 +203,10 @@ export function App() {
   const lava = !ready;                        // 1.0 calm: the soft colours only on the sign-in page
   const still = !!(settings.value.frame || {}).still;
   return (
-    <div class={"shell" + (ready && frameBarOn() ? " withbar" : "")} style={frameVars()}>
+    <div class={"shell" + (ready && frameBarOn() ? " withbar" : "") + (ready && !narrow.value ? " withtop" : "")} style={frameVars()}>
       <Frame />
       <div class="titlebar" aria-hidden="true"><span>Bind<b>Lens</b></span></div>
+      {ready && !narrow.value && <Band />}
       <div class={"window" + (lava ? " lavabg" : "") + (still ? " stillbg" : "")}>
         {!ready ? <Start /> : view.value === "book" ? <BookView /> : <Home />}
       </div>

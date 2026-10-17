@@ -881,3 +881,148 @@ textarea.ftext{padding:2px 3px;line-height:1.2}
 .brandlogo{height:40px;max-width:140px;object-fit:contain;border-radius:6px;background:#fff;border:1px solid var(--line);padding:3px}
 .brandlogo.empty{width:40px;display:flex;align-items:center;justify-content:center;color:var(--faint)}
 .brandform label.chk{flex-direction:row;align-items:center}
+
+/* =================== 1.0 FINAL: the bar inside the frame (as in the app), the ribbon (as in Word) =================== */
+:root{--fwt:50px}
+.shell.withtop{padding-top:var(--fwt)}
+.shell.withtop .framebar{top:var(--fwt)}
+.frame::after{content:"";position:absolute;inset:0;background:rgba(14,14,20,.26);pointer-events:none}
+.phone-only{display:none!important}
+@media (max-width:760px){.phone-only{display:inline-flex!important} .home-find.phone-only{display:flex!important}}
+/* the band: the top of the frame */
+.band{position:absolute;top:0;left:0;right:0;height:var(--fwt);z-index:4;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;color:#fff;
+  background:linear-gradient(180deg,rgba(10,10,16,.42),rgba(10,10,16,.30));text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.band button{color:inherit}
+.bd-brand{display:flex;align-items:center;gap:8px;border:0;background:none;padding:2px 8px 2px 2px;border-radius:10px}
+.bd-brand:hover{background:rgba(255,255,255,.10)}
+.bd-brand .logo-wrap{box-shadow:0 0 0 1px rgba(255,255,255,.25);border-radius:9px}
+.bd-word{font:700 15.5px var(--f-display);letter-spacing:.01em}
+.bd-word b{color:var(--brand-gold);font-weight:700}
+.bd-ib{width:34px;height:34px;border:0;border-radius:9px;background:none;display:flex;align-items:center;justify-content:center;flex:none}
+.bd-ib:hover{background:rgba(255,255,255,.14)} .bd-ib.on{background:rgba(255,255,255,.22)}
+.bd-sep{width:1px;height:22px;background:rgba(255,255,255,.28);margin:0 4px;flex:none}
+.bd-book{display:flex;align-items:center;gap:7px;border:0;background:none;border-radius:9px;padding:5px 8px;max-width:220px;min-width:0;font-size:13.5px}
+.bd-book:hover{background:rgba(255,255,255,.12)}
+.band > svg{flex:none;opacity:.6}
+.band .docswitch{background:none;border:0;padding:0;max-width:360px;min-width:0;flex-shrink:1}
+.band .docswitch .ib{color:#fff;width:28px;height:28px}
+.band .docswitch .ib:hover{background:rgba(255,255,255,.14)}
+.band .docswitch .ds-cur{color:#fff;font-size:13.5px}
+.band .docswitch .ds-cur:hover{background:rgba(255,255,255,.12)}
+.band .docswitch .tiny.muted{color:rgba(255,255,255,.7)}
+.bd-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;flex:none}
+.bd-find{display:flex;align-items:center;gap:8px;height:34px;flex:0 1 300px;min-width:44px;padding:0 10px;border-radius:9px;cursor:text;
+  background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);color:rgba(255,255,255,.88);font-size:13.5px;overflow:hidden}
+.bd-find:hover{background:rgba(255,255,255,.2)}
+.bd-find kbd{margin-left:auto;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);color:#fff;font-size:10.5px}
+.bd-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border:0;border-radius:9px;font-weight:700;font-size:13.5px;flex:none;
+  background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.24)}
+.bd-btn:hover{background:rgba(255,255,255,.26)}
+.bd-btn.main{background:#fff;color:var(--brand-ink)!important;text-shadow:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.bd-btn.main:hover{background:#F3F1EC}
+.bd-saved{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:rgba(255,255,255,.85);padding:0 6px;white-space:nowrap;flex:none}
+.bd-saved svg{color:#9BE7B5} .bd-saved.bad{color:#FFC2BE} .bd-saved.off{background:rgba(255,200,61,.22);border-radius:999px;padding:3px 9px}
+.bd-saved .sdot{width:7px;height:7px;border-radius:50%;background:var(--brand-gold);animation:pulse 1s ease-in-out infinite}
+.band .fullbtn{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);width:34px;height:34px;border-radius:9px}
+.band .fullbtn:hover{background:rgba(255,255,255,.24)}
+.band .ib{color:#fff} .band .ib:hover{background:rgba(255,255,255,.14)}
+.band .avatar{box-shadow:0 0 0 2px rgba(255,255,255,.55);background:#fff;color:var(--brand-ink)}
+@media (max-width:1180px){.bd-word{display:none} .bd-find{flex-basis:180px} .bd-find kbd{display:none}}
+@media (max-width:980px){.bd-btn{padding:0 9px} .bd-saved{display:none}}
+/* the quick bar: on the frame, a word when you point (no scrolling, so the words are never cut) */
+.framebar{overflow:visible;gap:4px;padding:8px 0}
+.fb{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#fff}
+.fb:hover{background:rgba(255,255,255,.24)}
+.fb.on{background:#fff;color:var(--brand-ink);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.fbtip{right:42px;z-index:20;background:var(--brand-ink);color:#fff;font-weight:600;padding:5px 10px;border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.fb:hover .fbtip,.fb:focus-visible .fbtip{opacity:1;transition-delay:.05s}
+.qbl{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow:auto}
+.qbr{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:8px}
+.qbr.on{background:var(--panel2)}
+.qbr label{gap:10px}
+.qbi{width:28px;height:28px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex:none}
+/* the ribbon */
+.ribbon{flex:none;display:flex;align-items:stretch;gap:0;min-height:58px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 8px 0 4px;position:relative;z-index:2}
+.rtabs{display:flex;align-items:stretch;gap:0;padding-right:8px;margin-right:6px;border-right:1px solid var(--line);flex:none}
+.rtabs button{border:0;background:none;padding:0 11px;font:600 13px var(--f-body);color:var(--muted);position:relative;white-space:nowrap}
+.rtabs button:hover{color:var(--ink)}
+.rtabs button.on{color:var(--ink)}
+.rtabs button.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--accent)}
+.rtools{display:flex;align-items:center;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:4px 2px}
+.rtools::-webkit-scrollbar{display:none}
+.rb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:54px;height:48px;padding:3px 6px;border:0;border-radius:8px;background:none;color:var(--ink);flex:none;position:relative}
+.rb:hover:not(:disabled){background:var(--bg2)}
+.rb.on{background:var(--accent-soft);color:var(--accent)}
+.rb.on.locked{box-shadow:inset 0 0 0 2px var(--accent)}
+.rb:disabled{opacity:.4;cursor:default}
+.rbl{font-size:11px;font-weight:600;line-height:1.1;white-space:nowrap;display:flex;align-items:center;gap:2px}
+.rbdot{width:16px;height:16px;border-radius:50%;margin:2px}
+.rsep{width:1px;align-self:stretch;margin:8px 4px;background:var(--line);flex:none}
+.ropts{display:flex;align-items:center;gap:8px;padding:0 10px 0 12px;border-left:1px solid var(--line);flex:none;max-width:44%;min-width:0;overflow:hidden}
+.rolabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);white-space:nowrap}
+.rhint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsws{display:flex;gap:5px;align-items:center}
+.rsw{width:20px;height:20px;border-radius:50%;border:0;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);flex:none}
+.rsw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+.rseg{display:flex;background:var(--bg2);border-radius:8px;padding:2px;gap:1px;flex:none}
+.rseg button{border:0;background:none;border-radius:6px;padding:4px 7px;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;min-width:28px;height:26px}
+.rseg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.rseg.widths button i{display:block;width:16px;background:currentColor;border-radius:2px}
+.rchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line2);background:var(--panel);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.rchip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.rsel{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:4px 6px;font-size:12.5px}
+.rundo{display:flex;align-items:center;gap:0;padding-left:6px;border-left:1px solid var(--line);flex:none}
+@media (max-width:1240px){.ropts{max-width:36%} .rb{min-width:48px;padding:3px 4px}}
+@media (max-width:1080px){.rbl{display:none} .rb{min-width:38px;height:40px} .ribbon{min-height:50px} .rtabs button{padding:0 8px}}
+/* reading aloud */
+.aloudbar{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:4px;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;padding:6px 8px 6px 12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
+.ab-what{display:flex;flex-direction:column;min-width:0;max-width:220px;margin-right:6px}
+.ab-play{background:var(--btn)!important;color:#fff!important;border-radius:50%!important}
+.ab-speed{min-width:46px}
+.ab-wave{display:flex;align-items:flex-end;gap:2px;height:18px;margin-right:8px}
+.ab-wave i{width:3px;background:var(--accent);border-radius:2px;animation:wave 1s ease-in-out infinite}
+.ab-wave i:nth-child(2){animation-delay:.15s} .ab-wave i:nth-child(3){animation-delay:.3s} .ab-wave i:nth-child(4){animation-delay:.45s}
+@keyframes wave{0%,100%{height:5px}50%{height:17px}}
+.aloudline{position:absolute;background:rgba(255,200,61,.26);border-radius:2px;pointer-events:none;mix-blend-mode:multiply}
+.aloudnow{position:absolute;background:var(--accent);border-radius:2px;pointer-events:none}
+/* night pages */
+.book-view.night .pages{background:#17171d}
+.book-view.night .page{background:#1d1d24}
+.book-view.night .page canvas{filter:invert(.88) hue-rotate(180deg) contrast(.95)}
+.rtools{flex:0 1 auto}
+.ropts{flex:1 1 0;max-width:none;overflow:hidden}
+.ropts > *{flex-shrink:0}
+.ropts .rhint{flex-shrink:1;min-width:0}
+/* the ribbon's tools: icons only; their name comes at once when you point */
+.rb{min-width:38px;width:38px;height:38px;padding:0;gap:0;border-radius:9px}
+.rb.hasmenu{width:46px;flex-direction:row;gap:1px}
+.rbl{display:none}
+.ribbon{min-height:50px}
+.rtools{gap:3px}
+.rbtip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(-3px);z-index:30;pointer-events:none;opacity:0;
+  display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap;background:var(--brand-ink);color:#fff;border-radius:7px;padding:5px 10px;
+  font-size:12px;line-height:1.25;box-shadow:0 6px 18px rgba(0,0,0,.22);transition:opacity .1s,transform .1s}
+.rbtip b{font-weight:700}
+.rbtip span{font-size:11px;color:rgba(255,255,255,.72);font-weight:500}
+.rbtip::before{content:"";position:absolute;top:-4px;left:50%;margin-left:-4px;width:8px;height:8px;background:var(--brand-ink);transform:rotate(45deg)}
+.rb:hover .rbtip,.rb:focus-visible .rbtip{opacity:1;transform:translateX(-50%) translateY(0)}
+.rtools{overflow:visible}
+.ribbon{overflow:visible}
+@media (max-width:1080px){.rb{min-width:36px;width:36px;height:36px} .ribbon{min-height:48px}}
+/* favourite pens */
+.rb.fav{flex-direction:column;gap:2px}
+.rb.fav .favdot{display:block;width:16px;border-radius:2px}
+/* the floating bars: the chosen mark, the chosen words */
+.floatbar{position:absolute;z-index:9;display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:5px 6px;box-shadow:0 8px 28px rgba(20,18,30,.18),0 1px 3px rgba(20,18,30,.08);white-space:nowrap}
+.floatbar .ib{width:32px;height:32px;border-radius:8px}
+.floatbar .rsel{height:30px}
+.floatbar .rseg button{height:26px;min-width:28px}
+.fl-name{font-size:12px;font-weight:700;padding:0 6px 0 4px;color:var(--muted)}
+.fl-sep{width:1px;height:22px;background:var(--line);margin:0 2px;flex:none}
+.floatbar .paperdot{width:18px;height:18px}
+.selbar .rsw{width:18px;height:18px}
+.editbar{z-index:12}
+.editbar .rseg button{font-size:12px}
+@media (min-width:761px){.home.calm .home-top > .logo-wrap{display:none} .home.calm .home-top h1{font-size:28px}}

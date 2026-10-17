@@ -2,12 +2,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal, effect } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
-  readMode, visibleFiles, subView, fitPage, bookMeta, commentsOpen } from "../state.js";
+  readMode, visibleFiles, subView, fitPage, bookMeta, commentsOpen, aloudMark } from "../state.js";
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { confirm, openMenuAt, openMenu } from "./dialogs.jsx";
-import { stampSpec } from "./marks.js";
+import { stampSpec, HL_COLORS } from "./marks.js";
 import { openPanel } from "../actions.js";
 import { pip } from "./Gallery.jsx";
 
@@ -263,7 +263,8 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     { label: "Separator line here", icon: "line", run: at(() => { const pg0 = docState.value[file.id]?.pages?.[page]; const W = pg0 ? pg0.w : 595; return addMark(file, page, { type: "Line", a: [W * 0.08, p[1]], b: [W * 0.92, p[1]], color: rgb(o.pen), width: 1, subject: "Separator line" }); }) },
     (settings.value.signatures || []).length > 0 && { label: "My signature here", icon: "sign", run: at(() => { const sig = settings.value.signatures[0]; const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0)); const w = 160, h = 160 * sig.h / sig.w; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }); }) },
     "-",
-    "speechSynthesis" in window && { label: window.speechSynthesis.speaking ? "Stop reading aloud" : "Read aloud from here", icon: window.speechSynthesis.speaking ? "pause" : "play", run: () => { if (window.speechSynthesis.speaking) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); else window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page } })); } },
+    "speechSynthesis" in window && { label: window.speechSynthesis.speaking ? "Stop reading aloud" : "Read aloud from here", icon: window.speechSynthesis.speaking ? "pause" : "speaker", run: () => { if (window.speechSynthesis.speaking) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); else window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page } })); } },
+    "speechSynthesis" in window && ts && ts.fileId === file.id && ts.text && { label: "Read aloud the text you chose", icon: "speaker", run: () => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page, text: ts.text } })) },
     { label: "Change the text of the PDF here", icon: "edit", run: () => { tool.value = "edit"; toast("Click the line to change."); } },
     !readOnly && { label: "Take all the marks off this page", icon: "eraser", run: async () => {
       if (!(await confirm("Take all the marks off this page?", "Highlights, drawings, notes, stamps... Undo (Ctrl+Z) brings them back.", { ok: "Take them off", danger: true }))) return;
@@ -291,6 +292,17 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
   const hits = searchHits.value;
 
   useEffect(() => { setMarks(null); }, [d.v]);
+  useEffect(() => {
+    const f = () => {
+      const s = selectedMark.value;
+      if (s && s.fileId === file.id && s.page === page && (s.type === "FreeText" || s.type === "Text")) {
+        const r = s.rect;
+        setEdit({ x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], kind: "change", value: s.contents, size: 12, m: s });
+      }
+    };
+    window.addEventListener("bl-edit-mark", f);
+    return () => window.removeEventListener("bl-edit-mark", f);
+  }, [file.id, page]);
   const getMarks = async () => {
     if (marks) return marks;
     const m = await marksOn(file, page);
@@ -345,6 +357,16 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     }
     if (t === "tick" || t === "cross") {
       await placed(file, page, await quickMark(file, page, t, p, o), false);
+      return;
+    }
+    if (t === "date" || t === "initials") {
+      // today's date, or your initials, as text where you click (Fill & Sign)
+      e.preventDefault();
+      const { fmtDate, initials } = await import("../util.js");
+      const u = store.value?.user || {};
+      const words = t === "date" ? fmtDate(new Date()) : (settings.value.initials || initials(u.name || u.email || "Me"));
+      const sz = o.textSize || 12;
+      await placed(file, page, await addMark(file, page, { type: "FreeText", rect: [p[0], p[1] - sz * 0.75, p[0] + words.length * sz * 0.58 + 8, p[1] + sz * 0.55], text: words, size: sz, color: rgb(o.textColor || "#1E1C2B"), subject: t === "date" ? "Date" : "Initials" }), false);
       return;
     }
     if (t === "text") {
@@ -540,28 +562,22 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         return;
       }
       if (dr.kind === "text") {
+        // the words you chose: the selection bar (TextSelBar) comes above them
         const s = textSel.value;
-        if (s && s.text && s.text.trim()) {
-          const r = el.getBoundingClientRect();
-          openMenuAt(e.clientX, e.clientY + 10, [
-            { label: "Copy", icon: "copy", run: () => navigator.clipboard?.writeText(s.text).then(() => toast("Copied.")) },
-            !readOnly && { label: "Highlight", icon: "highlighter", run: async () => { textSel.value = null; await addMark(file, page, { type: "Highlight", quads: s.quads, color: rgb(o.color) }); } },
-            !readOnly && { label: "Underline", icon: "line", run: async () => { textSel.value = null; await addMark(file, page, { type: "Underline", quads: s.quads, color: [0.85, 0.2, 0.3] }); } },
-            !readOnly && { label: "Strike out", icon: "x", run: async () => { textSel.value = null; await addMark(file, page, { type: "StrikeOut", quads: s.quads, color: [0.85, 0.2, 0.3] }); } },
-            { label: "Find it in all books", icon: "search", run: () => openPanel("find", { q: s.text.trim().slice(0, 80) }) },
-          ]);
-          void r;
-        }
+        if (s && s.text && s.text.trim()) textSel.value = { ...s, done: true };
+        void el;
       }
     }
   };
 
-  const commit = async (ed, value) => {
+  const commit = async (ed, value, fmt) => {
     setEdit(null);
     const v = (value || "").replace(/\s+$/, "");
     if (ed.kind === "edit") {
-      if (v === ed.line.text) return;
-      const l = ed.line;
+      const l0 = ed.line;
+      const same = !fmt || (fmt.family === (l0.family || "sans") && Math.abs(fmt.size - l0.size) < 0.05 && !!fmt.bold === !!l0.bold && !!fmt.italic === !!l0.italic && JSON.stringify(fmt.color) === JSON.stringify(l0.color || null));
+      if (v === l0.text && same) return;
+      const l = fmt ? { ...l0, family: fmt.family, size: fmt.size, bold: fmt.bold, italic: fmt.italic, color: fmt.color || l0.color } : l0;
       const doc = await getDoc(file);
       await call("replaceText", doc.key, page, [l.bbox.x - 0.5, l.bbox.y, l.bbox.x + l.bbox.w + 0.5, l.bbox.y + l.bbox.h],
         [{ x: l.x, y: l.y, text: v, size: l.size, family: l.family, bold: l.bold, italic: l.italic, color: l.color }]);
@@ -631,6 +647,10 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
           setEdit({ x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], kind: "change", value: m.contents, size: 12, m });
         }
       }}>
+      {aloudMark.value && aloudMark.value.fileId === file.id && aloudMark.value.page === page && <>
+        {aloudMark.value.rects.map((r, i) => <div key={"al" + i} class="aloudline" style={S([r[0] - 2, r[1] - 1, r[2] + 2, r[3] + 1])} />)}
+        {aloudMark.value.line && <div class="aloudnow" style={S([aloudMark.value.line[0] - 2, aloudMark.value.line[3] - 1, aloudMark.value.line[2] + 2, aloudMark.value.line[3] + 1.2])} />}
+      </>}
       {myHits && myHits.map((h, i) => h.quads.map((q, j) => (
         <div key={i + ":" + j} class={"hit" + (hits.cur && hits.cur.fileId === file.id && hits.cur.page === page && hits.cur.n === h.n ? " cur" : "")} style={S(quadRect(q))} />
       )))}
@@ -660,11 +680,11 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
           </svg>
         );
       })()}
-      {edit && <InlineEdit ed={edit} k={k} onDone={async (v) => {
+      {edit && <InlineEdit ed={edit} k={k} onDone={async (v, fmt) => {
         if (edit.kind === "change") {
           setEdit(null);
           if (v !== edit.m.contents) await editMark(file, page, edit.m.i, { contents: v });
-        } else commit(edit, v);
+        } else commit(edit, v, fmt);
       }} />}
     </div>
   );
@@ -762,17 +782,38 @@ function FormLayer({ file, page, k, v }) {
   );
 }
 
+// Ctrl+E: changing a line of the PDF's own text - a small bar over it to change its font, size, bold, italic, colour
+const FAMS = { sans: "Helvetica,Arial,sans-serif", serif: "'Times New Roman',Times,serif", mono: "'Courier New',Courier,monospace" };
 function InlineEdit({ ed, k, onDone }) {
   const ref = useRef();
   const done = useRef(false);
+  const l = ed.line || {};
+  const [fmt, setFmt] = useState({ family: l.family || "sans", size: Math.round((l.size || ed.size || 11) * 10) / 10, bold: !!l.bold, italic: !!l.italic, color: l.color || null });
   useEffect(() => { setTimeout(() => { ref.current?.focus(); if (ed.kind === "edit") ref.current?.select(); }, 20); }, []);
-  const finish = () => { if (done.current) return; done.current = true; onDone(ref.current.value); };
+  const finish = () => { if (done.current) return; done.current = true; onDone(ref.current.value, ed.kind === "edit" ? fmt : null); };
   const px = (v) => v * k * PT;
   const note = ed.kind === "note" || (ed.kind === "change" && ed.m?.subject === "Sticky note");
+  const keep = (e) => e.preventDefault();          // the bar's buttons keep the words in focus
+  const col = fmt.color ? "#" + fmt.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "#1E1C2B";
   return (
+    <>
+    {ed.kind === "edit" && (
+      <div class="floatbar editbar" style={{ left: px(ed.x) + "px", top: Math.max(0, px(ed.y) - 46) + "px" }} onPointerDown={(e) => { e.stopPropagation(); keep(e); }}>
+        <b class="fl-name">Change text</b>
+        <span class="rseg">{[["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]].map(([f, n]) => <button key={f} class={fmt.family === f ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, family: f })}>{n}</button>)}</span>
+        <span class="rseg"><button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.max(4, Math.round((fmt.size - 0.5) * 10) / 10) })} title="Smaller">−</button>
+          <button class="on" style={{ minWidth: 40 }} onPointerDown={keep}>{fmt.size}</button>
+          <button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.round((fmt.size + 0.5) * 10) / 10 })} title="Bigger">+</button></span>
+        <span class="rseg"><button class={fmt.bold ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, bold: !fmt.bold })} title="Bold"><b>B</b></button>
+          <button class={fmt.italic ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, italic: !fmt.italic })} title="Italic"><i style={{ fontFamily: "Georgia,serif" }}>I</i></button></span>
+        <span class="rsws">{["#1E1C2B", "#C2337A", "#1C7ED6", "#2B8A3E", "#E03131"].map(c => <button key={c} class={"rsw" + (col.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} onPointerDown={keep} onClick={() => setFmt({ ...fmt, color: hexToRgb(c) })} title="Colour" />)}</span>
+        <span class="tiny muted">Enter to keep · Esc</span>
+      </div>
+    )}
     <textarea ref={ref} class="inlineedit" defaultValue={ed.value}
       style={{ left: px(ed.x) + "px", top: px(ed.y) + "px", width: px(ed.w) + "px", minHeight: px(ed.h) + "px",
-        fontSize: px(ed.size) + "px", background: note ? (ed.paper || "#FFF1A8") : undefined }}
+        fontSize: px(ed.kind === "edit" ? fmt.size : ed.size) + "px", background: note ? (ed.paper || "#FFF1A8") : undefined,
+        ...(ed.kind === "edit" ? { fontFamily: FAMS[fmt.family], fontWeight: fmt.bold ? 700 : 400, fontStyle: fmt.italic ? "italic" : "normal", color: col } : {}) }}
       placeholder={ed.kind === "note" ? "Write a note..." : ed.kind === "text" ? "Type here..." : ""}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
@@ -780,6 +821,7 @@ function InlineEdit({ ed, k, onDone }) {
         if (e.key === "Enter" && (ed.kind === "edit" || e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(); }
       }}
       onBlur={finish} />
+    </>
   );
 }
 
@@ -946,19 +988,25 @@ export function Viewer({ book }) {
   }, 120), []);
 
   // go to a document / page when asked (the file list, Find, Continue...)
-  const goto = (fid, page, y) => {
+  const goto = (fid, page, y, soft) => {
     const el = scroller.current;
     if (!el) return false;
     const target = el.querySelector(`[data-file="${fid}"][data-page="${page || 0}"]`) || el.querySelector(`[data-file="${fid}"]`);
     if (!target) return false;
     const top = target.offsetTop - 14 + (y != null ? y * k * PT - el.clientHeight * 0.3 : 0);
+    if (soft) {
+      const yy = target.offsetTop + (y || 0) * k * PT;
+      if (yy > el.scrollTop + 40 && yy < el.scrollTop + el.clientHeight * 0.8) return true;
+      el.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      return true;
+    }
     el.scrollTo({ top: Math.max(0, top), behavior: "auto" });
     return true;
   };
   useLayoutEffect(() => {
     const s = scrollTo.value;
     if (!s) return;
-    if (goto(s.fileId, s.page, s.y)) {
+    if (goto(s.fileId, s.page, s.y, s.soft)) {
       const st = docState.value[s.fileId];
       if (!st || st.status === "ready" || !isPaged(fileFor(s.fileId)?.kind || "")) scrollTo.value = null;
     }
@@ -1105,6 +1153,7 @@ export function Viewer({ book }) {
       {drop && <div class="dropzone">Drop to add to "{book.name}"</div>}
     </div>
     <MarkBar k={k} />
+    <TextSelBar />
     </>
   );
 }
@@ -1139,43 +1188,141 @@ async function copySelected() {
 
 // the small bar for the selected mark: colour, style, change the words, take it off
 const TEXT_STYLES = [["plain", "Plain"], ["outline", "Outline"], ["label", "Label"], ["solid", "Solid"], ["dashed", "Dashed"], ["marker", "Marker"]];
+// the words you chose with the arrow: a small bar just above them - highlight (in a colour), underline, strike out,
+// comment, copy, read aloud, find everywhere, a task about them
+function TextSelBar() {
+  const s = textSel.value;
+  const ref = useRef();
+  const [pos, setPos] = useState(null);
+  const place = useCallback(() => {
+    const t = textSel.value;
+    if (!t || !t.done || !ref.current) return;
+    const pageEl = document.querySelector(`.page[data-file="${t.fileId}"][data-page="${t.page}"]`);
+    const host = ref.current.offsetParent;
+    if (!pageEl || !host || !t.quads || !t.quads.length) { setPos(null); return; }
+    const pw = docState.value[t.fileId]?.pages?.[t.page]?.w || 595;
+    const pr = pageEl.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    const k = pr.width / pw;
+    const q0 = t.quads[0], q1 = t.quads[t.quads.length - 1];
+    const x0 = Math.min(q0[0], q0[4]), y0 = Math.min(q0[1], q0[3]), y1 = Math.max(q1[5], q1[7]);
+    const bw = ref.current.offsetWidth || 380, bh = ref.current.offsetHeight || 42;
+    let top = pr.top + y0 * k - hr.top - bh - 10;
+    if (top < 6) top = pr.top + y1 * k - hr.top + 10;
+    setPos({ top: Math.max(6, top), left: Math.max(8, Math.min(hr.width - bw - 8, pr.left + x0 * k - hr.left)) });
+  }, []);
+  useLayoutEffect(() => { place(); }, [s, place]);
+  useEffect(() => {
+    const sc = document.querySelector(".vhost .pages");
+    const f = () => place();
+    sc && sc.addEventListener("scroll", f, { passive: true });
+    return () => sc && sc.removeEventListener("scroll", f);
+  }, [s?.fileId, place]);
+  if (!s || !s.done || s.temp || !s.text || !s.text.trim()) return null;
+  const file = fileFor(s.fileId);
+  if (!file) return null;
+  const ro = docState.value[file.id]?.readOnly;
+  const o = toolOpts.value;
+  const mark = async (type, color) => { textSel.value = null; await addMark(file, s.page, { type, quads: s.quads, color }); };
+  const q = s.quads[0];
+  return (
+    <div ref={ref} class="floatbar selbar" style={pos ? { top: pos.top + "px", left: pos.left + "px" } : { visibility: "hidden" }} onPointerDown={(e) => e.stopPropagation()}>
+      {!ro && <>
+        <span class="rsws">{HL_COLORS.slice(0, 5).map(c => <button key={c} class={"rsw" + (o.color === c ? " on" : "")} style={{ background: c }} title="Highlight in this colour" onClick={() => { toolOpts.value = { ...toolOpts.value, color: c }; mark("Highlight", rgb(c)); }} />)}</span>
+        <button class="ib" title="Highlight" onClick={() => mark("Highlight", rgb(o.color))}><Icon n="highlighter" size={17} /></button>
+        <button class="ib" title="Underline" onClick={() => mark("Underline", [0.85, 0.2, 0.3])}><Icon n="line" size={17} /></button>
+        <button class="ib" title="Strike out" onClick={() => mark("StrikeOut", [0.85, 0.2, 0.3])}><Icon n="x" size={17} /></button>
+        <button class="ib" title="Comment on these words" onClick={() => { textSel.value = null; commentsOpen.value = { draft: { fileId: file.id, page: s.page, x: Math.max(q[2], q[6]) + 6, y: Math.min(q[1], q[3]) } }; }}><Icon n="comment" size={17} /></button>
+        <span class="fl-sep" />
+      </>}
+      <button class="ib" title="Copy (Ctrl+C)" onClick={() => navigator.clipboard?.writeText(s.text).then(() => toast("Copied."))}><Icon n="copy" size={17} /></button>
+      {"speechSynthesis" in window && <button class="ib" title="Read it aloud" onClick={() => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page: s.page, text: s.text } }))}><Icon n="speaker" size={17} /></button>}
+      <button class="ib" title="Find it in all the books" onClick={() => openPanel("find", { q: s.text.trim().slice(0, 80) })}><Icon n="search" size={17} /></button>
+      <button class="ib" title="A task about it" onClick={() => { const t = s.text.trim().slice(0, 120); textSel.value = null; import("../state.js").then(st => { st.setSetting("tasks", [{ id: Math.random().toString(36).slice(2), text: t, who: "", due: "", made: Date.now(), done: 0, bookId: bookId.value, book: books.value.find(b => b.id === bookId.value)?.name || "", fileId: file.id, file: file.name, page: s.page }, ...(st.settings.value.tasks || [])]); openPanel("tasks"); }); }}><Icon n="task" size={17} /></button>
+    </div>
+  );
+}
+
+// the bar of the chosen mark: it floats just above it (below when there is no room) - for words: font, size, bold,
+// italic, alignment, colour; for a sticky note its paper; for the rest its colour, turn, copy, take off
 function MarkBar() {
   const sel = selectedMark.value;
-  if (!sel) return null;
-  const file = fileFor(sel.fileId);
-  if (!file) return null;
+  const ref = useRef();
+  const [pos, setPos] = useState(null);
+  const file = sel ? fileFor(sel.fileId) : null;
+  const place = useCallback(() => {
+    const s = selectedMark.value;
+    if (!s || !ref.current) return;
+    const pageEl = document.querySelector(`.page[data-file="${s.fileId}"][data-page="${s.page}"]`);
+    const host = ref.current.offsetParent;
+    if (!pageEl || !host) { setPos(null); return; }
+    const pw = docState.value[s.fileId]?.pages?.[s.page]?.w || 595;
+    const pr = pageEl.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    const k = pr.width / pw;
+    const r = s.rect || [0, 0, 0, 0];
+    const bw = ref.current.offsetWidth || 420, bh = ref.current.offsetHeight || 44;
+    let top = pr.top + r[1] * k - hr.top - bh - 12;
+    if (top < 6) top = pr.top + r[3] * k - hr.top + 12;
+    top = Math.max(6, Math.min(hr.height - bh - 70, top));
+    const cx = pr.left + (r[0] + r[2]) / 2 * k - hr.left;
+    setPos({ top, left: Math.max(8, Math.min(hr.width - bw - 8, cx - bw / 2)) });
+  }, []);
+  useLayoutEffect(() => { place(); }, [sel, place]);
+  useEffect(() => {
+    const sc = document.querySelector(".vhost .pages");
+    const f = () => place();
+    sc && sc.addEventListener("scroll", f, { passive: true });
+    window.addEventListener("resize", f);
+    return () => { sc && sc.removeEventListener("scroll", f); window.removeEventListener("resize", f); };
+  }, [sel?.fileId, place]);
+  if (!sel || !file) return null;
   const colors = ["#FFD43B", "#69DB7C", "#74C0FC", "#F783AC", "#E03131", "#1C7ED6", "#2B8A3E", "#1E1C2B"];
+  const textColors = ["#1E1C2B", "#C2337A", "#1C7ED6", "#2B8A3E", "#E03131", "#E8772E"];
   const white = (sel.type === "Square" && sel.subject === "White box") || (sel.type === "Ink" && sel.subject === "White brush");
   const names = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: sel.subject || "Drawing",
-    FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Note", Square: white ? "White box" : "Box", Circle: "Circle", Line: "Line",
+    FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Comment", Square: white ? "White box" : "Box", Circle: "Circle", Line: "Line",
     Stamp: sel.subject || "Stamp" };
-  const isText = sel.type === "FreeText" && sel.subject !== "Sticky note";
-  const sticky = sel.type === "FreeText" && sel.subject === "Sticky note";
+  const words = sel.type === "FreeText";
+  const sticky = words && sel.subject === "Sticky note";
+  const st = sel.style || {};
   const turnable = handlesOf(sel).rotate;
   const refresh = async () => {
     const { marksOn } = await import("../docs.js");
     const m = (await marksOn(file, sel.page)).find(x => x.i === sel.i);
     if (m) selectedMark.value = { fileId: file.id, page: sel.page, ...m };
   };
+  const ed = async (change) => { await editMark(file, sel.page, sel.i, change); refresh(); };
   const styleMenu = (e) => openMenu(e, [
     { title: "Style of the text box" },
-    ...TEXT_STYLES.map(([k, l]) => ({ label: ((sel.style?.style || "plain") === k ? "✓ " : "") + l, run: async () => { await editMark(file, sel.page, sel.i, { style: { style: k } }); refresh(); } })),
+    ...TEXT_STYLES.map(([k2, l]) => ({ label: ((st.style || "plain") === k2 ? "✓ " : "") + l, run: () => ed({ style: { style: k2 } }) })),
     { title: "Colours and effects" },
-    { label: "Fill colour", sub: [{ label: "No fill", run: async () => { await editMark(file, sel.page, sel.i, { style: { fill: null } }); refresh(); } },
-      ...colors.map(c => ({ label: "", swatch: c, run: async () => { await editMark(file, sel.page, sel.i, { style: { fill: hexToRgb(mix(c, "#ffffff", 0.55)) } }); refresh(); } }))] },
-    { label: "Line colour", sub: [{ label: "No line", run: async () => { await editMark(file, sel.page, sel.i, { style: { line: null } }); refresh(); } },
-      ...colors.map(c => ({ label: "", swatch: c, run: async () => { await editMark(file, sel.page, sel.i, { style: { line: hexToRgb(c) } }); refresh(); } }))] },
-    { label: (sel.style?.opacity ?? 1) < 1 ? "See-through: on" : "See-through: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { opacity: (sel.style?.opacity ?? 1) < 1 ? 1 : 0.6 } }); refresh(); } },
-    { label: sel.style?.round ? "Round corners: on" : "Round corners: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { round: !sel.style?.round } }); refresh(); } },
-    { label: sel.style?.bold ? "Bold: on" : "Bold: off", run: async () => { await editMark(file, sel.page, sel.i, { style: { bold: !sel.style?.bold } }); refresh(); } },
-    { title: "Size" },
-    ...[9, 11, 12, 14, 18, 24].map(z => ({ label: z + " pt" + (Math.round(sel.size || 12) === z ? " (now)" : ""), run: async () => { await editMark(file, sel.page, sel.i, { size: z }); refresh(); } })),
+    { label: "Fill colour", sub: [{ label: "No fill", run: () => ed({ style: { fill: null } }) },
+      ...colors.map(c => ({ label: "", swatch: c, run: () => ed({ style: { fill: hexToRgb(mix(c, "#ffffff", 0.55)) } }) }))] },
+    { label: "Line colour", sub: [{ label: "No line", run: () => ed({ style: { line: null } }) },
+      ...colors.map(c => ({ label: "", swatch: c, run: () => ed({ style: { line: hexToRgb(c) } }) }))] },
+    { label: (st.opacity ?? 1) < 1 ? "See-through: on" : "See-through: off", run: () => ed({ style: { opacity: (st.opacity ?? 1) < 1 ? 1 : 0.6 } }) },
+    { label: st.round ? "Round corners: on" : "Round corners: off", run: () => ed({ style: { round: !st.round } }) },
   ]);
+  const curColor = sel.color ? "#" + sel.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "";
   return (
-    <div class="pagebar markbar" style={{ bottom: 74 }} onPointerDown={(e) => e.stopPropagation()}>
-      <b class="small" style={{ padding: "0 6px" }}>{names[sel.type] || sel.type}</b>
-      {white ? <>
-        <button class="btn soft small" onClick={async () => {
+    <div ref={ref} class="floatbar" style={pos ? { top: pos.top + "px", left: pos.left + "px" } : { visibility: "hidden" }} onPointerDown={(e) => e.stopPropagation()}>
+      <b class="fl-name">{names[sel.type] || sel.type}</b>
+      {words && <>
+        <select class="rsel" value={st.font || "sans"} title="Font" onChange={(e) => ed({ style: { font: e.target.value } })}>
+          <option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option></select>
+        <select class="rsel" value={Math.round(sel.size || 12)} title="Size" onChange={(e) => ed({ size: Number(e.target.value) })}>
+          {[...new Set([8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 40, Math.round(sel.size || 12)])].sort((x, y) => x - y).map(z => <option key={z} value={z}>{z}</option>)}</select>
+        <span class="rseg">
+          <button class={st.bold ? "on" : ""} title="Bold" onClick={() => ed({ style: { bold: !st.bold } })}><b>B</b></button>
+          <button class={st.italic ? "on" : ""} title="Italic" onClick={() => ed({ style: { italic: !st.italic } })}><i style={{ fontFamily: "Georgia,serif" }}>I</i></button>
+        </span>
+        <span class="rseg">{[["left", "Left", "alignl"], ["center", "Centre", "alignc"], ["right", "Right", "alignr"]].map(([k2, l, ic]) => <button key={k2} class={(st.align || "left") === k2 ? "on" : ""} title={"Align " + l.toLowerCase()} onClick={() => ed({ style: { align: k2 } })}><Icon n={ic} size={14} /></button>)}</span>
+        <span class="fl-sep" />
+        <span class="rsws">{textColors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title="Colour of the words" onClick={() => ed({ color: hexToRgb(c) })} />)}</span>
+      </>}
+      {sticky && <><span class="fl-sep" /><span class="rsws" title="The colour of the paper">{PAPERS.map(([c, l]) => (
+        <button key={c} class={"paperdot" + (sel.paper && rgbHex(sel.paper) === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={l + " paper"} onClick={() => ed({ paper: hexToRgb(c) })} />))}</span></>}
+      {words && !sticky && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={15} />Box</button>}
+      {white ? <button class="btn soft small" onClick={async () => {
           const ok = await confirm("Erase the text under it for good?", "The words and pictures under the white box are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true });
           if (!ok) return;
           const { getDoc: gd } = await import("../docs.js");
@@ -1183,23 +1330,17 @@ function MarkBar() {
           await call("eraseArea", doc.key, sel.page, sel.rect, false, sel.i);
           afterEdit(file.id, "pages");
           selectedMark.value = null;
-        }}><Icon n="eraser" size={16} />Erase the text under it for good</button>
-      </> : sel.type !== "Stamp" && !(sel.type === "FreeText" && sel.subject === "Sticky note") && colors.map(c => (
-        <button key={c} class="swatch" style={{ background: c, border: 0, width: 20, height: 20 }} title="Colour"
-          onClick={async () => { await editMark(file, sel.page, sel.i, { color: hexToRgb(c) }); refresh(); }} />
-      ))}
-      {isText && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={16} />Style</button>}
-      {sticky && <span class="row" style={{ gap: 3 }} title="The colour of the paper">{PAPERS.map(([c, l]) => (
-        <button key={c} class={"paperdot" + (sel.paper && rgbHex(sel.paper) === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={l + " paper"}
-          onClick={async () => { await editMark(file, sel.page, sel.i, { paper: hexToRgb(c) }); refresh(); }} />))}</span>}
-      {turnable && <button class="ib" title="Turn it a quarter (or drag the round knob above it)" onClick={async () => { await editMark(file, sel.page, sel.i, { rotateBy: 90 }); refresh(); }}><Icon n="rotate" /></button>}
-      {turnable && sel.rot ? <button class="btn plain small" title="Put it straight again" onClick={async () => { await editMark(file, sel.page, sel.i, { rotateBy: -sel.rot }); refresh(); }}>Straight</button> : null}
-      {!white && <button class="ib" title="A copy of it (Ctrl+D)" onClick={() => copySelected()}><Icon n="copy" /></button>}
+        }}><Icon n="eraser" size={15} />Erase the text under it for good</button>
+        : !words && sel.type !== "Stamp" && <span class="rsws">{colors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title="Colour" onClick={() => ed({ color: hexToRgb(c) })} />)}</span>}
       {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title="Fill it with a light colour, or not"
-        onClick={async () => { await editMark(file, sel.page, sel.i, { fill: sel.fill ? null : hexToRgb(mix(sel.color ? "#" + sel.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "#E03131", "#ffffff", 0.78)) }); refresh(); }}>{sel.fill ? "No fill" : "Fill"}</button>}
-      <span class="sep" />
-      <button class="ib" title={white ? "Take the white box off (the text shows again)" : "Take it off (Delete)"} onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" /></button>
-      <button class="ib" title="Done" onClick={() => { selectedMark.value = null; }}><Icon n="close" /></button>
+        onClick={() => ed({ fill: sel.fill ? null : hexToRgb(mix(curColor || "#E03131", "#ffffff", 0.78)) })}>{sel.fill ? "No fill" : "Fill"}</button>}
+      <span class="fl-sep" />
+      {words && <button class="ib" title="Change the words (double-click)" onClick={() => window.dispatchEvent(new CustomEvent("bl-edit-mark"))}><Icon n="rename" size={17} /></button>}
+      {turnable && <button class="ib" title="Turn it a quarter (or drag the round knob)" onClick={() => ed({ rotateBy: 90 })}><Icon n="rotate" size={17} /></button>}
+      {turnable && sel.rot ? <button class="btn plain small" title="Put it straight again" onClick={() => ed({ rotateBy: -sel.rot })}>Straight</button> : null}
+      {!white && <button class="ib" title="A copy of it (Ctrl+D)" onClick={() => copySelected()}><Icon n="copy" size={17} /></button>}
+      <button class="ib" title={white ? "Take the white box off (the text shows again)" : "Take it off (Delete)"} onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" size={17} /></button>
+      <button class="ib" title="Done (Esc)" onClick={() => { selectedMark.value = null; }}><Icon n="close" size={17} /></button>
     </div>
   );
 }

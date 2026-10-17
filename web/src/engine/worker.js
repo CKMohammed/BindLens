@@ -209,21 +209,44 @@ function wrapLines(font, text, size, width) {
   return out;
 }
 
+// the font of a text mark: sans / serif / mono, bold, italic (the PDF's 14 standard fonts, readable by any program)
+function baseFont(st = {}) {
+  const fam = { sans: ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"],
+    serif: ["Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"],
+    mono: ["Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique"] }[st.font || "sans"] || ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"];
+  return fam[(st.bold ? 1 : 0) + (st.italic ? 2 : 0)];
+}
+// the lines of a text, each placed left, centre or right in a box of width w
+function placedLines(f, lines, size, lead, w, pad, top, align) {
+  let cs = "";
+  lines.forEach((l, i) => {
+    const lw = textWidth(f, l, size);
+    const x = align === "center" ? (w - lw) / 2 : align === "right" ? w - pad - lw : pad;
+    cs += `1 0 0 1 ${Math.max(0, x).toFixed(2)} ${(top - i * lead).toFixed(2)} Tm ${pdfString(l)} Tj `;
+  });
+  return cs;
+}
+function customText(st) { return !!st && (st.bold || st.italic || (st.font && st.font !== "sans") || (st.align && st.align !== "left")); }
+
 function stickyAppearance(d, a) {
   // a sticky note like the app's: coloured paper with a soft shadow, a darker strip at the top, a piece of tape
   // and the bottom corner folded
   let r = a.getRect();
-  const size = 12, lead = 15, pad = 10, sh = 3;
+  const st = styleOf(a) || {};
+  let da = {};
+  try { da = a.getDefaultAppearance() || {}; } catch (e) {}
+  const size = da.size && da.size !== 12 ? da.size : 12, lead = size * 1.25, pad = 10, sh = 3;
+  const ink = da.color && da.color.length === 3 && da.color.some(v => v > 0.01) ? da.color : [0.16, 0.14, 0.3];
   let paper = [1, 0.93, 0.55];
   try { const c = a.getColor(); if (c && c.length === 3) paper = c; } catch (e) {}
   const dark = paper.map(v => Math.max(0, v * 0.84));
-  const f = new mupdf.Font("Helvetica");
+  const f = new mupdf.Font(baseFont(st));
   const w = r[2] - r[0];
   const lines = wrapLines(f, a.getContents(), size, w - pad * 2 - sh);
   const need = pad * 2 + 8 + sh + lines.length * lead;
   if (r[3] - r[1] < need) { r = [r[0], r[1], r[2], r[1] + need]; a.setRect(r); }
   const h = r[3] - r[1];
-  const font = d.pdf.addSimpleFont(new mupdf.Font("Helvetica"), "Latin");
+  const font = d.pdf.addSimpleFont(new mupdf.Font(baseFont(st)), "Latin");
   const res = d.pdf.newDictionary();
   const fd = d.pdf.newDictionary();
   fd.put("F", font);
@@ -239,8 +262,7 @@ function stickyAppearance(d, a) {
   cs += dark.map(n).join(" ") + " rg 0 " + n(h - 6) + " " + n(pw) + " 6 re f ";
   cs += n(pw - fold) + " " + sh + " m " + n(pw - fold) + " " + n(sh + fold) + " l " + n(pw) + " " + n(sh + fold) + " l h f Q\n";
   cs += "q /T gs 1 1 1 rg " + n(pw / 2 - 17) + " " + n(h - 9) + " 34 9 re f Q\n";
-  cs += "BT /F " + size + " Tf 0.16 0.14 0.3 rg " + lead + " TL 1 0 0 1 " + pad + " " + n(h - pad - 8 - size) + " Tm ";
-  for (const [i, l] of lines.entries()) cs += (i ? "T* " : "") + pdfString(l) + " Tj ";
+  cs += "BT /F " + size + " Tf " + ink.map(n).join(" ") + " rg " + placedLines(f, lines, size, lead, pw, pad, h - pad - 8 - size, st.align);
   cs += "ET\n";
   a.setAppearance(null, null, mupdf.Matrix.identity, [0, 0, w, h], res, cs);
 }
@@ -277,14 +299,14 @@ function styleOf(a) {
 function boxAppearance(d, a, st) {
   let r = a.getRect();
   const da = a.getDefaultAppearance();
-  const size = da.size || 12, lead = size * 1.25, pad = st.style === "plain" ? 2 : 6;
-  const f = new mupdf.Font(st.bold ? "Helvetica-Bold" : "Helvetica");
+  const size = da.size || 12, lead = size * 1.25, pad = !st.style || st.style === "plain" ? 2 : 6;
+  const f = new mupdf.Font(baseFont(st));
   const w = r[2] - r[0];
   const lines = wrapLines(f, a.getContents(), size, w - pad * 2);
   const need = pad * 2 + lines.length * lead;
   if (r[3] - r[1] < need - 0.5) { r = [r[0], r[1], r[2], r[1] + need]; a.setRect(r); }
   const h = r[3] - r[1];
-  const font = d.pdf.addSimpleFont(new mupdf.Font(st.bold ? "Helvetica-Bold" : "Helvetica"), "Latin");
+  const font = d.pdf.addSimpleFont(new mupdf.Font(baseFont(st)), "Latin");
   const res = d.pdf.newDictionary();
   const fd = d.pdf.newDictionary();
   fd.put("F", font);
@@ -311,8 +333,7 @@ function boxAppearance(d, a, st) {
   if (fill) cs += `${fill.join(" ")} rg ${box(0.6, 0.6, w - 0.6, h - 0.6, rr)}f `;
   if (st.line || S.line) cs += `${line.join(" ")} RG ${lw} w ${S.dash || st.dash ? "[4 3] 0 d " : ""}${box(lw / 2, lw / 2, w - lw / 2, h - lw / 2, rr)}S `;
   cs += "Q\n";
-  cs += `BT /F ${size} Tf ${txt.join(" ")} rg ${lead.toFixed(2)} TL 1 0 0 1 ${pad} ${(h - pad - size * 0.85).toFixed(2)} Tm `;
-  for (const [i, l] of lines.entries()) cs += (i ? "T* " : "") + pdfString(l) + " Tj ";
+  cs += `BT /F ${size} Tf ${txt.join(" ")} rg ` + placedLines(f, lines, size, lead, w, pad, h - pad - size * 0.85, st.align);
   cs += "ET\n";
   a.setAppearance(null, null, mupdf.Matrix.identity, [0, 0, w, h], res, cs);
 }
@@ -664,6 +685,19 @@ const api = {
     return out;
   },
 
+  // the lines of one page, with where they are (read aloud lights them)
+  pageLines(key, page) {
+    const d = get(key);
+    const js = stextOf(d.doc.loadPage(page));
+    const lines = [];
+    for (const b of js.blocks) {
+      if (b.type !== "text") continue;
+      for (const l of b.lines) lines.push({ x: l.bbox.x, y: l.bbox.y, w: l.bbox.w, h: l.bbox.h, text: l.text,
+        size: l.font?.size || 10, bold: l.font?.weight === "bold", italic: l.font?.style === "italic", block: js.blocks.indexOf(b) });
+    }
+    return lines;
+  },
+
   // every word with where it is, page by page (for tables: the columns are found from the gaps between words)
   words(key) {
     const d = get(key);
@@ -978,7 +1012,8 @@ const api = {
         const was = styleOf(a) || {};
         const st = { ...was, ...change.style };
         a.getObject().put("BLStyle", d.pdf.newString(JSON.stringify(st)));
-        try { a.setSubject(st.style === "plain" && !st.fill && !st.line ? "" : "Text box"); } catch (e) {}
+        let subj0 = ""; try { subj0 = a.getSubject() || ""; } catch (e) {}
+        if (subj0 !== "Sticky note") try { a.setSubject((!st.style || st.style === "plain") && !st.fill && !st.line ? subj0 && subj0 !== "Text box" ? subj0 : "" : "Text box"); } catch (e) {}
       }
       if (change.size && type === "FreeText") {
         const da = a.getDefaultAppearance();
@@ -998,7 +1033,7 @@ const api = {
         else a.setAppearanceFromDisplayList(null, null, mupdf.Matrix.translate(shift[0], shift[1]), look);
       }
       else if (type === "FreeText" && subject === "Sticky note") { a.update(); stickyAppearance(d, a); }
-      else if (type === "FreeText" && styleOf(a) && (styleOf(a).style !== "plain" || styleOf(a).fill || styleOf(a).line)) {
+      else if (type === "FreeText" && styleOf(a) && ((styleOf(a).style && styleOf(a).style !== "plain") || styleOf(a).fill || styleOf(a).line || customText(styleOf(a)))) {
         a.update();
         const st = styleOf(a);
         if (change.color) st.color = change.color;

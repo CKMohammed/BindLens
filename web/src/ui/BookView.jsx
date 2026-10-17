@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { books, bookId, fileId, pageNo, tool, toolOpts, leftOpen, readMode, zoom, fitWidth, saving, sideTab, undoStack,
   redoStack, store, goHome, openBook, currentBook, settings, toast, narrow, bookMeta, panel, subView, visibleFiles,
-  STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage, commentsOpen, offline } from "../state.js";
+  STATUSES, statusOf, statusColor, setStatus, setSetting, fitPage, commentsOpen, offline, aloud } from "../state.js";
 import { Icon, fileIcon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { Viewer, docState, scrollTo, selectedMark, searchHits, toolLock } from "./Viewer.jsx";
@@ -20,6 +20,8 @@ import { toolMenus, setTool, RowTools } from "./Tools.jsx";
 import { Contents, ClockCal, DocSwitch, contentsOpen } from "./Reading.jsx";
 import { Checklist, checkProgress } from "./Checklist.jsx";
 import { CommentsDrawer } from "./Comments.jsx";
+import { Ribbon } from "./Ribbon.jsx";
+import { AloudPlayer, toggleAloud } from "./Aloud.jsx";
 import { addGooglePages, openBeside } from "./AddPages.jsx";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
@@ -345,61 +347,9 @@ function SearchList({ book }) {
   );
 }
 
-// read aloud: the browser's own voice reads the page, then goes on to the next one
-let speaking = null;
-function stopReading() { speaking = null; try { speechSynthesis.cancel(); } catch (e) {} }
-async function readAloud(book, setOn) {
-  if (speaking) { stopReading(); setOn(false); return; }
-  if (!("speechSynthesis" in window)) { toast("This browser cannot read aloud."); return; }
-  const token = {};
-  speaking = token;
-  setOn(true);
-  const { wordsOf } = await import("../docs.js");
-  while (speaking === token) {
-    const f = fileFor(fileId.value);
-    if (!f) break;
-    let text = "";
-    try { text = ((await wordsOf(f)).pages[pageNo.value] || "").replace(/\s+/g, " ").trim(); } catch (e) {}
-    if (text) {
-      await new Promise((res) => {
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = document.documentElement.lang || "en";
-        u.onend = res; u.onerror = res;
-        speechSynthesis.speak(u);
-      });
-    }
-    if (speaking !== token) break;
-    // the next page of the book
-    const files = book.files.filter(x => isPaged(x.kind));
-    const n = docState.value[f.id]?.pages?.length || 1;
-    if (pageNo.value + 1 < n) pageNo.value = pageNo.value + 1;
-    else {
-      const i = files.findIndex(x => x.id === f.id);
-      if (i < 0 || i + 1 >= files.length) break;
-      fileId.value = files[i + 1].id; pageNo.value = 0;
-    }
-    scrollTo.value = { fileId: fileId.value, page: pageNo.value };
-  }
-  if (speaking === token) speaking = null;
-  setOn(false);
-}
-
-// "Read aloud from here" (the page's right-click menu) - any view of the book
-const aloudSig = { set: null };
-window.addEventListener("bl-read-aloud", (e) => {
-  const b = currentBook.value;
-  if (!b) return;
-  fileId.value = e.detail.fileId; pageNo.value = e.detail.page;
-  stopReading();
-  readAloud(b, (on) => { aloudSig.set && aloudSig.set(on); if (on) toast("Reading aloud. Right-click the page again, or press Esc, to stop."); });
-});
-window.addEventListener("keydown", (e) => { if (e.key === "Escape" && speaking) { stopReading(); aloudSig.set && aloudSig.set(false); } });
-
+// reading mode: the contents card, with Read aloud (ui/Aloud.jsx reads the book, sentence by sentence)
 function ReadingLayer({ book }) {
-  const [aloud, setAloud] = useState(!!speaking);
-  useEffect(() => { aloudSig.set = setAloud; return () => { aloudSig.set = null; }; }, []);
-  useEffect(() => () => stopReading(), []);
-  return <Contents book={book} aloud={aloud} onAloud={() => readAloud(book, setAloud)} />;
+  return <Contents book={book} aloud={aloud.value.on} onAloud={() => toggleAloud()} />;
 }
 
 function Side({ book }) {
@@ -611,7 +561,7 @@ function GoogleJobs({ book }) {
     <div class="gjob">
       <Icon n={{ doc: "word", sheet: "excel", slides: "slides" }[j.kind]} size={18} />
       <span class="small"><b>{j.name}</b> is open in {app}. When it is ready:</span>
-      <button class="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await addGooglePages(j); } catch (e) { toast("Google: " + e.message, "bad"); } setBusy(false); }}><Icon n="addpage" size={15} />Add these pages</button>
+      <button class="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await addGooglePages(j); } catch (e) { toast("Google: " + e.message, "bad"); } setBusy(false); }}><Icon n="addpage" size={15} />{j.replace ? "Put the page back" : "Add these pages"}</button>
       <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>Open it</button>
       <button class="ib" title="Not now (it stays in Add pages)" onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).map(x => x === j ? { ...x, hide: true } : x))}><Icon n="close" size={15} /></button>
     </div>
@@ -629,14 +579,15 @@ export function BookView() {
   useEffect(() => { if (isPhone()) leftOpen.value = false; }, []);
   if (!book) return null;
   return (
-    <div class={"book-view" + (readMode.value ? " reading" : "")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <TopBar book={book} />
+    <div class={"book-view" + (readMode.value ? " reading" : "") + (settings.value.night ? " night" : "")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {narrow.value || !frameBarOn() ? <TopBar book={book} /> : !readMode.value ? <Ribbon book={book} /> : null}
       <div class="main">
         {(!leftOpen.value || readMode.value) && <Rail book={book} />}
         {leftOpen.value && !readMode.value && <Side book={book} />}
         <div class={"vhost" + (readMode.value && contentsOpen.value && !narrow.value ? " withcontents" : "")} style={{ flex: 1, display: "flex", minWidth: 0, position: "relative" }}>
           <Viewer book={book} />
           <GoogleJobs book={book} />
+          <AloudPlayer />
           {book.files.length > 0 && <PageBar book={book} />}
           {readMode.value && <ClockCal />}
         </div>

@@ -110,7 +110,13 @@ export function sortFiles(files, fo) {
 
 // the sub-book shown on its own ("Open this sub-book"): {book, path} or null
 export const subView = signal(null);
-export const offline = signal({ on: false, waiting: 0 });   // no network: what waits to go up to the Drive
+export const offline = signal({ on: false, waiting: 0 });
+// the ribbon's tab in a book (Read, Mark, Edit, Fill & Sign, Pages, Review) - remembered in this browser
+export const ribbonTab = signal((() => { try { return localStorage.getItem("bl-tab") || "mark"; } catch (e) { return "mark"; } })());
+export function setTab(t) { ribbonTab.value = t; try { localStorage.setItem("bl-tab", t); } catch (e) {} }
+// reading aloud: {on, paused, fileId, page, i (sentence), n} and the lines being read, lit on the page
+export const aloud = signal({ on: false });
+export const aloudMark = signal(null);          // {fileId, page, rects:[[x0,y0,x1,y1]], word:[x0,y0,x1,y1]?}   // no network: what waits to go up to the Drive
 export const commentsOpen = signal(null);      // the comments beside the page: null, or {focus, fileId, draft}
 export function visibleFiles(book) {
   const sv = subView.value;

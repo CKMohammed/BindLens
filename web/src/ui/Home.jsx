@@ -33,7 +33,7 @@ export function AccountButton() {
   );
 }
 
-function addItems() {
+export function addItems() {
   return [
     { label: "New book from a template...", icon: "template", run: () => openPanel("templates") },
     { label: "New empty book...", icon: "plus", run: () => newBook().then(b => b && openBook(b.id)) },
@@ -290,7 +290,7 @@ export function Home() {
             <h1>{greeting()}</h1>
             <div class="date">{fmtDate(now, true)}{needs > 0 ? <> · <a class="needlink" onClick={() => openPanel("dates")}>{needs} {needs === 1 ? "thing needs" : "things need"} you</a></> : null}</div>
           </div>
-          <div class="home-find" onClick={() => openPanel("find")} role="button" tabIndex={0}
+          <div class="home-find phone-only" onClick={() => openPanel("find")} role="button" tabIndex={0}
             onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}>
             <Icon n="search" size={16} /><span>Find anything</span><kbd>Ctrl+K</kbd>
           </div>
@@ -298,9 +298,8 @@ export function Home() {
             <button class={mode === "shelf" ? "on" : ""} onClick={() => setMode("shelf")}><Icon n="book" size={15} />Shelf</button>
             <button class={mode === "list" ? "on" : ""} onClick={() => setMode("list")}><Icon n="list" size={15} />List</button>
           </div>
-          <button class="btn small" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={16} />Add</button>
-          <FullButton small />
-          <AccountButton />
+          <button class="btn small phone-only" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={16} />Add</button>
+          <span class="phone-only"><AccountButton /></span>
         </div>
 
         {lastBook ? (
