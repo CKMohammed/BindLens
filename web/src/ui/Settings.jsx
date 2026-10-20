@@ -216,7 +216,7 @@ export function Settings() {
       {g === "account" && <>
       <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Account")}</h3>
       {s.cloud ? <>
-        <p class="small" style={{ margin: "0 0 8px" }}>{s.kind === "onedrive" ? _t("Signed in as {0}. Your books are in the {1} folder of your OneDrive.", <b>{s.user?.email}</b>, <b>Apps/BindLens</b>) : _t("Signed in as {0}. Your books are in the {1} folder of your Google Drive.", <b>{s.user?.email}</b>, <b>BindLens</b>)}</p>
+        <p class="small" style={{ margin: "0 0 8px" }}>{s.kind === "onedrive" ? _t("Signed in as {0}. Your books are in the {1} folder of your OneDrive.", <b>{s.user?.email}</b>, <b>Apps/BindLens</b>) : _t("Signed in as {0}. Your books are your own folders in your Google Drive, where they are.", <b>{s.user?.email}</b>, <b>BindLens</b>)}</p>
         <div class="row wrap">
           <a class="btn soft small" href={s.folderLink()} target="_blank" rel="noopener"><Icon n="drive" size={16} />{_t("Open the folder in")} {s.kind === "onedrive" ? _t("OneDrive") : _t("Drive")}</a>
           <button class="btn plain small" onClick={async () => { await idb.clear("files"); await idb.clear("text"); toast(_t("The copies kept in this browser are gone. Your {0} is unchanged.", s.cloud)); }}>{_t("Clear the copies in this browser")}</button>
@@ -279,7 +279,7 @@ export function Pin() {
 }
 
 const HELP = [
-  ["book", _t("Books"), _t("A book is a folder in your Google Drive, inside the BindLens folder. Every PDF, Word file, spreadsheet, photo and video in it is one book you scroll through. Make one with + on Home or in the Library.")],
+  ["book", _t("Books"), _t("A book is a folder in your Google Drive, in My Drive or wherever it is. Every PDF, Word file, spreadsheet, photo and video in it is one book you scroll through. Make one with + on Home or in the Library.")],
   ["upload", _t("Add files"), _t("Drag files onto the window, or use Add files. From the Library you can also add files that are already in your Drive (From my Drive).")],
   ["highlighter", _t("Mark"), _t("Choose a tool on the frame at the right of the window (on a phone: the tool button at the top): the highlighter, the pen, text, a sticky note, shapes, a tick or a cross, stamps and your signature. Your marks are saved inside the PDF in your Drive, so any PDF program shows them. Ctrl+Z undoes.")],
   ["select", _t("Change a mark"), _t("With the arrow, click a mark to choose it: drag it, give it another colour or take it off (Delete). Double-click a text or a sticky note to change its words.")],

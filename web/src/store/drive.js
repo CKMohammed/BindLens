@@ -14,7 +14,8 @@ const API = "https://www.googleapis.com/drive/v3";
 const UP = "https://www.googleapis.com/upload/drive/v3";
 const FOLDER = "application/vnd.google-apps.folder";
 const SETTINGS_NAME = "BindLens library.json";
-const FIELDS = "id,name,mimeType,size,modifiedTime,md5Checksum,parents,trashed,version";
+const FIELDS = "id,name,mimeType,size,modifiedTime,md5Checksum,parents,trashed,version,shortcutDetails";
+const SHORTCUT = "application/vnd.google-apps.shortcut";
 
 let gisLoaded = null;
 export function loadGoogle() {
@@ -105,31 +106,34 @@ export class DriveStore {
   q(s) { return encodeURIComponent(s); }
 
   async init() {
-    // the BindLens folder: the one kept from last time (so a flaky search never makes a second one), then a search,
-    // and only if there really is none, a new one.
+    // 1.0: BindLens makes no folder of its own. Your books are your own folders, where they are in your Drive (the ones
+    // you add, and the ones you make with BindLens, in My Drive). A "BindLens" folder from before still works.
     let id = null;
     let saved = null;
     try { saved = localStorage.getItem("bl_root"); } catch (e) {}
-    if (saved) {
+    if (saved && saved !== "-") {
       try {
         const f = await this.json(`${API}/files/${saved}?fields=id,trashed,mimeType`);
         if (f && f.id && !f.trashed && f.mimeType === FOLDER) id = f.id;
-      } catch (e) { /* the saved folder is gone or not ours any more: find or make one */ }
+      } catch (e) { /* gone or not ours any more */ }
     }
     if (!id) {
-      const found = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false and 'root' in parents`)}&fields=files(id,name)&spaces=drive`);
-      if (found.files.length) id = found.files[0].id;
+      try {
+        const found = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false`)}&fields=files(id,name)&spaces=drive`);
+        if (found.files.length) id = found.files[0].id;
+      } catch (e) {}
     }
-    if (!id) {
-      const any = await this.json(`${API}/files?q=${this.q(`name='BindLens' and mimeType='${FOLDER}' and trashed=false`)}&fields=files(id,name)&spaces=drive`);
-      if (any.files.length) id = any.files[0].id;
-    }
-    if (!id) id = (await this.createFolder("BindLens", null)).id;
     this.rootId = id;
-    try { localStorage.setItem("bl_root", id); } catch (e) {}
+    try { localStorage.setItem("bl_root", id || "-"); } catch (e) {}
+    // My Drive itself (where new books and files from your computer go)
+    try { this.myRoot = localStorage.getItem("bl_myroot") || null; } catch (e) {}
+    if (!this.myRoot) {
+      try { const r = await this.json(`${API}/files/root?fields=id`); if (r && r.id) { this.myRoot = r.id; localStorage.setItem("bl_myroot", r.id); } } catch (e) {}
+    }
     // the library's settings file, so they are read before the books are shown
-    const st = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and '${id}' in parents and trashed=false`)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`);
-    this.settingsId = st.files && st.files.length ? st.files[0].id : null;
+    const st = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and trashed=false`)}&fields=files(id,name,modifiedTime,parents)&orderBy=modifiedTime desc&spaces=drive`);
+    const list = (st.files || []).sort((x, y) => ((y.parents || []).includes(id) ? 1 : 0) - ((x.parents || []).includes(id) ? 1 : 0));
+    this.settingsId = list.length ? list[0].id : null;
   }
 
   // everything BindLens can see, in one go: the books (folders in BindLens) and their files
@@ -155,7 +159,12 @@ export class DriveStore {
     } while (page);
     // the books: the folders in BindLens, and the books colleagues shared with you (kept in your settings)
     const linked = new Set(this.linked || []);
-    const books = items.filter(f => f.mimeType === FOLDER && ((f.parents || []).includes(this.rootId) || linked.has(f.id)));
+    const own = new Set(this.own || []);
+    const books = items.filter(f => f.mimeType === FOLDER && (((this.rootId && (f.parents || []).includes(this.rootId))) || linked.has(f.id)));
+    const byId = new Map(items.map(f => [f.id, f]));
+    // 1.0: the files you added from this computer are in My Drive itself: they show there, as one more book
+    if (this.myRoot && !books.some(b => b.id === this.myRoot) && items.some(f => f.mimeType !== FOLDER && f.mimeType !== SHORTCUT && f.name !== SETTINGS_NAME && (f.parents || []).includes(this.myRoot)))
+      books.push({ id: this.myRoot, name: _t("My Drive"), modifiedTime: "", mimeType: FOLDER, root: true });
     const ids = new Set(books.map(b => b.id));
     // folders inside a book are its sub-books (as deep as they go): each one knows its book and its path
     const folders = new Map(items.filter(f => f.mimeType === FOLDER).map(f => [f.id, f]));
@@ -172,31 +181,38 @@ export class DriveStore {
     };
     const subs = [];
     for (const f of folders.values()) {
-      if (ids.has(f.id)) continue;
+      if (ids.has(f.id) || f.id === this.rootId) continue;
       const w = placeOf(f.id);
       if (w) subs.push({ id: f.id, name: f.name, book: w.book, path: w.path });
     }
     const files = [];
     for (const f of items) {
-      if (f.mimeType === FOLDER) continue;
+      if (f.mimeType === FOLDER || f.name === SETTINGS_NAME) continue;
       const p = (f.parents || []).find(x => where.has(x) || placeOf(x));
       if (!p) continue;
       const w = where.get(p);
+      if (f.mimeType === SHORTCUT) {
+        // 1.0: a file of your Drive put in a book without copying it: the book shows the original (and marks go in it)
+        const t = byId.get(f.shortcutDetails && f.shortcutDetails.targetId);
+        if (t && !t.trashed && t.mimeType !== FOLDER && t.mimeType !== SHORTCUT) files.push({ ...this.norm(t), book: w.book, sub: w.path, parent: p, shortcut: f.id });
+        continue;
+      }
       files.push({ ...this.norm(f), book: w.book, sub: w.path, parent: p });
     }
-    const settings = items.filter(f => f.name === SETTINGS_NAME && (f.parents || []).includes(this.rootId))
+    const settings = items.filter(f => f.name === SETTINGS_NAME && (this.settingsId ? f.id === this.settingsId : true))
       .sort((a, b) => (b.modifiedTime || "").localeCompare(a.modifiedTime || ""))[0];
     if (settings) this.settingsId = settings.id;
-    const loose = items.filter(f => f.mimeType !== FOLDER && f.name !== SETTINGS_NAME && (f.parents || []).includes(this.rootId))
+    const top = [this.rootId, this.myRoot].filter(Boolean);
+    const loose = items.filter(f => f.mimeType !== FOLDER && f.mimeType !== SHORTCUT && f.name !== SETTINGS_NAME && (f.parents || []).some(x => top.includes(x)))
       .map(f => this.norm(f));
     return {
-      books: books.map(b => ({ id: b.id, name: b.name, modified: b.modifiedTime, shared: linked.has(b.id) })),
+      books: books.map(b => ({ id: b.id, name: b.name, modified: b.modifiedTime, linked: linked.has(b.id), shared: linked.has(b.id) && !own.has(b.id), root: !!b.root })),
       files, loose, subs,
     };
   }
 
   norm(f) {
-    const book = (f.parents || []).find(p => p !== this.rootId) || (f.parents || [])[0];
+    const book = (f.parents || []).find(p => p !== this.rootId && p !== this.myRoot) || (f.parents || [])[0];
     return { id: f.id, name: f.name, mime: f.mimeType, size: f.size ? Number(f.size) : null, modified: f.modifiedTime,
       md5: f.md5Checksum || "", version: f.version || "", book, parent: book };
   }
@@ -209,8 +225,9 @@ export class DriveStore {
   }
 
   async createBook(name) {
-    const f = await this.createFolder(name, this.rootId);
-    return { id: f.id, name: f.name, modified: f.modifiedTime };
+    // 1.0: a new book is a folder in My Drive itself (not inside another folder)
+    const f = await this.createFolder(name, null);
+    return { id: f.id, name: f.name, modified: f.modifiedTime, own: true };
   }
 
   async rename(id, name) {
@@ -257,7 +274,7 @@ export class DriveStore {
     if (!to) throw new Error(_t("Google cannot show this kind of file"));
     const copy = await this.json(`${API}/files/${file.id}/copy?fields=id`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "BindLens (a moment) - " + file.name, mimeType: to, parents: [this.rootId] }),
+      body: JSON.stringify({ name: "BindLens (a moment) - " + file.name, mimeType: to, parents: this.rootId ? [this.rootId] : undefined }),
     });
     try {
       const r = await this.fetch(`${API}/files/${copy.id}/export?mimeType=application/pdf`);
@@ -350,7 +367,7 @@ export class DriveStore {
   startOffline() {
     this.offline = true;
     this.user = JSON.parse(localStorage.getItem("bl_user"));
-    this.rootId = localStorage.getItem("bl_root");
+    { const r0 = localStorage.getItem("bl_root"); this.rootId = r0 && r0 !== "-" ? r0 : null; this.myRoot = localStorage.getItem("bl_myroot") || null; }
   }
 
   async writeOnline(file, bytes) {
@@ -395,7 +412,7 @@ export class DriveStore {
   async create(bookId, name, bytes, mime, opt = {}) {
     if (this.offline) throw new Error(_t("You are offline: new files can be added when the network is back"));
     mime = mime || mimeOf(name);
-    const meta = { name, parents: [bookId] };
+    const meta = { name, parents: bookId ? [bookId] : undefined };       // no book: My Drive itself
     const { onProgress = null, signal = null } = opt;
     let json;
     if (bytes.byteLength > 4 * 1024 * 1024) {
@@ -422,6 +439,7 @@ export class DriveStore {
       if (r.status >= 300) throw this.driveError(r);
       json = JSON.parse(r.text);
     }
+    if (!bookId && json.parents && json.parents[0] && !this.myRoot) { this.myRoot = json.parents[0]; try { localStorage.setItem("bl_myroot", this.myRoot); } catch (e) {} }
     const f = this.norm(json);
     // a copy in this browser opens it at once - only for files that are not big (a big copy is slow to keep)
     if (bytes.byteLength < (opt.keep === false ? 0 : 20 * 1024 * 1024)) idb.set("files", f.id + ":" + (f.md5 || f.modified), bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);
@@ -471,13 +489,21 @@ export class DriveStore {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body,
       });
     } else {
-      const f = await this.create(this.rootId, SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
+      const f = await this.create(this.rootId || null, SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
       this.settingsId = f.id;
     }
   }
 
   webLink(file) { return `https://drive.google.com/file/d/${file.id}/view`; }
-  folderLink(bookId) { return `https://drive.google.com/drive/folders/${bookId || this.rootId}`; }
+  folderLink(bookId) { return bookId || this.rootId ? `https://drive.google.com/drive/folders/${bookId || this.rootId}` : "https://drive.google.com/drive/my-drive"; }
+
+  // 1.0: a file of your Drive in a book without copying it (a shortcut: the original stays where it is)
+  async createShortcut(targetId, parent, name) {
+    return this.json(`${API}/files?fields=${FIELDS}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, mimeType: SHORTCUT, parents: [parent], shortcutDetails: { targetId } }),
+    });
+  }
 
   // "Add from Drive": the Google picker, for files the user already has in their Drive
   async pick(multiple = true, opts = {}) {
@@ -520,7 +546,7 @@ export class DriveStore {
       slides: "application/vnd.google-apps.presentation" }[kind];
     const f = await this.json(`${API}/files?fields=${FIELDS}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, mimeType: mime, parents: [parent || this.rootId] }),
+      body: JSON.stringify({ name, mimeType: mime, parents: parent || this.rootId ? [parent || this.rootId] : undefined }),
     });
     return this.norm(f);
   }
@@ -529,7 +555,7 @@ export class DriveStore {
   async createConverted(parent, name, bytes, srcMime, kind) {
     const to = { doc: "application/vnd.google-apps.document", sheet: "application/vnd.google-apps.spreadsheet", slides: "application/vnd.google-apps.presentation" }[kind];
     const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify({ name, mimeType: to, parents: [parent || this.rootId] })], { type: "application/json" }));
+    form.append("metadata", new Blob([JSON.stringify({ name, mimeType: to, parents: parent || this.rootId ? [parent || this.rootId] : undefined })], { type: "application/json" }));
     form.append("file", new Blob([bytes], { type: srcMime }));
     const json = await (await this.fetch(`${UP}/files?uploadType=multipart&fields=${FIELDS}`, { method: "POST", body: form })).json();
     return this.norm(json);

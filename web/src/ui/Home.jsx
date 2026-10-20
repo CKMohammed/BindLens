@@ -28,7 +28,7 @@ export function AccountButton() {
       { label: _t("Leave consultation mode..."), icon: "lock", run: () => openPanel("consult") },
     ] : [
       { title: s.kind === "demo" ? _t("Example library (nothing is saved)") : (u.email || "") },
-      s.cloud && { label: _t("Open the BindLens folder in ") + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
+      s.cloud && { label: _t("Open my Drive in ") + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
       { label: _t("Settings"), icon: "settings", run: () => openPanel("settings") },
       { label: _t("Help"), icon: "help", run: () => openPanel("help") },
       "-",
@@ -37,6 +37,15 @@ export function AccountButton() {
       <span class="avatar">{u.photo ? <img src={u.photo} alt="" referrerpolicy="no-referrer" /> : initials(u.name || "B")}</span>
     </button>
   );
+}
+
+// 1.0: upload, right on the shelf - from this computer to My Drive as they are, or your originals from Drive (no copies)
+export function uploadItems() {
+  return [
+    { label: _t("Documents from this computer (to My Drive)..."), icon: "upload", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs, { root: true }); } },
+    { label: _t("A folder from this computer (it becomes a book)..."), icon: "book", run: () => addFolder() },
+    store.value.canPick && { label: _t("From my Google Drive (the originals, no copies)..."), icon: "drive", run: () => addFromDrive() },
+  ];
 }
 
 export function addItems() {
@@ -344,6 +353,7 @@ export function Home() {
             <button class={mode === "shelf" ? "on" : ""} onClick={() => setMode("shelf")}><Icon n="book" size={15} />{_t("Shelf")}</button>
             <button class={mode === "list" ? "on" : ""} onClick={() => setMode("list")}><Icon n="list" size={15} />{_t("List")}</button>
           </div>
+          <button class="btn small soft" title={_t("Upload documents or a folder")} onClick={(e) => openMenu(e, uploadItems())}><Icon n="upload" size={16} />{_t("Upload")}</button>
           <button class="btn small phone-only" onClick={(e) => openMenu(e, addItems())}><Icon n="plus" size={16} />{_t("Add")}</button>
           <span class="phone-only"><AccountButton /></span>
         </div>

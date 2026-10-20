@@ -62,7 +62,7 @@ export async function exportMarks(book, how, list) {
     logChange(_t("Made a Google Doc with the highlights of"), book.name);
     const { openBeside } = await import("./ui/AddPages.jsx");
     openBeside(store.value.editLink("doc", f.id));
-    toast(_t("\"{0}\" is open in Google Docs. It is kept in the BindLens folder of your Drive.", name), "ok", 6000);
+    toast(_t("\"{0}\" is open in Google Docs. It is kept in My Drive.", name), "ok", 6000);
     return;
   }
   download(docx, name + ".docx");

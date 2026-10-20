@@ -8,7 +8,7 @@ import { _t, isEs } from "../i18n.js";
 const close = () => { panel.value = null; };
 
 const STEPS = [
-  { icon: "book", title: _t("Your folders are books"), text: _t("Each book is a folder in the BindLens folder of your Google Drive. Every PDF, Word file, spreadsheet, photo and video in it is one book you scroll through, page after page. Folders inside a book are its sub-books.") },
+  { icon: "book", title: _t("Your folders are books"), text: _t("Each book is one of your folders in Google Drive, where it is. Every PDF, Word file, spreadsheet, photo and video in it is one book you scroll through, page after page. Folders inside a book are its sub-books.") },
   { icon: "highlighter", title: _t("Mark anything"), text: _t("Highlight, write, draw, add sticky notes, ticks, stamps and your signature. Change the PDF's own words, hide or erase private data, crop pages. The marks are saved inside the PDF in your Drive.") },
   { icon: "search", title: _t("Find it at once"), text: _t("Ctrl+K finds a book, a document or a word inside any of your documents, scanned ones too once their words are read.") },
   { icon: "reports", title: _t("Reports, row by row"), text: _t("Names, emails, phones, addresses, dates, amounts and tables come out exactly as they are written in your documents: copy them, or take them to Excel.") },
@@ -56,7 +56,7 @@ export function Legal() {
       <h3 style={{ margin: "16px 0 6px" }}>{_t("Privacy")}</h3>
       <ul class="small" style={{ paddingLeft: 18, lineHeight: 1.55 }}>
         <li>{_t("BindLens Web has")} <b>{_t("no servers and no accounts of its own")}</b>{_t(". The app runs in your browser; you sign in with Google.")}</li>
-        <li>{_t("It asks Google for one permission,")} <b>{_t("drive.file")}</b>{_t(": it can see and change only the files and folders it made (the BindLens folder and what is in it) or that you give it yourself. It cannot see the rest of your Drive.")}</li>
+        <li>{_t("It asks Google for one permission,")} <b>{_t("drive.file")}</b>{_t(": it can see and change only the files and folders it made (the books you made with it and what is in them) or that you give it yourself. It cannot see the rest of your Drive.")}</li>
         <li>{_t("Your books, files and marks are saved in")} <b>{_t("your")}</b> {_t("Google Drive. The settings of your library (book colours, where you left off, reminders, statuses) are in the file \"BindLens library.json\" in the BindLens folder.")}</li>
         <li>{_t("To open books fast, this browser keeps copies of your files and of the words read from them. Settings, Clear the copies in this browser, takes them away; your Drive is not changed.")}</li>
         <li>{_t("Nobody else gets your documents: they go from your Drive to your browser and back. There is no tracking and no advertising.")}</li>

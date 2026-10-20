@@ -83,7 +83,7 @@ export function buildLibrary(list) {
     const files = byBook.get(b.id) || [];
     sortFiles(files, m.fileOrder || []);
     const subs = (subsOf.get(b.id) || []).sort((a, c) => natCompare(a.path, c.path));
-    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, subs, modified: b.modified, shared: !!b.shared };
+    return { id: b.id, name: b.name, color: m.color || colorFor(b.name), files, subs, modified: b.modified, shared: !!b.shared, linked: !!b.linked, root: !!b.root };
   });
   out.sort((a, b) => {
     const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
@@ -157,6 +157,7 @@ export function setDocData(ids, change) {
 export async function reloadLibrary() {
   const s = store.value;
   s.linked = (settings.value.linkedBooks || []).map(x => x.id);    // books colleagues shared with you
+  s.own = (settings.value.linkedBooks || []).filter(x => x.own).map(x => x.id);   // 1.0: your own folders, where they are
   const list = await s.listAll();
   batch(() => {
     books.value = buildLibrary(list);
@@ -237,7 +238,7 @@ const snapLibrary = debounce(() => {
   const s = store.value;
   if (!s || !s.cloud || s.offline || !s.user || phase.value !== "ready") return;
   const list = {
-    books: books.value.map(b => ({ id: b.id, name: b.name, modified: b.modified, shared: !!b.shared })),
+    books: books.value.map(b => ({ id: b.id, name: b.name, modified: b.modified, shared: !!b.shared, linked: !!b.linked, root: !!b.root })),
     files: books.value.flatMap(b => b.files.map(f => { const { kind, ...rest } = f; void kind; return { ...rest, book: b.id }; })),
     subs: books.value.flatMap(b => (b.subs || []).map(x => ({ ...x, book: b.id }))),
     loose: looseFiles.value,

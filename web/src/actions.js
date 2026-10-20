@@ -24,13 +24,14 @@ export function pickFiles({ accept = "", multiple = true, capture = null, folder
 }
 
 export async function newBook(name, { quiet = false } = {}) {
-  if (!name) name = await ask(_t("New book"), { label: _t("A book is a folder in your Google Drive, inside the BindLens folder."), placeholder: _t("e.g. Clients"), ok: _t("Make the book") });
+  if (!name) name = await ask(_t("New book"), { label: _t("A book is a folder of your Google Drive, in My Drive."), placeholder: _t("e.g. Clients"), ok: _t("Make the book") });
   if (!name) return null;
   name = cleanName(name);
   const taken = books.value.map(b => b.name);
   name = uniqueName(name, taken);
   try {
     const b = await store.value.createBook(name);
+    if (b.own) linkBook({ id: b.id, name: b.name }, true);
     books.value = [...books.value, { id: b.id, name: b.name, color: colorFor(b.name), files: [], modified: b.modified }];
     setSetting("bookOrder", books.value.map(x => x.id));
     logChange(_t("Made the book"), name);
@@ -42,8 +43,17 @@ export async function newBook(name, { quiet = false } = {}) {
   }
 }
 
-export async function uploadFiles(book, files, { open = true, parent = null, quiet = false } = {}) {
+export async function uploadFiles(book, files, { open = true, parent = null, quiet = false, root = false } = {}) {
   if (!files || !files.length) return [];
+  if (root && store.value.kind === "drive") {
+    // 1.0: documents from this computer go to My Drive itself, as they are (no folder of BindLens)
+    if (store.value.offline) { toast(_t("You are offline: new files can be added when the network is back."), "bad"); return []; }
+    const { queueUploads } = await import("./uploads.js");
+    files = await import("./heic.js").then(m => m.fixHeic(files)).catch(() => files);
+    const r = await queueUploads(files.filter(f => !f.name.startsWith(".")).map(file => ({ file, bookId: store.value.myRoot || null, where: null })), { open: false });
+    await reloadLibrary();
+    return r;
+  }
   if (!book) {
     book = currentBook.value || books.value[0] || await newBook();
     if (!book) return [];
@@ -57,22 +67,35 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
   return queueUploads(files.filter(f => !f.name.startsWith(".")).map(file => ({ file, bookId: book.id, where })), { open });
 }
 
+// 1.0: a folder of your Drive as a book, as it is - BindLens remembers it; nothing is copied or moved
+export function linkBook(fo, own = true) {
+  const linked = settings.value.linkedBooks || [];
+  if (!linked.some(x => x.id === fo.id)) setSetting("linkedBooks", [...linked, { id: fo.id, name: fo.name, at: Date.now(), own }]);
+  store.value.linked = [...new Set([...(store.value.linked || []), fo.id])];
+  if (own) store.value.own = [...new Set([...(store.value.own || []), fo.id])];
+}
+
 export async function addFromDrive(book) {
   if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add the files from your computer (Add files).") : _t("Sign in with Google to add files from your Drive.")); return; }
   try {
-    const picked = await store.value.pick(true);
+    const picked = await store.value.pick(true, { folders: true });
     if (!picked.length) return;
+    if (picked.every(x => x.mime === "application/vnd.google-apps.folder")) { for (const p of picked) await importDriveFolder(p); return; }
     book = book || currentBook.value || books.value[0] || await newBook();
     if (!book) return;
+    // 1.0: nothing is copied. A folder becomes a book as it is; a file stays where it is - if it is not in the book's
+    // folder, the book shows it through a shortcut (the original is the one you read and mark)
     let n = 0;
+    for (const p of picked.filter(x => x.mime === "application/vnd.google-apps.folder")) await importDriveFolder(p);
     for (const p of picked) {
       if (p.mime === "application/vnd.google-apps.folder") continue;
       const meta = await store.value.meta(p.id);
-      const f = await store.value.copy(meta, book.id, uniqueName(meta.name, book.files.map(x => x.name)));
-      addFileToBook(book.id, f);
-      logChange(_t("Added from your Drive"), f.name, book.name);
+      const inBook = (meta.parents || []).some(x => x === book.id || (book.subs || []).some(sb => sb.id === x));
+      if (!inBook) await store.value.createShortcut(p.id, book.id, meta.name);
+      logChange(_t("Added from your Drive (the original, not a copy)"), meta.name, book.name);
       n++;
     }
+    if (n) await reloadLibrary();
     if (n) toast(_t("{0} file{1} added to \"{2}\".", n, n > 1 ? "s" : "", book.name), "ok");
   } catch (e) {
     toast(_t("Could not open your Drive: ") + e.message, "bad", 6000);
@@ -105,56 +128,23 @@ async function walkDrive(id, path, depth, out) {
 }
 
 async function importDriveFolder(fo) {
-  let tree = [];
-  try { tree = await walkDrive(fo.id, "", 0, []); } catch (e) { tree = []; }
-  if (!tree.length) {
+  // 1.0: the folder itself is the book - the original, where it is in your Drive (nothing copied, no other folder)
+  linkBook({ id: fo.id, name: fo.name }, true);
+  await reloadLibrary();
+  let b = books.value.find(x => x.id === fo.id);
+  if (!b || !b.files.length) {
     const ok = await confirm(_t("Choose the files of \"{0}\"", fo.name),
-      _t("Google lets BindLens open only the files you choose (that keeps the rest of your Drive private). In the next window \"{0}\" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select.", fo.name),
+      _t("Google lets BindLens open only the files you choose (that keeps the rest of your Drive private). In the next window \"{0}\" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select. Nothing is copied: BindLens works on the originals.", fo.name),
       { ok: _t("Choose the files") });
-    if (!ok) return;
-    const picked = (await store.value.pick(true, { parent: fo.id, title: _t("\"{0}\": select all the files (Ctrl+A), then Select", fo.name) })).filter(p => p.mime !== FOLDER_MIME && !SKIP_MIME.has(p.mime));
-    if (!picked.length) return;
-    for (const p of picked) tree.push({ file: await store.value.meta(p.id), path: "" });
+    if (ok) { await store.value.pick(true, { parent: fo.id, title: _t("\"{0}\": select all the files (Ctrl+A), then Select", fo.name) }); await reloadLibrary(); }
+    b = books.value.find(x => x.id === fo.id);
   }
-  const made = await newBook(fo.name);
-  if (!made) return;
-  const subs = new Map();
-  let n = 0;
-  toast(_t("Adding {0} file{1} from \"{2}\"...", tree.length, tree.length === 1 ? "" : "s", fo.name));
-  for (const { file, path } of tree) {
-    let parent = made.id;
-    try {
-      if (path) {
-        // the folders inside become sub-books
-        let acc = "";
-        for (const part of path.split("/")) {
-          acc = acc ? acc + "/" + part : part;
-          if (!subs.has(acc)) {
-            const s = await store.value.createSub(cleanName(part), parent);
-            const sub = { id: s.id, name: cleanName(part), path: acc };
-            subs.set(acc, sub);
-            books.value = books.value.map(b => b.id === made.id ? { ...b, subs: [...(b.subs || []), sub] } : b);
-          }
-          parent = subs.get(acc).id;
-        }
-      }
-      const cur = books.value.find(b => b.id === made.id);
-      const taken = cur.files.filter(x => (x.parent || made.id) === parent).map(x => x.name);
-      const f = await store.value.copy(file, parent, uniqueName(file.name, taken));
-      f.parent = parent;
-      addFileToBook(made.id, f);
-      n++;
-      if (n % 5 === 0 && n < tree.length) toast(_t("\"{0}\": {1} of {2} files added...", fo.name, n, tree.length));
-    } catch (e) {
-      toast(_t("Could not add {0}: {1}", file.name, e.message), "bad", 5000);
-    }
-  }
-  logChange(_t("Added a folder from your Drive"), _t("{0} ({1} files)", fo.name, n), made.name);
-  toast(_t("\"{0}\" is ready: {1} file{2} from your Drive.", made.name, n, n === 1 ? "" : "s"), "ok");
-  openBook(made.id);
+  logChange(_t("Added a folder from your Drive (the original, not a copy)"), fo.name);
+  if (b) { toast(_t("\"{0}\" is in your library: it is your folder in Drive, as it is. What you change is saved in it.", fo.name), "ok", 6000); openBook(b.id); }
 }
 
 export async function renameBook(book) {
+  if (book.root) { toast(_t("This is My Drive itself.")); return; }
   const name = await ask(_t("Rename the book"), { value: book.name, ok: _t("Rename") });
   if (!name || name === book.name) return;
   await store.value.rename(book.id, cleanName(name));
@@ -163,6 +153,7 @@ export async function renameBook(book) {
 }
 
 export async function deleteBook(book) {
+  if (book.root) { toast(_t("This is My Drive itself.")); return; }
   if (book.shared) { unlinkBook(book); return; }
   const ok = await confirm(_t("Move \"{0}\" to the bin?", book.name),
     _t("The folder and its {0} file{1} go to your Google Drive bin, where you can get them back for 30 days.", book.files.length, book.files.length === 1 ? "" : "s"),
@@ -217,7 +208,7 @@ export async function deleteFile(book, file) {
     { ok: _t("Move to the bin"), danger: true });
   if (!ok) return;
   await saveAll();
-  await store.value.trash(file.id);
+  await store.value.trash(file.shortcut || file.id);         // a file shown through a shortcut: only the shortcut goes
   logChange(_t("Moved to the bin"), file.name, book.name);
   removeFile(file.id);
   if (fileId.value === file.id) {
@@ -230,7 +221,8 @@ export async function deleteFile(book, file) {
 
 export async function moveFileTo(book, file, toBook) {
   await saveAll();
-  const f = await store.value.move(file.id, file.parent || book.id, toBook.id);
+  const f = file.shortcut ? (await store.value.move(file.shortcut, file.parent || book.id, toBook.id), { ...file })
+    : await store.value.move(file.id, file.parent || book.id, toBook.id);
   f.parent = toBook.id;
   removeFile(file.id);
   addFileToBook(toBook.id, f);
@@ -311,7 +303,7 @@ export async function moveFileToSub(book, file, sub) {
   const to = sub ? sub.id : book.id;
   if ((file.parent || book.id) === to) return;
   await saveAll();
-  await store.value.move(file.id, file.parent || book.id, to);
+  await store.value.move(file.shortcut || file.id, file.parent || book.id, to);
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, parent: to, sub: sub ? sub.path : "" } : f) } : b);
   const { sortFiles } = await import("./state.js");
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: sortFiles([...b.files], settings.value.books?.[b.id]?.fileOrder || []) } : b);
@@ -366,7 +358,8 @@ export async function addDocsAsBooks() {
 
 // out of BindLens, but kept in the Drive ("My Drive"): a book (its folder) or a file
 export async function releaseBook(book) {
-  if (book.shared) { unlinkBook(book); return; }
+  if (book.root) { toast(_t("This is My Drive itself.")); return; }
+  if (book.shared || book.linked) { unlinkBook(book); return; }
   const ok = await confirm(_t("Take \"{0}\" out of BindLens?", book.name), store.value.kind === "drive"
     ? _t("The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted.") : _t("In the example library it just goes away."), { ok: _t("Take it out") });
   if (!ok) return;
@@ -423,7 +416,7 @@ export async function bringNewFiles(book) {
 }
 
 export async function unlinkBook(book) {
-  const ok = await confirm(_t("Take \"{0}\" out of your library?", book.name), _t("It is a book a colleague shared with you: it stays in their Drive, as it is. You can open it again with Add > A book shared with me."), { ok: _t("Take it out") });
+  const ok = await confirm(_t("Take \"{0}\" out of your library?", book.name), book.shared ? _t("It is a book a colleague shared with you: it stays in their Drive, as it is. You can open it again with Add > A book shared with me.") : _t("The folder stays in your Drive, as it is, with all its files. You can add it again from your Drive."), { ok: _t("Take it out") });
   if (!ok) return;
   setSetting("linkedBooks", (settings.value.linkedBooks || []).filter(x => x.id !== book.id));
   batch(() => {

@@ -7445,7 +7445,41 @@ class Writer(threading.Thread):
             return False
         cur = (st.st_mtime, st.st_size)
         known = self.ours.get(path) or self.expect.get(path)
-        return known is not None and not self._same(cur, known)
+        if known is None or self._same(cur, known):
+            return False
+        # 1.0: a synced folder (Google Drive, OneDrive, Dropbox) touches the file's date when it uploads it - the same
+        # content is not a change made elsewhere (no copy "with my marks"; the original is saved)
+        try:
+            with open(path, "rb") as fh:
+                fpd = _fp(fh.read())
+            with self.lock:
+                mine = set(self.prefix.get(path) or ())
+            if fpd in mine:
+                with self.lock:
+                    self.ours[path] = cur
+                return False
+        except OSError:
+            pass
+        return True
+
+    @staticmethod
+    def _write_in_place(path, data, tries=8):
+        """1.0: write the new bytes over the same file (Google Drive / OneDrive keep it as the same file - no copy)."""
+        for k in range(tries):
+            try:
+                with open(path, "r+b") as fh:
+                    fh.write(data)
+                    fh.truncate()
+                    fh.flush()
+                    try:
+                        os.fsync(fh.fileno())
+                    except OSError:
+                        pass
+                return
+            except PermissionError:
+                if k == tries - 1:
+                    raise
+                time.sleep(min(2.5, 0.4 * (k + 1)))
 
     def get(self, path):
         with self.lock:
@@ -7533,14 +7567,22 @@ class Writer(threading.Thread):
                                 os.fsync(fh.fileno())          # 3.0: really on the disk before it replaces the file
                             except OSError:
                                 pass
-                        for k in range(10):
+                        # 1.0: a synced folder (Google Drive, OneDrive) holds the file for a moment while it uploads it:
+                        # wait for it longer, then write over the same file (still the original - nothing copied)
+                        replaced = False
+                        for k in range(12):
                             try:
                                 os.replace(tmp, path)
+                                replaced = True
                                 break
                             except PermissionError:
-                                if k == 9:
-                                    raise
-                                time.sleep(0.3)
+                                time.sleep(min(2.0, 0.3 * (k + 1)))
+                        if not replaced:
+                            self._write_in_place(path, data)
+                            try:
+                                os.remove(tmp)
+                            except OSError:
+                                pass
                     with self.lock:
                         self.prefix[path] = {_fp(data)} | ({base} if base else set())
                     try:
