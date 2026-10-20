@@ -2,12 +2,12 @@
 import { useEffect, useState } from "preact/hooks";
 import { panel, settings, setSetting, books, openBook, toast } from "../state.js";
 import { scrollTo } from "./Viewer.jsx";
-import { Dialog, ask } from "./dialogs.jsx";
+import { Dialog, ask, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { allDeadlines, needs, status, calendarLink, icsOf, itemKey, myItems } from "../reports/dates.js";
 import { openItem, addCountdown } from "./needs.js";
 import { fmtDate, isoDate, download, daysBetween, monthName, uid } from "../util.js";
-import { _t } from "../i18n.js";
+import { _t, _n } from "../i18n.js";
 
 // the dates of a calendar file (.ics): every event's day and title (a repeating one: its next dates, up to a year)
 export function parseIcs(text) {
@@ -84,8 +84,35 @@ function MonthCal({ items, onDay, day }) {
   );
 }
 
+// a calendar followed by its link: brought in again when What needs you opens (at most every six hours)
+export async function refreshCalendarLink(l, loud = false) {
+  try {
+    const res = await fetch(l.url, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const evs = parseIcs(await res.text());
+    const from = Date.now() - 60 * 86400000;
+    const keep = evs.filter(e => new Date(e.date + "T00:00").getTime() >= from).slice(0, 400)
+      .map(e => ({ id: uid(), date: e.date, text: e.text, source: l.name }));
+    const others = (settings.value.calendar || []).filter(r => r.source !== l.name);
+    setSetting("calendar", [...others, ...keep]);
+    if (loud) toast(_n(keep.length, "{0} date from \"{1}\" is in the calendar. It is brought again from the link when What needs you opens.", "{0} dates from \"{1}\" are in the calendar. They are brought again from the link when What needs you opens.", l.name), "ok");
+    return keep.length;
+  } catch (e) {
+    if (loud) toast(_t("That calendar does not let a browser read it directly. Download its .ics file and choose A calendar file instead."), "bad");
+    return null;
+  }
+}
+export function refreshCalendarLinks() {
+  const links = settings.value.calLinks || [];
+  const due = links.filter(l => Date.now() - (l.at || 0) > 6 * 3600e3);
+  if (!due.length) return;
+  setSetting("calLinks", links.map(l => due.includes(l) ? { ...l, at: Date.now() } : l));
+  for (const l of due) refreshCalendarLink(l);
+}
+
 export function Dates() {
   const [items, setItems] = useState(null);
+  useEffect(() => { refreshCalendarLinks(); }, []);
   const [prog, setProg] = useState([0, 0]);
   const [show, setShow] = useState("needs");
   const [day, setDay] = useState(null);
@@ -120,7 +147,23 @@ export function Dates() {
     }
     setSetting("reminders", [...(settings.value.reminders || []), { id: uid(), date: d, text }]);
   };
-  const bringCalendar = async () => {
+  const bringCalendar = (e) => openMenu(e, [
+    { label: _t("A calendar file (.ics)..."), icon: "upload", run: () => calendarFromFile() },
+    { label: _t("A calendar link (kept up to date)..."), icon: "share", run: () => calendarFromLink() },
+    ...(settings.value.calLinks || []).map(l => ({ label: _t("Stop following \"{0}\"", l.name), icon: "close", run: () => {
+      setSetting("calLinks", (settings.value.calLinks || []).filter(x => x.url !== l.url));
+      setSetting("calendar", (settings.value.calendar || []).filter(r => r.source !== l.name));
+    } })),
+  ]);
+  const calendarFromLink = async () => {
+    const url = await ask(_t("A calendar link"), { label: _t("The address of the calendar (.ics or webcal://), from Outlook, Google Calendar or Apple Calendar: \"Publish\" or \"Secret address in iCal format\"."), placeholder: "https://.../calendar.ics", ok: _t("Bring it in") });
+    if (!url) return;
+    const name = await ask(_t("Its name"), { label: _t("How it is called in What needs you"), value: _t("Calendar"), ok: _t("Save") });
+    if (!name) return;
+    const r = await refreshCalendarLink({ url: url.trim().replace(/^webcal:/i, "https:"), name }, true);
+    if (r != null) setSetting("calLinks", [...(settings.value.calLinks || []).filter(x => x.name !== name), { url: url.trim().replace(/^webcal:/i, "https:"), name, at: Date.now() }]);
+  };
+  const calendarFromFile = async () => {
     const { pickFiles } = await import("../actions.js");
     const [f] = await pickFiles({ accept: ".ics,text/calendar", multiple: false });
     if (!f) return;

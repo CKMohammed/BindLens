@@ -1,7 +1,7 @@
 // Write: a new page or a new document - a letter, notes, an invoice - straight into a book, as a PDF.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { panel, books, currentBook, toast, store, addFileToBook, openBook, logChange } from "../state.js";
-import { Dialog, ask } from "./dialogs.jsx";
+import { Dialog, ask, openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { call, fileFor, pageOp } from "../docs.js";
 import { scrollTo } from "./Viewer.jsx";
@@ -178,9 +178,23 @@ export function Write({ book: bid, into, at, edit }) {
     document.execCommand("insertHTML", false, `<p class="picline" style="text-align:center"><img src="${url}" style="width:320px;max-width:100%"></p><p><br></p>`);
     toast(_t("Click the picture for its size, a caption, or text beside it."));
   };
-  const insertTable = () => {
+  const insertTable = (rows = 3, cols = 3) => {
     ref.current.focus();
-    document.execCommand("insertHTML", false, "<table><tr>" + `<th>${_t("Column")}</th>`.repeat(3) + "</tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table><p><br></p>");
+    const body = `<tr>${"<td>&nbsp;</td>".repeat(cols)}</tr>`.repeat(rows - 1);
+    document.execCommand("insertHTML", false, "<table><tr>" + `<th>${_t("Column")}</th>`.repeat(cols) + "</tr>" + body + "</table><p><br></p>");
+  };
+  // Tab goes to the next cell (in the last one it adds a row); Shift+Tab goes back
+  const tabInTable = (e) => {
+    if (e.key !== "Tab") return;
+    const t = cellAt();
+    if (!t) return;
+    e.preventDefault();
+    const cells = [...t.table.querySelectorAll("td,th")];
+    let k = cells.indexOf(t.cell) + (e.shiftKey ? -1 : 1);
+    if (k >= cells.length) { TABLE.rowBelow({ ...t, row: t.table.rows[t.table.rows.length - 1] }); k = cells.length; }
+    const to = [...t.table.querySelectorAll("td,th")][Math.max(0, k)];
+    if (!to) return;
+    const r = document.createRange(); r.selectNodeContents(to); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
   };
 
   return (
@@ -205,7 +219,7 @@ export function Write({ book: bid, into, at, edit }) {
           <Btn label={_t("Centre")} cmd="justifyCenter"><span class="small">≡</span></Btn>
           <Btn label={_t("Right")} cmd="justifyRight"><span class="small">≡⯈</span></Btn>
           <span class="sep" />
-          <button class="ib" title={_t("A table")} onMouseDown={(e) => { e.preventDefault(); insertTable(); }}><Icon n="table" size={18} /></button>
+          <button class="ib" title={_t("A table")} onMouseDown={(e) => { e.preventDefault(); openMenu(e, [{ title: _t("A table: rows × columns") }, ...[[2, 2], [3, 3], [4, 3], [5, 4], [6, 5], [10, 4]].map(([r, c]) => ({ label: `${r} × ${c}`, icon: "table", run: () => insertTable(r, c) })), { label: _t("Other size..."), icon: "rename", run: async () => { const v = await ask(_t("A table"), { label: _t("Rows × columns, for example 8 x 5"), placeholder: "8 x 5", ok: _t("Insert") }); const m = v && /(\d+)\D+(\d+)/.exec(v); if (m) insertTable(Math.min(60, Math.max(1, +m[1])), Math.min(12, Math.max(1, +m[2]))); } }]); }}><Icon n="table" size={18} /></button>
           <button class="ib" title={_t("A picture")} onMouseDown={(e) => { e.preventDefault(); insertPicture(); }}><Icon n="image" size={18} /></button>
           <button class="ib" title={_t("A separator line")} onMouseDown={(e) => { e.preventDefault(); document.execCommand("insertHTML", false, "<hr><p><br></p>"); }}><Icon n="line" size={18} /></button>
           <button class="ib" title={_t("A page break (what follows starts a new page)")} onMouseDown={(e) => { e.preventDefault(); document.execCommand("insertHTML", false, '<div class="pb" style="page-break-after:always"></div><p><br></p>'); }}><Icon n="addpage" size={18} /></button>
@@ -248,7 +262,7 @@ export function Write({ book: bid, into, at, edit }) {
             {TEMPLATES.map(t => <button key={t.key} class={tpl === t.key ? "on" : ""} onClick={() => choose(t)}>{t.name}</button>)}
           </div>
           <div class="paper-wrap">
-            <div ref={ref} class="paper" contentEditable spellcheck
+            <div ref={ref} class="paper" contentEditable spellcheck onKeyDown={tabInTable}
               onFocus={(e) => { const p = e.target.querySelector(".ph"); if (p) { const r = document.createRange(); r.selectNodeContents(p); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } }} />
           </div>
         </div>

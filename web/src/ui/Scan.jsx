@@ -68,7 +68,7 @@ export function Scan({ book: bid, into, at }) {
   const target = into ? fileFor(into) : null;
 
   const take = async (camera) => {
-    const fs = await pickFiles({ accept: "image/*", multiple: !camera, capture: camera ? "environment" : null });
+    const fs = await pickFiles({ accept: "image/*,.heic,.heif", multiple: !camera, capture: camera ? "environment" : null });
     if (!fs.length) return;
     const [first, ...rest] = fs;
     setQueue(q => [...q, ...rest]);

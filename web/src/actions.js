@@ -16,7 +16,7 @@ export function pickFiles({ accept = "", multiple = true, capture = null, folder
     if (capture) i.capture = capture;
     if (folder) i.webkitdirectory = true;
     i.style.display = "none";
-    i.onchange = () => { resolve([...i.files]); i.remove(); };
+    i.onchange = async () => { const fs = [...i.files]; i.remove(); resolve(await import("./heic.js").then(m => m.fixHeic(fs)).catch(() => fs)); };
     i.oncancel = () => { resolve([]); i.remove(); };
     document.body.appendChild(i);
     i.click();
@@ -53,6 +53,7 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
   // the panel in the corner shows them going up (three at a time); the first opens as soon as it is in
   const { queueUploads } = await import("./uploads.js");
   void quiet;
+  files = await import("./heic.js").then(m => m.fixHeic(files)).catch(() => files);
   return queueUploads(files.filter(f => !f.name.startsWith(".")).map(file => ({ file, bookId: book.id, where })), { open });
 }
 

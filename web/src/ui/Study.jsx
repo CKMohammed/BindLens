@@ -1,5 +1,6 @@
 // Study cards: your highlights and notes of a book as cards to review - the words on the front, where they come
-// from on the back. "I knew it" puts a card at the end; "Again" keeps it near.
+// from on the back. Spaced repetition: each card comes back when it is due - Again (today), Hard, Good, Easy (later
+// and later). What each card has learnt is kept with the settings in your Drive.
 import { useEffect, useState } from "preact/hooks";
 import { panel, currentBook, books, settings, setSetting, store, toast } from "../state.js";
 import { Dialog } from "./dialogs.jsx";
@@ -7,7 +8,7 @@ import { Icon } from "./icons.jsx";
 import { allMarks, call } from "../docs.js";
 import { fmtDate, escapeHtml, download } from "../util.js";
 import { goToWord } from "./Find.jsx";
-import { _t } from "../i18n.js";
+import { _t, loc } from "../i18n.js";
 
 // the summary sheet: every highlight and note of the book, in the order of the book, as they are written
 function sheetBlocks(book, list) {
@@ -24,6 +25,27 @@ function blocksHtml(blocks) {
 }
 const SHEET_CSS = "body{font-family:sans-serif;font-size:11pt;line-height:1.4} h1{font-size:20pt;margin:0 0 4pt} h2{font-size:14pt;margin:14pt 0 4pt;color:#3a2e7a} p{margin:0 0 6pt}";
 
+// spaced repetition (as SM-2, simpler): the interval grows with each good answer; Again starts again
+const GRADES = [[0, () => _t("Again"), "plain"], [1, () => _t("Hard"), "soft"], [2, () => _t("Good"), ""], [3, () => _t("Easy"), "soft"]];
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+function cardId(fid, page, words) { let h = 0; for (const ch of words.slice(0, 200)) h = (h * 31 + ch.charCodeAt(0)) | 0; return `${fid}:${page}:${(h >>> 0).toString(36)}`; }
+export function schedule(r, grade) {
+  r = r || { ivl: 0, ease: 2.5, n: 0 };
+  let { ivl, ease, n } = r;
+  if (grade === 0) { ivl = 0; n = 0; ease = Math.max(1.3, ease - 0.2); }
+  else if (grade === 1) { ivl = Math.max(1, Math.round(ivl * 1.2)); ease = Math.max(1.3, ease - 0.15); n++; }
+  else { ivl = n === 0 ? (grade === 3 ? 4 : 1) : n === 1 ? (grade === 3 ? 8 : 3) : Math.round(ivl * ease * (grade === 3 ? 1.3 : 1)); if (grade === 3) ease += 0.15; n++; }
+  const d = new Date(); d.setDate(d.getDate() + ivl);
+  const due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { ivl, ease: Math.round(ease * 100) / 100, n, due };
+}
+const inDays = (n) => n <= 0 ? _t("today") : n === 1 ? _t("tomorrow") : _t("in {0} days", n);
+function nextDue(cards) {
+  const st = settings.value.study || {};
+  const d = cards.map(c => st[c.id]?.due).filter(Boolean).sort()[0];
+  return d ? new Date(d + "T00:00").toLocaleDateString(loc, { day: "numeric", month: "long" }) : "";
+}
+
 export function Study() {
   const book = currentBook.value || books.value[0];
   const [cards, setCards] = useState(null);
@@ -32,6 +54,7 @@ export function Study() {
   const [i, setI] = useState(0);
   const [back, setBack] = useState(false);
   const [known, setKnown] = useState(0);
+  const [allCards, setAllCards] = useState([]);
   const close = () => { panel.value = null; };
   useEffect(() => {
     let alive = true;
@@ -43,32 +66,40 @@ export function Study() {
           for (const m of await allMarks(f)) {
             const words = (m.text || m.contents || "").trim();
             if (!words || m.type === "Stamp" || m.type === "Ink") continue;
-            out.push({ front: words, note: m.type === "FreeText" || m.type === "Text" ? _t("Your note") : "", file: f, page: m.page });
+            out.push({ id: cardId(f.id, m.page, words), front: words, note: m.type === "FreeText" || m.type === "Text" ? _t("Your note") : "", file: f, page: m.page });
           }
         } catch (e) {}
       }
       if (alive) setInOrder([...out]);
       // a different order each time
       for (let k = out.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [out[k], out[j]] = [out[j], out[k]]; }
-      if (alive) setCards(out);
+      // due first (new ones and those whose day has come); the rest wait for their day
+      const st = settings.value.study || {}, today = todayIso();
+      const due = out.filter(c => !st[c.id] || st[c.id].due <= today);
+      if (alive) { setAllCards(out); setCards(due); }
     })();
     return () => { alive = false; };
   }, [book?.id]);
   useEffect(() => {
     const k = (e) => {
       if (e.key === " " || e.key === "Enter") { e.preventDefault(); setBack(b => !b); }
-      if (e.key === "ArrowRight") next(true);
-      if (e.key === "ArrowLeft") next(false);
+      if (e.key === "ArrowRight") next(3);
+      if (e.key === "ArrowLeft") next(0);
+      if (back && ["1", "2", "3", "4"].includes(e.key)) next(Number(e.key) - 1);
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   });
-  const next = (knew) => {
+  // grade: 0 Again, 1 Hard, 2 Good, 3 Easy
+  const next = (grade) => {
     if (!cards || !cards.length) return;
     const c = [...cards];
     const [card] = c.splice(i, 1);
-    if (knew) { c.push(card); setKnown(n => n + 1); }
-    else c.splice(Math.min(c.length, i + 3), 0, card);
+    const st = { ...(settings.value.study || {}) };
+    st[card.id] = schedule(st[card.id], grade);
+    setSetting("study", st);
+    if (grade === 0) c.splice(Math.min(c.length, i + 3), 0, card);
+    else setKnown(n => n + 1);
     setCards(c);
     setBack(false);
     if (i >= c.length) setI(0);
@@ -100,12 +131,16 @@ export function Study() {
   return (
     <Dialog title={_t("Study cards{0}", book ? " · " + book.name : "")} icon="star" onClose={close} cls="mid"
       foot={card ? <>
-        <span class="grow small muted">{known} {_t("known ·")} {cards.length} {_t("cards · Space turns the card")}</span>
-        <button class="btn plain" onClick={() => next(false)}>{_t("Again")}</button>
-        <button class="btn" onClick={() => next(true)}><Icon n="check" size={17} />{_t("I knew it")}</button>
+        <span class="grow small muted">{_t("{0} to review · Space turns the card", cards.length)}</span>
+        {!back ? <button class="btn" onClick={() => setBack(true)}>{_t("Show the answer")}</button> : GRADES.map(([g, l, cls]) => (
+          <button key={g} class={"btn " + cls} title={_t("Next time: {0}", inDays(schedule((settings.value.study || {})[card.id], g).ivl))} onClick={() => next(g)}>{l()}<small style={{ opacity: .7, marginLeft: 4 }}>{g + 1}</small></button>
+        ))}
       </> : null}>
       {tabs}
-      {!cards ? <div class="spinner" /> : !cards.length ? (
+      {!cards ? <div class="spinner" /> : !cards.length && allCards.length ? (
+        <div class="empty"><p>{known ? _t("Done for today: {0} cards reviewed.", known) : _t("Nothing to review today.")} {nextDue(allCards) ? _t("The next card is due {0}.", nextDue(allCards)) : ""}</p>
+          <button class="btn soft" onClick={() => { setCards([...allCards].sort(() => Math.random() - 0.5)); setI(0); setBack(false); }}>{_t("Review them all anyway")}</button></div>
+      ) : !cards.length ? (
         <p class="muted">{_t("No cards yet. Highlight the important lines of your readings (or write notes on them), and they come here as cards to review.")}</p>
       ) : (
         <button onClick={() => setBack(!back)} style={{ width: "100%", minHeight: 260, border: 0, borderRadius: 18, cursor: "pointer", padding: 28,
