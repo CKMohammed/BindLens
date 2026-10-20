@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BindLens · tus documentos, encuadernados en libros</title>
+<meta name="description" content="BindLens convierte tus carpetas en libros que puedes leer, marcar, buscar y convertir en informes: en el navegador con tu propio Google Drive (BindLens Web), o en tu propio ordenador sin enviar nada a ningún sitio (gratis para Windows).">
+<link rel="alternate" hreflang="en" href="https://bindlens.com/">
+<link rel="alternate" hreflang="es" href="https://bindlens.com/es/">
+<link rel="alternate" hreflang="x-default" href="https://bindlens.com/">
+<style>
+/* the fonts are on this site (no font service is asked for anything) - SIL Open Font License, see fonts/ */
+@font-face{font-family:"Bricolage Grotesque";src:url(../fonts/bricolage-grotesque-latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(../fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(../fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(../fonts/atkinson-hyperlegible-latin-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url(../fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+/* BindLens's own look: black, gold and a vivid purple - and a frame round the whole page, like the app's window */
+:root{
+  --paper:#0A0A0D;      /* the page: black */
+  --sheet:#141319;      /* cards */
+  --sheet2:#1B1922;
+  --ink:#F5F3FB;        /* text */
+  --muted:#ADA9BF;      /* quieter text */
+  --line:#2B2834;       /* hairlines */
+  --violet:#7C5CFF;     /* vivid purple: buttons, links */
+  --violet-l:#A28BFF;
+  --violet-ink:#FFFFFF;
+  --gold:#D4AF37;       /* the lens, the frame */
+  --gold-l:#F2C85A;
+  --gold-d:#8A6A1E;
+  --tab:#17151E;
+  --hl:rgba(212,175,55,.38);
+  --ok:#5BC07A; --warn:#F0A060; --bad:#F07070;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r:14px;
+  --fw:14px;            /* the page frame's width */
+  color-scheme:dark;
+}
+@property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;background:
+    radial-gradient(1200px 700px at 8% -10%,rgba(212,175,55,.10),transparent 60%),
+    radial-gradient(900px 600px at 105% 20%,rgba(124,92,255,.14),transparent 60%),
+    var(--paper);
+  color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding:var(--fw) calc(var(--fw) + clamp(16px,4vw,48px))}
+/* the frame round the page: living lava (purple, magenta, gold, orange, blue flowing round), a thin gold edge inside */
+.pageframe{position:fixed;inset:0;z-index:60;pointer-events:none;padding:var(--fw);overflow:hidden;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.pageframe .lava{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;will-change:transform;
+  background:
+    radial-gradient(9% 9% at 50% 18%,#FFE07A,transparent 70%),
+    radial-gradient(10% 10% at 78% 34%,#FF3D9A,transparent 70%),
+    radial-gradient(9% 9% at 82% 62%,#FF7A2F,transparent 70%),
+    radial-gradient(10% 10% at 62% 82%,#FFC83D,transparent 70%),
+    radial-gradient(9% 9% at 34% 80%,#FF4FB8,transparent 70%),
+    radial-gradient(10% 10% at 18% 60%,#FF8A3D,transparent 70%),
+    radial-gradient(9% 9% at 22% 30%,#FFD24A,transparent 70%),
+    conic-gradient(from 0deg,#6A3BFF,#D02A8A,#F0562A,#F2A51C,#D9307E,#7C5CFF,#3E6BFF,#B23CFF,#F0562A,#6A3BFF);
+  animation:lavaspin 24s linear infinite}
+.pageframe .lava.b{mix-blend-mode:screen;opacity:.9;animation:lavaspin 33s linear infinite reverse;
+  background:
+    radial-gradient(8% 8% at 40% 20%,#FF5CA8,transparent 70%),
+    radial-gradient(9% 9% at 76% 44%,#FFD24A,transparent 70%),
+    radial-gradient(8% 8% at 60% 78%,#9A6BFF,transparent 70%),
+    radial-gradient(9% 9% at 24% 66%,#FFB13D,transparent 70%),
+    radial-gradient(8% 8% at 30% 38%,#FF6A3D,transparent 70%),
+    radial-gradient(8% 8% at 70% 22%,#7C9BFF,transparent 70%)}
+@keyframes lavaspin{to{transform:rotate(360deg)}}
+.pageedge{position:fixed;inset:var(--fw);z-index:61;pointer-events:none;
+  box-shadow:inset 0 0 0 1.5px rgba(242,200,90,.9),inset 0 0 28px rgba(255,90,140,.22),inset 0 0 60px rgba(124,92,255,.22),0 0 0 1px rgba(0,0,0,.5)}
+@keyframes spin{to{--spin:360deg}}
+@media (prefers-reduced-motion:reduce){.pageframe .lava,.frame,.vframe{animation:none}}
+a{color:var(--violet-l);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible,video:focus-visible{outline:3px solid var(--gold-l);outline-offset:3px;border-radius:6px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.08}
+p{margin:0}
+kbd{font:500 .82em var(--f-mono);background:var(--sheet2);border:1px solid var(--line);border-bottom:2px solid var(--gold-d);border-radius:6px;padding:.05em .4em;white-space:nowrap;color:var(--ink)}
+.wrap{max-width:1160px;margin-inline:auto}
+.langlink{font:700 .82rem var(--f-display);color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.32em .8em}
+.langlink:hover{color:var(--ink);border-color:var(--gold-d)}
+.read{max-width:66ch}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);font:800 1.5rem var(--f-display);letter-spacing:-.02em}
+.brand img{width:44px;height:44px;border-radius:11px;box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(212,175,55,.35)}
+.brand span{color:var(--gold-l);font-weight:800}
+.nav{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+.nav a{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
+.nav a:hover{color:var(--gold-l)}
+.btn{display:inline-flex;align-items:center;gap:.6em;background:var(--violet);color:var(--violet-ink)!important;text-decoration:none;font-weight:700;border-radius:999px;padding:.8em 1.4em;border:0;font-size:1rem;
+  box-shadow:0 0 0 1.5px rgba(242,200,90,.55),0 10px 28px -10px rgba(124,92,255,.75)}
+.btn:hover{filter:brightness(1.12)}
+.btn.ghost{background:transparent;color:var(--gold-l)!important;box-shadow:inset 0 0 0 1.5px var(--gold)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;padding-block:clamp(24px,5vw,64px) 40px}
+.hero h1{font-size:clamp(2.5rem,5.6vw,4.4rem);letter-spacing:-.035em;font-weight:800}
+.hero h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.45) 64%,rgba(124,92,255,.45) 90%,transparent 90%)}
+.hero .lede{color:var(--muted);font-size:1.18rem;margin-top:20px;max-width:46ch}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;color:var(--muted);font-size:.92rem}
+.facts span{display:inline-flex;align-items:center;gap:6px}
+.facts svg{width:16px;height:16px;stroke:var(--gold-l)}
+
+/* the app, drawn - in its gold frame */
+.frame{border-radius:18px;padding:9px;
+  background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
+  animation:spin 26s linear infinite;box-shadow:0 30px 70px -26px rgba(124,92,255,.55),0 0 40px -10px rgba(212,175,55,.35);max-width:100%}
+.app{background:#F2F1F7;border-radius:11px;overflow:hidden;color:#17161F;font:400 12px/1.3 var(--f-body)}
+.app .bar{display:flex;align-items:center;gap:14px;padding:7px 12px;background:rgba(255,255,255,.55);border-bottom:1px solid #E1DEEC}
+.app .bar i{font-style:normal;color:#3B3A48}
+.app .bar .doc{margin-inline:auto;color:#6B6880}
+.app .bar .win{display:flex;gap:14px;color:#3B3A48}
+.app .body{display:grid;grid-template-columns:46px minmax(0,1fr) 150px;gap:12px;padding:12px;min-height:340px}
+.rail{display:flex;flex-direction:column;gap:8px}
+.rail div{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font:700 11px var(--f-body)}
+.sheet{background:#fff;border-radius:4px;box-shadow:0 2px 0 rgba(0,0,0,.05),0 8px 24px -12px rgba(0,0,0,.25);padding:20px 22px;position:relative}
+.sheet h4{margin:0 0 10px;font:700 13px var(--f-body)}
+.ln{height:6px;border-radius:3px;background:#E9E7F0;margin:9px 0}
+.ln.hl{background:linear-gradient(90deg,#FFE680 0 72%,#E9E7F0 72%)}
+.ln.u{box-shadow:0 3px 0 -1px #5B52E8}
+.note{position:absolute;right:14px;top:58px;width:92px;background:#FFF3A8;border-radius:3px;padding:8px;font-size:10px;line-height:1.3;transform:rotate(2deg);box-shadow:0 6px 14px -8px rgba(0,0,0,.4)}
+.tick{position:absolute;left:18px;bottom:16px;color:#1E8E3E;font:700 22px var(--f-body)}
+.side{display:flex;flex-direction:column;gap:10px}
+.card{background:#fff;border-radius:10px;padding:10px;box-shadow:0 4px 14px -10px rgba(0,0,0,.3)}
+.clock{width:74px;height:74px;border-radius:50%;margin:4px auto 6px;border:2px solid #5B52E8;position:relative}
+.clock::before,.clock::after{content:"";position:absolute;left:50%;bottom:50%;width:2px;background:#17161F;transform-origin:bottom;border-radius:2px}
+.clock::before{height:22px;transform:translateX(-50%) rotate(-50deg)}
+.clock::after{height:30px;transform:translateX(-50%) rotate(110deg);background:#5B52E8}
+.card small{display:block;color:#6B6880;text-align:center}
+.next{font-size:10.5px}.next b{color:#C25E12}
+.pill{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:#fff;border:1px solid #E1DEEC;border-radius:999px;padding:4px 12px;font-size:10.5px;white-space:nowrap;box-shadow:0 4px 12px -8px rgba(0,0,0,.4);color:#17161F}
+
+/* sections as index tabs - gold */
+section{padding-block:56px}
+.tabhead{display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--gold-d);margin-bottom:28px;flex-wrap:wrap}
+.tabhead .tab{background:var(--tab);border:2px solid var(--gold);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;margin-bottom:-2px;
+  font:700 .78rem var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
+.tabhead h2{font-size:clamp(1.7rem,3.2vw,2.5rem);letter-spacing:-.025em;padding-bottom:10px}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;counter-reset:s}
+.step{counter-increment:s;background:var(--sheet);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:var(--r);padding:20px 20px 22px}
+.step h3{font-size:1.3rem;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
+.step h3::before{content:counter(s);font:700 .9rem var(--f-mono);color:#0A0A0D;background:var(--gold-l);border-radius:999px;width:1.8em;height:1.8em;display:inline-grid;place-items:center;flex:none}
+.step p{color:var(--muted)}
+
+/* features */
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px}
+.f h3{font-size:1.12rem;margin:10px 0 6px;font-family:var(--f-body);font-weight:700}
+.f p{color:var(--muted);font-size:.98rem}
+.f svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  padding:6px;border-radius:10px;background:rgba(124,92,255,.16);box-sizing:content-box}
+
+/* report sample */
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(24px,4vw,56px);align-items:center}
+.report{background:var(--sheet);border:1.5px solid var(--gold-d);border-radius:var(--r);overflow:hidden;box-shadow:0 20px 50px -30px rgba(124,92,255,.6)}
+.report header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+.report header b{font-family:var(--f-display);font-size:1.1rem;color:var(--gold-l)}
+.report header small{color:var(--muted)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:10px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+tr:last-child td{border-bottom:0}
+.chip{display:inline-block;border-radius:999px;padding:.12em .7em;font-size:.82rem;font-weight:700}
+.chip.bad{color:var(--bad);background:rgba(240,112,112,.14)}
+.chip.warn{color:var(--warn);background:rgba(240,160,96,.14)}
+.chip.ok{color:var(--ok);background:rgba(91,192,122,.14)}
+.examples{font-size:.82rem;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
+
+/* privacy */
+.vault{background:linear-gradient(160deg,var(--sheet2),var(--sheet));border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;
+  box-shadow:inset 0 0 0 1px rgba(124,92,255,.35)}
+.vault h2{font-size:clamp(1.8rem,3.4vw,2.7rem);letter-spacing:-.03em}
+.vault h2 span{color:var(--gold-l)}
+.vault ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.vault li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
+.vault li svg{width:22px;height:22px;stroke:var(--gold-l);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
+.vault p.small{color:var(--muted);font-size:.95rem;margin-top:16px}
+
+/* who */
+.who{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.who div{border-top:3px solid var(--gold);padding-top:14px}
+.who h3{font-size:1.08rem;font-family:var(--f-body);font-weight:700;margin-bottom:6px}
+.who p{color:var(--muted);font-size:.96rem}
+
+/* faq */
+details{border-bottom:1px solid var(--line);padding-block:16px}
+summary{cursor:pointer;font-weight:700;font-size:1.06rem;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font:700 1.3rem var(--f-mono);color:var(--gold-l);line-height:1}
+details[open] summary::after{content:"\2212"}
+details p{color:var(--muted);margin-top:10px;max-width:70ch}
+
+/* the video */
+.vframe{border-radius:18px;padding:8px;background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
+  animation:spin 30s linear infinite;box-shadow:0 30px 80px -30px rgba(124,92,255,.6),0 0 50px -12px rgba(212,175,55,.35)}
+.vframe video{display:block;width:100%;height:auto;border-radius:11px;background:#000;aspect-ratio:16/9}
+.vcap{margin-top:12px;color:var(--muted);font-size:.95rem}
+
+/* install */
+.instwrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(20px,3vw,40px);align-items:start}
+ol.inst{padding:0;margin:0;display:grid;gap:12px;counter-reset:i}
+.inst li{list-style:none;counter-increment:i;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 14px 64px;position:relative;min-height:62px}
+.inst li::before{content:counter(i);position:absolute;left:14px;top:13px;display:grid;place-items:center;width:2.1em;height:2.1em;border-radius:999px;background:var(--violet);color:#fff;
+  font:700 1rem var(--f-mono);box-shadow:0 0 0 2px var(--gold)}
+.inst b{display:block;font-size:1.06rem;margin-bottom:2px}
+.inst p{color:var(--muted);font-size:.95rem}
+.k{color:var(--gold-l);font-weight:700}
+.instshots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.instshots figure{margin:0}
+.instshots img{display:block;width:100%;height:auto;border-radius:10px;border:2px solid var(--gold);box-shadow:0 18px 40px -22px rgba(124,92,255,.7)}
+.instshots figcaption{margin-top:10px;font-size:1rem;color:var(--ink)}
+.instshots figcaption b{display:inline-grid;place-items:center;width:1.7em;height:1.7em;border-radius:999px;background:var(--violet);color:#fff;font:700 .85rem var(--f-mono);
+  box-shadow:0 0 0 2px var(--gold);margin-right:8px}
+
+/* download */
+.dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:linear-gradient(160deg,var(--sheet2),var(--sheet));
+  border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,44px);box-shadow:0 0 60px -20px rgba(124,92,255,.5)}
+.dl h2{font-size:clamp(1.7rem,3vw,2.4rem);letter-spacing:-.025em}
+.dl p{color:var(--muted);margin-top:8px}
+.soon{display:inline-block;margin-top:10px;font:500 .82rem var(--f-mono);color:var(--gold-l)}
+/* real screenshots - each in a thin gold frame */
+.shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 30px}
+.shots figure{margin:0}
+.shots img{display:block;width:100%;height:auto;border-radius:12px;border:2px solid var(--gold);box-shadow:0 18px 40px -20px rgba(124,92,255,.6);background:var(--sheet)}
+.shots figcaption{margin-top:10px;color:var(--muted);font-size:.95rem}
+.shots figcaption b{color:var(--gold-l)}
+.shots .wide{grid-column:1 / -1}
+.homes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.homes img{border-radius:9px;border-width:1.5px}
+
+footer{border-top:1px solid var(--gold-d);padding-block:28px 40px;color:var(--muted);font-size:.9rem;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer nav{display:flex;gap:18px;flex-wrap:wrap}
+
+@media (max-width:900px){
+  .hero,.split,.vault,.dl{grid-template-columns:minmax(0,1fr)}
+  .steps,.feat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .instwrap{grid-template-columns:minmax(0,1fr)}
+  .who{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shots{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:600px){
+  :root{--fw:6px}
+  body{padding:var(--fw) calc(var(--fw) + 14px)}
+  .steps,.feat,.who,.homes,.instshots{grid-template-columns:minmax(0,1fr)}
+  .app .body{grid-template-columns:minmax(0,1fr);min-height:0}
+  .rail,.side{display:none}
+  .nav a:not(.btn){display:none}
+  .app .bar i:nth-child(n+3){display:none}
+}
+
+/* ---------- the first screen in two: BindLens Web on the right (70 %, gold frame), the Windows app on the left (30 %) */
+.door{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:clamp(16px,2vw,28px);align-items:stretch;
+  min-height:calc(100vh - 2 * var(--fw) - 100px);padding-block:8px 48px;width:min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px)));
+  margin-inline:calc((min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px))) - 100%) / -2)}
+.door-web{order:2;position:relative;border-radius:28px;overflow:hidden;padding:clamp(16px,3.2vw,48px) clamp(16px,3cm,113px);display:flex;align-items:center;
+  background:
+    radial-gradient(60% 70% at 12% 8%,rgba(124,92,255,.55),transparent 62%),
+    radial-gradient(50% 60% at 92% 18%,rgba(255,92,170,.38),transparent 64%),
+    radial-gradient(55% 60% at 80% 100%,rgba(242,200,90,.30),transparent 60%),
+    radial-gradient(45% 50% at 0% 100%,rgba(56,140,255,.30),transparent 60%),
+    #120F1C;
+  box-shadow:0 30px 80px -30px rgba(124,92,255,.6),inset 0 0 0 1px rgba(255,255,255,.06)}
+.door-web::before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,rgba(124,92,255,.18),rgba(255,92,170,.14),rgba(242,200,90,.16),rgba(56,140,255,.14),rgba(124,92,255,.18));
+  filter:blur(60px);animation:doorturn 40s linear infinite;pointer-events:none}
+@keyframes doorturn{to{transform:rotate(360deg)}}
+.goldframe{position:relative;width:100%;border-radius:20px;padding:clamp(22px,3.4vw,52px);
+  background:linear-gradient(160deg,rgba(20,18,28,.78),rgba(14,12,20,.86));backdrop-filter:blur(6px);
+  box-shadow:0 0 0 2px var(--gold),0 0 0 7px rgba(212,175,55,.14),0 0 0 8px rgba(242,200,90,.55),0 24px 60px -20px rgba(0,0,0,.6),inset 0 0 40px rgba(242,200,90,.08)}
+.goldframe .gc{position:absolute;width:26px;height:26px;border:2px solid var(--gold-l);pointer-events:none}
+.goldframe .gc.tl{left:10px;top:10px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.goldframe .gc.tr{right:10px;top:10px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.goldframe .gc.bl{left:10px;bottom:10px;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.goldframe .gc.br{right:10px;bottom:10px;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.web-in{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-width:640px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font:700 .8rem var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
+.kicker .dot{width:8px;height:8px;border-radius:50%;background:#5BC07A;box-shadow:0 0 0 4px rgba(91,192,122,.18)}
+.door-web h1{font-size:clamp(2.3rem,4.6vw,4rem);letter-spacing:-.035em;font-weight:800;margin:14px 0 0;line-height:1.04}
+.door-web h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.5) 64%,rgba(124,92,255,.5) 90%,transparent 90%)}
+.door-web .lede{margin-top:18px}
+.signin{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.gsign,.msign{display:inline-flex;align-items:center;gap:12px;border-radius:999px;padding:.85em 1.5em;font:700 1.02rem var(--f-body);text-decoration:none}
+.gsign{background:#fff;color:#1F1F1F!important;box-shadow:0 0 0 2px rgba(242,200,90,.8),0 14px 34px -12px rgba(124,92,255,.9);transition:transform .15s}
+.gsign:hover{transform:translateY(-2px)}
+.msign{background:rgba(255,255,255,.06);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line);cursor:default}
+.msign i{font-style:normal;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-l);border:1px solid var(--gold-d);border-radius:999px;padding:1px 7px}
+.trylink{margin-top:16px;color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1.5px solid var(--violet-l);padding-bottom:2px}
+.trylink:hover{color:var(--gold-l);border-color:var(--gold-l)}
+.shelf{display:flex;align-items:flex-end;gap:5px;margin-top:34px;padding:0 10px 0;border-bottom:7px solid #6B4A2E;border-radius:2px;
+  box-shadow:0 10px 18px -8px rgba(0,0,0,.6)}
+.shelf i{width:30px;height:var(--h);border-radius:5px 5px 2px 2px;background:linear-gradient(90deg,color-mix(in srgb,var(--c),#000 28%),var(--c) 40%,color-mix(in srgb,var(--c),#fff 22%) 60%,color-mix(in srgb,var(--c),#000 22%));
+  font:700 .62rem var(--f-display);color:rgba(255,255,255,.92);writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 6px 0 -3px rgba(242,200,90,.75),inset 0 -6px 0 -3px rgba(242,200,90,.75);font-style:normal;letter-spacing:.04em;transition:transform .25s}
+.shelf i:hover{transform:rotate(180deg) translateY(8px)}
+.door-web .fine{margin-top:22px;color:var(--muted);font-size:.86rem;max-width:56ch}
+.door-web .fine a{color:var(--gold-l)}
+.door-app{order:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:clamp(18px,2.4vw,34px);border-radius:28px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));box-shadow:inset 0 0 0 1px var(--line)}
+.door-app .kicker{color:var(--muted)}
+.door-app .laptop{color:var(--gold-l);opacity:.85}
+.door-app h2{font-size:clamp(1.7rem,2.5vw,2.3rem);letter-spacing:-.03em;line-height:1.08;margin:0}
+.door-app p{color:var(--muted);margin:0}
+.door-app .btn{align-self:flex-start;margin-top:6px}
+.door-app small{color:var(--muted);font-size:.82rem}
+.door-app .more{color:var(--gold-l);font-weight:700;text-decoration:none;margin-top:8px}
+@media (max-width:900px){
+  .door{grid-template-columns:minmax(0,1fr);width:auto;margin-inline:0;min-height:0}
+  .door-web{order:1;padding:14px}
+  .door-app{order:2}
+  .goldframe{padding:26px 20px}
+}
+@media (prefers-reduced-motion:reduce){.door-web::before{animation:none}}
+</style>
+<link rel="icon" href="img/icon.png">
+</head>
+<body>
+<div class="pageframe" aria-hidden="true"><div class="lava"></div><div class="lava b"></div></div>
+<div class="pageedge" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="Inicio de BindLens">
+      <img src="../img/logo.png" width="44" height="44" alt=""><b>Bind<span>Lens</span></b>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="#how">Cómo funciona</a>
+      <a href="#features">Funciones</a>
+      <a href="#privacy">Privacidad</a>
+      <a href="#faq">Preguntas</a>
+      <a href="#watch">Vídeo</a>
+      <a href="#install">Instalar</a>
+      <a class="btn ghost" href="/app/?start=google&amp;lang=es">Iniciar sesión</a>
+      <a class="btn" href="#download">Descargar</a>
+      <a class="langlink" href="/" lang="en" onclick="try{localStorage.setItem('bl_lang','en')}catch(e){}">English</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- the first screen, in two: BindLens Web (70 %, in a gold frame) and the app for Windows (30 %, quiet) -->
+    <div class="door">
+      <section class="door-web" aria-labelledby="webh">
+        <div class="goldframe">
+          <span class="gc tl" aria-hidden="true"></span><span class="gc tr" aria-hidden="true"></span><span class="gc bl" aria-hidden="true"></span><span class="gc br" aria-hidden="true"></span>
+          <div class="web-in">
+            <span class="kicker"><i class="dot" aria-hidden="true"></i>BindLens Web &middot; en tu navegador</span>
+            <h1 id="webh">Tus documentos, <em>encuadernados en libros.</em></h1>
+            <p class="lede">Cada carpeta se convierte en un libro que puedes leer, marcar, buscar y convertir en informes, desde cualquier ordenador, tableta o móvil. Tus archivos se quedan en tu propio Google Drive.</p>
+            <div class="signin">
+              <a class="gsign" href="/app/?start=google&amp;lang=es">
+                <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.5z"/></svg>
+                Iniciar sesión con Google
+              </a>
+              <span class="msign" aria-disabled="true" title="OneDrive llegará pronto">
+                <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>
+                Microsoft (OneDrive) <i>pronto</i>
+              </span>
+            </div>
+            <a class="trylink" href="/app/?demo=1&amp;lang=es">Pruébalo antes con una biblioteca de ejemplo <span aria-hidden="true">&rarr;</span></a>
+            <div class="shelf" aria-hidden="true">
+              <i style="--c:#E06C9F;--h:78px">Clientes</i><i style="--c:#8E6CF0;--h:92px">Contratos</i><i style="--c:#5B8DEF;--h:70px">Facturas</i><i style="--c:#F08A4B;--h:86px">Apuntes</i>
+              <i style="--c:#45B07C;--h:96px">Tesis</i><i style="--c:#E9A13B;--h:74px">Impuestos</i><i style="--c:#5BB9C9;--h:84px">Personal</i>
+            </div>
+            <p class="fine">BindLens solo ve los archivos que crea o que tú le das, en una carpeta llamada BindLens de tu Drive. No tenemos servidores: no nos llega nada. <a href="/app/privacy.es.html">Privacidad</a> &middot; <a href="/app/terms.es.html">Condiciones</a></p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="door-app" aria-labelledby="apph">
+        <svg class="laptop" viewBox="0 0 64 44" width="64" height="44" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="4" width="44" height="28" rx="3"/><path d="M3 38h58l-4 4H7z"/><path d="M27 18l4 4 7-8"/></svg>
+        <span class="kicker">BindLens para Windows</span>
+        <h2 id="apph">Nada sale de tu portátil.</h2>
+        <p>Los mismos libros, en tu propio ordenador. Sin cuenta, sin internet, sin nube.</p>
+        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Descargar para Windows
+        </a>
+        <small>Gratis &middot; Windows 10 y 11 &middot; código abierto (AGPL-3.0)</small>
+        <a class="more" href="#watch">Ver la aplicación <span aria-hidden="true">&darr;</span></a>
+      </aside>
+    </div>
+
+    <section id="watch">
+      <div class="tabhead"><span class="tab">Vídeo</span><h2>BindLens en dos minutos</h2></div>
+      <div class="vframe">
+        <video controls preload="none" playsinline poster="../img/how-it-works.webp" width="1280" height="720">
+          <source src="../img/how-it-works.mp4" type="video/mp4">
+        </video>
+      </div>
+      <p class="vcap">Cada capítulo de la aplicación, grabado desde el propio BindLens (los nombres son inventados). Con sonido, en inglés.</p>
+    </section>
+
+    <section id="how">
+      <div class="tabhead"><span class="tab">Cómo funciona</span><h2>Tres pasos, sin configurar nada</h2></div>
+      <div class="steps">
+        <div class="step"><h3>Añade una carpeta</h3><p>Se convierte en un libro: todos sus documentos uno tras otro, en orden. Las carpetas de dentro se convierten en capítulos. No se copia ni se mueve nada.</p></div>
+        <div class="step"><h3>Lee y marca</h3><p>Resalta, subraya, escribe, dibuja, pon sellos o vistos. Tus marcas se guardan dentro del PDF original, y cada una se puede volver a quitar.</p></div>
+        <div class="step"><h3>Saca lo que necesitas</h3><p>Contactos, plazos, facturas y tablas salen como un informe en segundos. Guárdalo en PDF, Word o Excel, o imprímelo.</p></div>
+      </div>
+    </section>
+
+    <section id="see">
+      <div class="tabhead"><span class="tab">Míralo</span><h2>BindLens, tal como es</h2></div>
+      <div class="shots">
+        <figure class="wide"><img src="../img/home_bookcase.webp" width="1400" height="900" loading="lazy" alt="El inicio de BindLens: los libros de la biblioteca en una estantería de madera, uno de ellos un poco sacado."><figcaption><b>Inicio.</b> Sigue donde lo dejaste, mira lo que requiere tu atención y encuentra tus libros: en un círculo que gira, en una estantería, un archivador, carpetas de anillas o taquillas.</figcaption>
+          <div class="homes">
+            <img src="../img/home_cabinet.webp" width="1400" height="900" loading="lazy" alt="El inicio como archivador: un cajón por libro, con un cajón abierto.">
+            <img src="../img/home_lockers.webp" width="1400" height="900" loading="lazy" alt="El inicio como una fila de taquillas, con una puerta abierta.">
+            <img src="../img/home_circle.webp" width="1400" height="900" loading="lazy" alt="El inicio con los libros en un círculo que gira despacio y colores suaves en movimiento detrás.">
+          </div>
+        </figure>
+        <figure><img src="../img/book.webp" width="1400" height="900" loading="lazy" alt="Un libro abierto en BindLens: una propuesta a un cliente con líneas resaltadas, una línea subrayada y notas adhesivas."><figcaption><b>Marca tus PDF.</b> Resalta, subraya, escribe, añade notas y sellos: todo se guarda dentro del archivo original.</figcaption></figure>
+        <figure><img src="../img/read.webp" width="1400" height="900" loading="lazy" alt="Modo lectura: la página en el centro, el índice del libro a la izquierda, un calendario y un reloj a la derecha."><figcaption><b>Lee con calma.</b> La página, el índice del libro en sus propios colores, la fecha y la hora.</figcaption></figure>
+        <figure><img src="../img/gallery.webp" width="1400" height="900" loading="lazy" alt="Una carpeta de fotos mostrada como una galería de cuadros enmarcados."><figcaption><b>Fotos y vídeos.</b> Una carpeta de imágenes se abre como galería; los vídeos se reproducen dentro de BindLens.</figcaption></figure>
+        <figure><img src="../img/pin.webp" width="1400" height="900" loading="lazy" alt="La pantalla del PIN: una carpeta de anillas con un candado pequeño y un teclado numérico, sobre colores en movimiento."><figcaption><b>Un PIN, si lo quieres.</b> La carpeta se abre con el código correcto.</figcaption></figure>
+      </div>
+      <p style="color:var(--muted);margin-top:18px;font-size:.9rem">Capturas reales de BindLens 1.0 con una biblioteca de ejemplo (los nombres y las fechas son inventados; la aplicación en las imágenes está en inglés y también se puede usar en español).</p>
+    </section>
+
+    <section id="features">
+      <div class="tabhead"><span class="tab">Funciones</span><h2>Todo lo de la carpeta, en un solo sitio</h2></div>
+      <div class="feat">
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>
+          <h3>Todo tipo de archivos</h3><p>PDF, Word, Excel, PowerPoint y fotos en un mismo libro. Con Microsoft Office o LibreOffice instalado, las páginas de Office se ven exactamente como son.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>
+          <h3>Marcas dentro de tus PDF</h3><p>Resaltador, bolígrafo, texto, notas adhesivas, formas, sellos, vistos y cruces. Un solo archivo, sin copias. Deshaz lo que quieras, cuando quieras.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
+          <h3>Informes en segundos</h3><p>Contactos, plazos, facturas e importes, tablas tal como son, una persona en todos los archivos, gráficos que dicen lo que muestran.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+          <h3>Lo que requiere tu atención</h3><p>Renovaciones de contratos, vencimientos de facturas, renovaciones de seguros y plazos de entrega encontrados en tus documentos, con un aviso antes de que lleguen. Añádelos a Outlook o a Google Calendar.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+          <h3>Encuentra cualquier cosa</h3><p><kbd>Ctrl</kbd>+<kbd>K</kbd> encuentra nombres de documentos, palabras dentro de ellos y acciones. También lee las páginas escaneadas, para que puedas buscar en ellas.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2zM21 6a2 2 0 0 0-2-2h-5a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h5a2 2 0 0 0 2-2z"/></svg>
+          <h3>Lectura tranquila</h3><p>Un modo lectura tranquilo con el índice junto a la página. Una carpeta de fotos se abre como galería y se reproduce como presentación; los vídeos se ven dentro, en grande o en una esquina.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg>
+          <h3>Imprime y escanea</h3><p>Imprime directamente en tu impresora, sin necesitar un programa de PDF. Escanea con un escáner, la cámara o fotos del móvil, enderezadas y limpias.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          <h3>Un PIN si lo quieres</h3><p>Bloquea BindLens, o un solo libro, con un PIN de cuatro cifras en un ordenador compartido. Y corrige una página escaneada directamente sobre el escaneo.</p>
+        </div>
+        <div class="f">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg>
+          <h3>Hazlo tuyo</h3><p>Temas, colores y fondos, un marco de color que fluye despacio alrededor de la ventana, y tus libros en el Inicio en un círculo que gira, en una estantería o en un archivador.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="split">
+        <div class="read">
+          <div class="tabhead"><span class="tab">Informes</span><h2>Los plazos, antes de que pasen</h2></div>
+          <p style="color:var(--muted)">BindLens lee las fechas de tus contratos, facturas, pólizas de seguro y planes de proyecto, y te muestra lo que se acerca. Haz doble clic en una fila para abrir su página. Los nombres, correos y teléfonos se encuentran por lo que contiene cada columna, diga lo que diga su título.</p>
+        </div>
+        <div class="report">
+          <header><b>Plazos</b><small>Oficina · 32 documentos</small></header>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Documento</th><th>Qué</th><th>Fecha</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr><td>Factura 4502 - Limpieza</td><td>Vencimiento del pago</td><td>30 sep 2026</td><td><span class="chip bad">Vencida</span></td></tr>
+                <tr><td>Seguro del hogar</td><td>Renovación</td><td>2 nov 2026</td><td><span class="chip warn">En 17 días</span></td></tr>
+                <tr><td>Alquiler de la oficina - Calle Mayor</td><td>Preaviso de renovación</td><td>30 nov 2026</td><td><span class="chip warn">En 45 días</span></td></tr>
+                <tr><td>Tesis - Capítulo 1</td><td>Entrega</td><td>15 ene 2027</td><td><span class="chip ok">Bien</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="examples">Nombres y fechas de ejemplo.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="vault">
+        <div>
+          <h2>Nada sale de tu <span>ordenador.</span></h2>
+          <p class="small">Para oficinas, gestorías, universidades, autónomos y cualquiera que guarde documentos importantes. BindLens no tiene cuenta, ni nube, ni IA. Funciona en tu ordenador, con tus archivos donde están.</p>
+        </div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Tus documentos, marcas, notas y ajustes se quedan en tu ordenador.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>BindLens no recoge nada sobre ti ni envía nada a ningún sitio.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Solo usa internet cuando tú lo pides: una foto para el fondo, un enlace de calendario que añades o los datos para leer escaneos.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Cada cambio que hace en tus carpetas queda apuntado, para que puedas comprobarlo.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="tabhead"><span class="tab">Para quién</span><h2>Para cualquiera con carpetas de documentos</h2></div>
+      <div class="who">
+        <div><h3>Oficinas y gestorías</h3><p>Facturas, contratos, presupuestos y cartas: lee, firma, pon sellos y saca las cifras.</p></div>
+        <div><h3>Universidades e investigación</h3><p>Lecturas, apuntes, artículos y tu tesis como libros: resalta, encuentra cualquier palabra, haz una hoja de resumen.</p></div>
+        <div><h3>Autónomos</h3><p>Clientes, propuestas, proyectos y plazos en un solo sitio, con las fechas que requieren tu atención.</p></div>
+        <div><h3>Papeles de casa</h3><p>Recibos, impuestos, seguros, manuales y garantías: cada carpeta, un libro en el que encontrar las cosas.</p></div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="tabhead"><span class="tab">Preguntas</span><h2>Bueno saberlo</h2></div>
+      <div class="read" style="max-width:780px">
+        <details open><summary>¿BindLens cambia mis archivos?</summary><p>Solo cuando marcas un PDF: tus marcas se guardan dentro de ese PDF. No se copia, mueve ni renombra nada si no lo pides, cada marca se puede volver a quitar, y Ayuda › Lo que BindLens ha cambiado en mis carpetas muestra cada cambio.</p></details>
+        <details><summary>¿Necesito internet?</summary><p>No. BindLens funciona sin conexión. Solo se conecta cuando pides una foto, añades un enlace de calendario o le pides que lea páginas escaneadas por primera vez.</p></details>
+        <details><summary>¿En qué ordenadores funciona?</summary><p>Windows 10 y Windows 11. En Mac y Linux se puede ejecutar desde su código fuente con Python.</p></details>
+        <details><summary>Al instalarlo aparece una ventana azul. ¿Qué pulso?</summary><p>Pulsa <b>Más información</b> y después <b>Ejecutar de todas formas</b>. Mira <a href="#install">Cómo instalarlo</a>.</p></details>
+        <details><summary>¿Dónde se guardan mis ajustes?</summary><p>En tu ordenador, en tu carpeta de usuario (%APPDATA%\BindLens). Se conservan cuando actualizas BindLens.</p></details>
+        <details><summary>¿BindLens es de código abierto?</summary><p>Sí. BindLens es software libre bajo la Licencia Pública General Affero de GNU v3, y su código fuente viene con el programa. El nombre BindLens y su logotipo no forman parte de esa licencia.</p></details>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="tabhead"><span class="tab">Instalar</span><h2>Cómo instalarlo</h2></div>
+      <div class="instwrap">
+        <ol class="inst">
+          <li><b>Descarga</b><p>Pulsa <span class="k">Descargar para Windows</span> y guarda <span class="k">BindLens.Setup.exe</span>.</p></li>
+          <li><b>Ábrelo</b><p>Haz doble clic en <span class="k">BindLens.Setup.exe</span> en tus Descargas.</p></li>
+          <li><b>Pulsa <span class="k">Más información</span></b><p>Si aparece una ventana azul.</p></li>
+          <li><b>Pulsa <span class="k">Ejecutar de todas formas</span></b><p>Se abre el instalador.</p></li>
+          <li><b>Instala y abre</b><p>Pulsa <span class="k">Instalar</span> y después abre BindLens desde su icono del escritorio.</p></li>
+        </ol>
+        <div class="instshots">
+          <figure><img src="../img/install-more-info.webp" width="1064" height="994" loading="lazy" alt="La ventana azul de Windows, con Más información marcado en dorado (captura en inglés)."><figcaption><b>3</b> Pulsa <span class="k">Más información</span></figcaption></figure>
+          <figure><img src="../img/install-run-anyway.webp" width="1064" height="996" loading="lazy" alt="La ventana azul de Windows después de Más información, con Ejecutar de todas formas marcado en dorado (captura en inglés)."><figcaption><b>4</b> Pulsa <span class="k">Ejecutar de todas formas</span></figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="dl">
+        <div>
+          <h2>BindLens para Windows</h2>
+          <p>Versión 1.0 · Windows 10 y 11 · gratis · un solo instalador, sin necesidad de permisos de administrador.</p>
+          <span class="soon"><a href="#install" style="color:inherit">Cómo instalarlo, paso a paso</a></span>
+          <p style="margin-top:10px"><a href="https://github.com/CKMohammed/BindLens">Código fuente</a> · <a href="https://github.com/CKMohammed/BindLens/releases">Todas las versiones</a></p>
+        </div>
+        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Descargar BindLens 1.0
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Mohammed Chahboune Kadi · BindLens es software libre bajo la GNU AGPL v3.</span>
+    <nav aria-label="Pie de página"><a href="#privacy">Privacidad (aplicación)</a><a href="/app/privacy.es.html">Privacidad (BindLens Web)</a><a href="/app/terms.es.html">Condiciones (BindLens Web)</a><a href="#faq">Licencia</a><a href="https://github.com/CKMohammed/BindLens">Código fuente</a><a href="#download">Descargar</a></nav>
+  </footer>
+  <p style="color:var(--muted);font-size:.85rem;padding-bottom:32px">Esta web no usa cookies, no tiene analítica y no carga nada de otros sitios (sus fuentes están aquí, con la licencia SIL Open Font License).</p>
+</div>
+</body>
+</html>

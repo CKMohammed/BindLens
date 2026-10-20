@@ -3,7 +3,7 @@ import { useState } from "preact/hooks";
 import { panel, setSetting, store } from "../state.js";
 import { Dialog } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
-import { _t } from "../i18n.js";
+import { _t, isEs } from "../i18n.js";
 
 const close = () => { panel.value = null; };
 
@@ -65,7 +65,7 @@ export function Legal() {
       </ul>
       <h3 style={{ margin: "16px 0 6px" }}>{_t("No warranty")}</h3>
       <p class="small">{_t("BindLens is given as it is, without any warranty, as the AGPL says. Keep copies of the documents that matter: Google Drive also keeps earlier versions of your files for about 30 days.")}</p>
-      <p class="small" style={{ marginBottom: 0 }}><a href={import.meta.env.BASE_URL + "privacy.html"} target="_blank" rel="noopener">{_t("Privacy (full page)")}</a> · <a href={import.meta.env.BASE_URL + "terms.html"} target="_blank" rel="noopener">{_t("Terms of use")}</a></p>
+      <p class="small" style={{ marginBottom: 0 }}><a href={import.meta.env.BASE_URL + (isEs ? "privacy.es.html" : "privacy.html")} target="_blank" rel="noopener">{_t("Privacy (full page)")}</a> · <a href={import.meta.env.BASE_URL + (isEs ? "terms.es.html" : "terms.html")} target="_blank" rel="noopener">{_t("Terms of use")}</a></p>
     </Dialog>
   );
 }
