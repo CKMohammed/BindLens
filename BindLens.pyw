@@ -2746,6 +2746,14 @@ ES_TEXT = {
     "Reading is locked: here you can only read.": "La lectura está bloqueada: aquí solo se puede leer.",
     "Type your PIN to unlock reading.": "Escribe tu PIN para desbloquear la lectura.",
     "A note for work or study": "Una nota de trabajo o estudio",
+    "Your institution: its name, logo and colour on the reports": "Tu institución: su nombre, logo y color en los informes",
+    "Your institution": "Tu institución",
+    "Its name, logo and colour at the top of your reports (PDF).": "Su nombre, logo y color arriba en tus informes (PDF).",
+    "No logo": "Sin logo",
+    "The logo": "El logo",
+    "Logo": "Logo",
+    "Choose…": "Elegir…",
+    "Take it off": "Quitarlo",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -14881,6 +14889,7 @@ _CH_FONTS = {}
 
 # 1.9.6: reports and charts wear the app's colours (the accent of the theme in use) and a good font
 _RT = {"accent": "#6C63FF", "logo": "Black", "style": "classic"}
+_BRAND = {}             # 1.0: your institution (Settings): {"name", "logo" (a picture file), "color"} - on the reports
 
 
 def set_report_theme(accent=None, logo=None):
@@ -15819,7 +15828,18 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
         page = doc.new_page(width=W, height=H)
         st["page"] = page
         frame(page)
-        if first:
+        if first and _BRAND:
+            x = M
+            if _BRAND.get("logo") and os.path.exists(_BRAND["logo"]):
+                try:
+                    page.insert_image(fitz.Rect(M - 2, 40, M + 34, 76), filename=_BRAND["logo"], keep_proportion=True)
+                    x = M + 42
+                except Exception:
+                    pass
+            _ch_text(page, fitz, x, 64, _BRAND.get("name", ""), 11, _BRAND.get("color") or INK["primary"], bold=True)
+            _ch_text(page, fitz, W - M, 64, when, 8.5, INK["muted"], align="r")
+            st["y"] = 96
+        elif first:
             try:
                 draw_logo(page, fitz, M - 2, 44, 30, logo_cols, style=_RT.get("style"))
             except Exception:
@@ -17787,8 +17807,9 @@ QB_ITEMS = OrderedDict([
     ("frame", ("frame", "The frame round BindLens", "", "panel")),
     ("fast", ("bolt", "Fast mode", "", "act")),
     ("doing", ("gear", "What BindLens is doing", "", "act")),
+    ("inst", ("building", "Your institution: its name, logo and colour on the reports", "", "act")),
 ])
-QB_DEFAULT = ["study", "read", "edittext", "scan", "marks", "calendar"]
+QB_DEFAULT = ["study", "read", "edittext", "scan", "marks", "calendar", "inst"]
 QB_W = 44
 
 FRAME_PALETTES = OrderedDict([
@@ -19585,6 +19606,10 @@ class App:
         self._build_ui()
         self.apply_theme()
         self._bind_keys()
+        try:
+            self._brand_load()                       # 1.0: your institution on the reports
+        except Exception:
+            pass
         if consult_load():                           # Read with PIN: it comes back as it was (only your PIN leaves it)
             self._consult_on(quiet=True)
             self.root.after(1500, lambda: self.reading_mode(True))
@@ -49440,8 +49465,88 @@ class App:
         c = self.lib.settings.setdefault("qbar", {})
         c.setdefault("on", True)
         items = [k for k in c.get("items", QB_DEFAULT) if k in QB_ITEMS]
+        if "inst" not in items and not c.get("inst_seen"):      # 1.0: your institution, once at the end of the bar
+            items.append("inst")
+            c["inst_seen"] = True
         c["items"] = items
         return c
+
+    # ---- 1.0: your institution - its name, logo and colour on the reports (as in BindLens Web)
+    def _brand_load(self):
+        b = self.lib.settings.get("brand") or {}
+        _BRAND.clear()
+        if b.get("on") and (b.get("name") or b.get("logo")):
+            _BRAND.update(b)
+        self.__dict__.pop("_brand_img", None)
+
+    def _brand_icon(self):
+        b = self.lib.settings.get("brand") or {}
+        if not b.get("on") or not b.get("logo") or not os.path.exists(b["logo"]):
+            return None
+        if self.__dict__.get("_brand_img") is None:
+            try:
+                d_ = self.fitz.open(b["logo"])
+                r_ = d_[0].rect
+                k_ = 24.0 / max(r_.width, r_.height, 1)
+                pm = d_[0].get_pixmap(matrix=self.fitz.Matrix(k_, k_), alpha=False)
+                import base64
+                self._brand_img = tk.PhotoImage(data=base64.b64encode(pm.tobytes("png")))
+            except Exception:
+                return None
+        return self._brand_img
+
+    def institution_dialog(self):
+        T = self.T
+        b = dict(self.lib.settings.get("brand") or {})
+        d = self._dialog("Your institution")
+        tk.Label(d, text=_tr("Your institution"), font=self.F(13, "bold"), bg=T["panel"], fg=T["text"]).pack(anchor="w", padx=20, pady=(16, 2))
+        tk.Label(d, text=_tr("Its name, logo and colour at the top of your reports (PDF)."), font=self.F(9), bg=T["panel"],
+                 fg=T["muted"]).pack(anchor="w", padx=20)
+        f = tk.Frame(d, bg=T["panel"])
+        f.pack(fill="x", padx=20, pady=12)
+        tk.Label(f, text=_tr("Name"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=0, column=0, sticky="w")
+        name_v = tk.StringVar(value=b.get("name", ""))
+        tk.Entry(f, textvariable=name_v, width=36, font=self.F(10)).grid(row=0, column=1, sticky="we", padx=(10, 0), pady=4)
+        logo_l = tk.Label(f, text=os.path.basename(b.get("logo", "")) or _tr("No logo"), font=self.F(9), bg=T["panel"], fg=T["text"])
+        col_l = tk.Label(f, text="      ", bg=b.get("color", self.accent))
+
+        def pick_logo():
+            pth = filedialog.askopenfilename(parent=d, title=_tr("The logo"), filetypes=[(_tr("Pictures"), "*.png *.jpg *.jpeg")])
+            if not pth:
+                return
+            dst = os.path.join(data_dir(), "brand-logo" + os.path.splitext(pth)[1].lower())
+            try:
+                os.makedirs(data_dir(), exist_ok=True)
+                shutil.copyfile(pth, dst)
+                b["logo"] = dst
+                logo_l.configure(text=os.path.basename(pth))
+            except Exception as ex:
+                messagebox.showwarning(APP_NAME, str(ex), parent=d)
+
+        def pick_col():
+            c_ = colorchooser.askcolor(color=b.get("color", self.accent), parent=d)[1]
+            if c_:
+                b["color"] = c_
+                col_l.configure(bg=c_)
+        tk.Label(f, text=_tr("Logo"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=1, column=0, sticky="w")
+        logo_l.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=4)
+        PillButton(f, self, _tr("Choose…"), pick_logo, bg_key="panel", height=28).grid(row=1, column=2, padx=(8, 0))
+        tk.Label(f, text=_tr("Colour"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=2, column=0, sticky="w")
+        col_l.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=4)
+        PillButton(f, self, _tr("Choose…"), pick_col, bg_key="panel", height=28).grid(row=2, column=2, padx=(8, 0))
+        bb = tk.Frame(d, bg=T["panel"])
+        bb.pack(fill="x", padx=20, pady=(4, 16))
+
+        def save(on=True):
+            b["name"] = name_v.get().strip()
+            b["on"] = bool(on and (b.get("name") or b.get("logo")))
+            self.lib.settings["brand"] = b
+            self.lib.save_meta()
+            self._brand_load()
+            self._qbar_draw()
+            d.destroy()
+        PillButton(bb, self, _tr("Take it off"), lambda: save(False), bg_key="panel").pack(side="left")
+        PillButton(bb, self, _tr("Save"), save, kind="accent", bg_key="panel").pack(side="right")
 
     def _qbar_build(self):
         """The quick bar: a very slim column of icons on the right edge of the window."""
@@ -49512,7 +49617,11 @@ class App:
                 elif self._qb_hov == k:
                     round_rect(q, 5, y0, QB_W - 5, y1, 10, fill=T["hover"], outline="")
                 col = A if on else (T["text"] if self._qb_hov == k else T["icon"])
-            draw_icon(q, icon, QB_W / 2, (y0 + y1) / 2, col, s=0.86)
+            img_ = self._brand_icon() if k == "inst" else None
+            if img_ is not None:
+                q.create_image(QB_W / 2, (y0 + y1) / 2, image=img_)          # 1.0: your logo, when there is one
+            else:
+                draw_icon(q, icon, QB_W / 2, (y0 + y1) / 2, col, s=0.86)
             if k == "study":
                 due = self._cards_due_n()
                 if due:
@@ -49646,6 +49755,8 @@ class App:
             self.scan_dialog()
         elif k == "reminders":
             self.reminders_dialog()
+        elif k == "inst":
+            self.institution_dialog()
         elif k == "pages":
             self.pages_overview()
         elif k == "deleted":

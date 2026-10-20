@@ -36,9 +36,11 @@ export const QB = {
   help: { icon: "help", label: _t("How BindLens works (F1)"), run: () => openPanel("help") },
   keys: { icon: "type", label: _t("Keyboard shortcuts (Ctrl+/)"), run: () => openPanel("keys") },
   feedback: { icon: "feedback", label: _t("Send feedback"), run: () => openPanel("feedback") },
+  // 1.0: your institution (its name, logo and colours on the reports) - its own logo shows here when there is one
+  inst: { icon: "book", label: _t("Your institution: name, logo and colours on the reports"), img: () => (settings.value.brand || {}).on && (settings.value.brand || {}).logo, run: () => openPanel("settings", { group: "inst" }) },
 };
-export const QB_DEFAULT = ["needs", "aloud", "comments", "tasks", "scan", "write", "study", "gallery"];
-const qbList = () => (settings.value.quickBar || QB_DEFAULT).filter(k => QB[k] && (!QB[k].ok || QB[k].ok()));
+export const QB_DEFAULT = ["aloud", "comments", "tasks", "scan", "write", "study", "gallery", "inst"];
+const qbList = () => { const l = settings.value.quickBar || QB_DEFAULT; return (l.includes("inst") || settings.value.qbInstOff ? l : [...l, "inst"]).filter(k => QB[k] && (!QB[k].ok || QB[k].ok())); };
 
 export function FrameBar() {
   const [h, setH] = useState(typeof window !== "undefined" ? window.innerHeight : 900);
@@ -50,7 +52,8 @@ export function FrameBar() {
   const shown = all.slice(0, fit), rest = all.slice(fit);
   const B = ({ k }) => {
     const it = QB[k];
-    return <button class={"fb" + (it.on && it.on() ? " on" : "")} aria-label={it.label} onClick={it.run}><Icon n={it.icon} size={17} /><span class="fbtip">{it.label}</span></button>;
+    const img = it.img && it.img();
+    return <button class={"fb" + (it.on && it.on() ? " on" : "") + (img ? " withimg" : "")} aria-label={it.label} onClick={it.run}>{img ? <img src={img} alt="" /> : <Icon n={it.icon} size={17} />}<span class="fbtip">{it.label}</span></button>;
   };
   const choose = () => { panel.value = { type: "quickbar" }; };
   return (
