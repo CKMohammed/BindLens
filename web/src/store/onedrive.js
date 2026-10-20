@@ -3,6 +3,7 @@
 // nothing else of the user's OneDrive. Sign-in: Microsoft's own page in a small window (OAuth with PKCE), no library.
 import { idb } from "../idb.js";
 import { mimeOf } from "../util.js";
+import { _t } from "../i18n.js";
 
 // the "Application (client) ID" of the BindLens app in Microsoft Entra (web/.env: VITE_MS_CLIENT_ID=...); empty = no OneDrive button
 export const MS_CLIENT_ID = import.meta.env.VITE_MS_CLIENT_ID || "";
@@ -30,7 +31,7 @@ export class OneDriveStore {
 
   // a small window with Microsoft's sign-in; it comes back to ms.html, which hands the code to this page
   async signIn() {
-    if (!MS_CLIENT_ID) throw new Error("OneDrive is not ready yet in BindLens Web");
+    if (!MS_CLIENT_ID) throw new Error(_t("OneDrive is not ready yet in BindLens Web"));
     try {
       const saved = JSON.parse(localStorage.getItem("bl_ms") || "null");
       if (saved && saved.refresh) { this.refresh = saved.refresh; if (await this.renew()) { await this.loadUser(); return; } }
@@ -41,23 +42,23 @@ export class OneDriveStore {
     const url = `${AUTH}/authorize?client_id=${MS_CLIENT_ID}&response_type=code&response_mode=query&redirect_uri=${encodeURIComponent(redirectUri())}` +
       `&scope=${encodeURIComponent(SCOPE)}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256&prompt=select_account`;
     const w = window.open(url, "bl-ms", "width=520,height=680");
-    if (!w) throw new Error("The browser stopped the sign-in window. Allow pop-ups for bindlens.com and try again.");
+    if (!w) throw new Error(_t("The browser stopped the sign-in window. Allow pop-ups for bindlens.com and try again."));
     const code = await new Promise((resolve, reject) => {
       const done = (e) => {
         if (e.origin !== location.origin || !e.data || e.data.type !== "bl-ms") return;
         window.removeEventListener("message", done);
         clearInterval(t);
-        if (e.data.state !== state) reject(new Error("The sign-in did not match. Try again."));
+        if (e.data.state !== state) reject(new Error(_t("The sign-in did not match. Try again.")));
         else if (e.data.error) reject(new Error(e.data.error));
         else resolve(e.data.code);
       };
       window.addEventListener("message", done);
-      const t = setInterval(() => { if (w.closed) { clearInterval(t); window.removeEventListener("message", done); reject(new Error("The sign-in window was closed.")); } }, 800);
+      const t = setInterval(() => { if (w.closed) { clearInterval(t); window.removeEventListener("message", done); reject(new Error(_t("The sign-in window was closed."))); } }, 800);
     });
     const r = await fetch(`${AUTH}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ client_id: MS_CLIENT_ID, grant_type: "authorization_code", code, redirect_uri: redirectUri(), code_verifier: verifier, scope: SCOPE }) });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error_description || "Microsoft did not sign you in");
+    if (!r.ok) throw new Error(j.error_description || _t("Microsoft did not sign you in"));
     this.setToken(j);
     await this.loadUser();
   }
@@ -169,7 +170,7 @@ export class OneDriveStore {
     return this.norm(it);
   }
 
-  async release() { throw new Error("BindLens can only use its own folder in OneDrive (Apps/BindLens)"); }
+  async release() { throw new Error(_t("BindLens can only use its own folder in OneDrive (Apps/BindLens)")); }
 
   async read(file) {
     const key = file.id + ":" + (file.md5 || file.modified || "");
@@ -190,7 +191,7 @@ export class OneDriveStore {
     for (let at = 0; at < size; at += part) {
       const end = Math.min(size, at + part);
       const r = await fetch(s.uploadUrl, { method: "PUT", signal: opt.signal, headers: { "Content-Range": `bytes ${at}-${end - 1}/${size}` }, body: bytes.slice(at, end) });
-      if (!r.ok) throw new Error("OneDrive: the upload stopped (" + r.status + ")");
+      if (!r.ok) throw new Error(_t("OneDrive: the upload stopped (") + r.status + ")");
       if (opt.onProgress) opt.onProgress(end, size);
       last = r;
     }

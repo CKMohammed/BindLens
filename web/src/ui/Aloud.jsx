@@ -7,6 +7,7 @@ import { openMenu } from "./dialogs.jsx";
 import { scrollTo, docState } from "./Viewer.jsx";
 import { getDoc, call, fileFor } from "../docs.js";
 import { isPaged } from "../util.js";
+import { _t, loc } from "../i18n.js";
 
 export const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
 let run = 0;              // each start gets a number; an older reading stops by itself
@@ -61,7 +62,7 @@ function speak(text, opts) {
     const c = conf();
     u.rate = c.rate || 1;
     const v = c.voice && speechSynthesis.getVoices().find(x => x.voiceURI === c.voice);
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = document.documentElement.lang || "en-GB";
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = document.documentElement.lang || loc;
     u.onboundary = opts.onWord || null;
     u.onend = () => resolve("end");
     u.onerror = () => resolve("error");
@@ -74,15 +75,15 @@ export function stopAloud(quiet = true) {
   try { speechSynthesis.cancel(); } catch (e) {}
   aloud.value = { on: false };
   aloudMark.value = null;
-  if (!quiet) toast("Stopped reading.");
+  if (!quiet) toast(_t("Stopped reading."));
 }
 
 // read from a page (and a sentence) of a document, on through the book
 export async function startAloud(fid = fileId.value, page = pageNo.value, from = 0, onlyText = null) {
-  if (!canSpeak) { toast("This browser cannot read aloud. Chrome, Edge and Safari can."); return; }
+  if (!canSpeak) { toast(_t("This browser cannot read aloud. Chrome, Edge and Safari can.")); return; }
   const book = currentBook.value;
   let f = fileFor(fid);
-  if (!book || !f) { toast("Open a book first."); return; }
+  if (!book || !f) { toast(_t("Open a book first.")); return; }
   stopAloud();
   const me = ++run;
   // the text you chose: just that
@@ -116,7 +117,7 @@ export async function startAloud(fid = fileId.value, page = pageNo.value, from =
         },
       });
       if (run !== me) return;
-      if (r === "error") { stopAloud(); toast("The voice stopped. Press Read aloud again."); return; }
+      if (r === "error") { stopAloud(); toast(_t("The voice stopped. Press Read aloud again.")); return; }
     }
     // the next page, or the next document of the book
     if (conf().on === false) { stopAloud(); return; }
@@ -124,7 +125,7 @@ export async function startAloud(fid = fileId.value, page = pageNo.value, from =
     if (p + 1 < n) { p++; i = 0; continue; }
     const files = book.files.filter(x => isPaged(x.kind) && x.kind !== "image");
     const k = files.findIndex(x => x.id === f.id);
-    if (k < 0 || k + 1 >= files.length) { stopAloud(); toast("That was the end of the book."); return; }
+    if (k < 0 || k + 1 >= files.length) { stopAloud(); toast(_t("That was the end of the book.")); return; }
     f = files[k + 1]; p = 0; i = 0;
     try { await getDoc(f); } catch (e) { stopAloud(); return; }
   }
@@ -166,22 +167,22 @@ export function AloudPlayer() {
   const mine = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(lang));
   const others = voices.filter(v => !mine.includes(v));
   return (
-    <div class="aloudbar" role="region" aria-label="Reading aloud">
+    <div class="aloudbar" role="region" aria-label={_t("Reading aloud")}>
       <span class="ab-wave" aria-hidden="true"><i /><i /><i /><i /></span>
-      <div class="ab-what"><b class="small">Reading aloud</b><span class="tiny muted ellipsis">{a.sel ? "The text you chose" : `${f ? f.name.replace(/\.[^.]+$/, "") : ""} · page ${a.page + 1}`}</span></div>
-      <button class="ib" title="The sentence before" onClick={() => step(-1)} disabled={a.sel}><Icon n="left" size={18} /></button>
-      <button class="ib ab-play" title={a.paused ? "Go on (space)" : "Pause (space)"} onClick={pause}><Icon n={a.paused ? "play" : "pause"} size={20} /></button>
-      <button class="ib" title="The next sentence" onClick={() => step(1)} disabled={a.sel}><Icon n="right" size={18} /></button>
-      <button class="btn plain small ab-speed" title="How fast" onClick={(e) => openMenu(e, [{ title: "How fast" }, ...[0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2].map(r => ({ label: ((c.rate || 1) === r ? "✓ " : "") + r + "×", run: () => { set({ rate: r }); if (!a.sel) startAloud(a.fileId, a.page, a.i); } }))])}>{(c.rate || 1) + "×"}</button>
-      <button class="btn plain small" title="The voice" onClick={(e) => openMenu(e, [{ title: "The voice" },
-        { label: (!c.voice ? "✓ " : "") + "The computer's own voice", run: () => set({ voice: "" }) },
+      <div class="ab-what"><b class="small">{_t("Reading aloud")}</b><span class="tiny muted ellipsis">{a.sel ? _t("The text you chose") : _t("{0} · page {1}", f ? f.name.replace(/\.[^.]+$/, "") : "", a.page + 1)}</span></div>
+      <button class="ib" title={_t("The sentence before")} onClick={() => step(-1)} disabled={a.sel}><Icon n="left" size={18} /></button>
+      <button class="ib ab-play" title={a.paused ? _t("Go on (space)") : _t("Pause (space)")} onClick={pause}><Icon n={a.paused ? "play" : "pause"} size={20} /></button>
+      <button class="ib" title={_t("The next sentence")} onClick={() => step(1)} disabled={a.sel}><Icon n="right" size={18} /></button>
+      <button class="btn plain small ab-speed" title={_t("How fast")} onClick={(e) => openMenu(e, [{ title: _t("How fast") }, ...[0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2].map(r => ({ label: ((c.rate || 1) === r ? "✓ " : "") + r + "×", run: () => { set({ rate: r }); if (!a.sel) startAloud(a.fileId, a.page, a.i); } }))])}>{(c.rate || 1) + "×"}</button>
+      <button class="btn plain small" title={_t("The voice")} onClick={(e) => openMenu(e, [{ title: _t("The voice") },
+        { label: (!c.voice ? "✓ " : "") + _t("The computer's own voice"), run: () => set({ voice: "" }) },
         ...mine.slice(0, 14).map(v => ({ label: (c.voice === v.voiceURI ? "✓ " : "") + v.name + " (" + v.lang + ")", run: () => { set({ voice: v.voiceURI }); if (!a.sel) startAloud(a.fileId, a.page, a.i); } })),
-        others.length > 0 && { label: "Other languages", sub: others.slice(0, 30).map(v => ({ label: (c.voice === v.voiceURI ? "✓ " : "") + v.name + " (" + v.lang + ")", run: () => { set({ voice: v.voiceURI }); if (!a.sel) startAloud(a.fileId, a.page, a.i); } })) },
+        others.length > 0 && { label: _t("Other languages"), sub: others.slice(0, 30).map(v => ({ label: (c.voice === v.voiceURI ? "✓ " : "") + v.name + " (" + v.lang + ")", run: () => { set({ voice: v.voiceURI }); if (!a.sel) startAloud(a.fileId, a.page, a.i); } })) },
         "-",
-        { label: (c.follow !== false ? "✓ " : "") + "Follow the reading (turn the pages)", run: () => set({ follow: c.follow === false }) },
-        { label: (c.on !== false ? "✓ " : "") + "Go on to the next page", run: () => set({ on: c.on === false }) },
-      ])}><Icon n="people" size={15} />Voice</button>
-      <button class="ib" title="Stop (Esc)" onClick={() => stopAloud()}><Icon n="close" size={18} /></button>
+        { label: (c.follow !== false ? "✓ " : "") + _t("Follow the reading (turn the pages)"), run: () => set({ follow: c.follow === false }) },
+        { label: (c.on !== false ? "✓ " : "") + _t("Go on to the next page"), run: () => set({ on: c.on === false }) },
+      ])}><Icon n="people" size={15} />{_t("Voice")}</button>
+      <button class="ib" title={_t("Stop (Esc)")} onClick={() => stopAloud()}><Icon n="close" size={18} /></button>
     </div>
   );
 }

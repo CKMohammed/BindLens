@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { panel, settings, setSetting, tool, toast } from "../state.js";
 import { Dialog } from "./dialogs.jsx";
+import { _t } from "../i18n.js";
 
 export function Signature() {
   const ref = useRef();
@@ -45,21 +46,21 @@ export function Signature() {
     const png = out.toDataURL("image/png");
     setSetting("signatures", [{ png, w: out.width, h: out.height }]);
     tool.value = "sign";
-    toast("Click on a page to put your signature there.", "ok", 4000);
+    toast(_t("Click on a page to put your signature there."), "ok", 4000);
     close();
   };
   const old = (settings.value.signatures || [])[0];
   return (
-    <Dialog title="Your signature" icon="sign" onClose={close} cls="mid"
-      foot={<><button class="btn plain" onClick={clear}>Start again</button><span class="grow" />
-        <button class="btn plain" onClick={close}>Cancel</button><button class="btn" disabled={!has} onClick={save}>Use this signature</button></>}>
-      <p class="small muted" style={{ marginTop: 0 }}>Sign in the box with your finger, a pen or the mouse. It is kept in your Drive (in the BindLens settings), only for you.</p>
+    <Dialog title={_t("Your signature")} icon="sign" onClose={close} cls="mid"
+      foot={<><button class="btn plain" onClick={clear}>{_t("Start again")}</button><span class="grow" />
+        <button class="btn plain" onClick={close}>{_t("Cancel")}</button><button class="btn" disabled={!has} onClick={save}>{_t("Use this signature")}</button></>}>
+      <p class="small muted" style={{ marginTop: 0 }}>{_t("Sign in the box with your finger, a pen or the mouse. It is kept in your Drive (in the BindLens settings), only for you.")}</p>
       <div class="row" style={{ marginBottom: 8 }}>
         {["#1B2A6B", "#1E1C2B", "#1C7ED6"].map(c => <button key={c} class="swatch" style={{ background: c, border: 0, outline: c === color ? "3px solid var(--accent)" : "" }} onClick={() => setColor(c)} />)}
       </div>
       <canvas ref={ref} onPointerDown={down} onPointerMove={move} onPointerUp={up}
         style={{ width: "100%", height: 200, background: "#fff", borderRadius: 12, border: "1.5px dashed var(--line2)", touchAction: "none", cursor: "crosshair" }} />
-      {old && <div class="row" style={{ marginTop: 10 }}><span class="small muted">Your signature now:</span><img src={old.png} alt="" style={{ height: 40, background: "#fff", borderRadius: 6 }} /></div>}
+      {old && <div class="row" style={{ marginTop: 10 }}><span class="small muted">{_t("Your signature now:")}</span><img src={old.png} alt="" style={{ height: 40, background: "#fff", borderRadius: 6 }} /></div>}
     </Dialog>
   );
 }

@@ -4,6 +4,7 @@
 import { signal } from "@preact/signals";
 import { store, books, addFileToBook, logChange, openBook, toast, view, bookId, pulseFrame } from "./state.js";
 import { uniqueName, cleanName, mimeOf, uid } from "./util.js";
+import { _t } from "./i18n.js";
 
 export const upq = signal({ items: [], at: 0 });
 const PAR = 3;
@@ -35,7 +36,7 @@ async function one(it) {
     made.parent = it.where;
     addFileToBook(it.bookId, made);
     const b = books.value.find(x => x.id === it.bookId);
-    logChange("Added", it.name, b ? b.name : "");
+    logChange(_t("Added"), it.name, b ? b.name : "");
     set(it.key, { state: "ok", sent: it.size, fileId: made.id });
     if (it.openFirst && !upq.value.opened?.[it.batch]) {
       upq.value = { ...upq.value, opened: { ...(upq.value.opened || {}), [it.batch]: true } };
@@ -45,17 +46,17 @@ async function one(it) {
     return made;
   } catch (e) {
     const stopped = e && e.name === "AbortError";
-    set(it.key, { state: stopped ? "stop" : "bad", error: stopped ? "Stopped" : plain(e) });
+    set(it.key, { state: stopped ? "stop" : "bad", error: stopped ? _t("Stopped") : plain(e) });
     return null;
   }
 }
 
 function plain(e) {
   const m = String(e && e.message || e || "");
-  if (/Failed to fetch|NetworkError|network/i.test(m)) return "The network stopped. Try again when it is back.";
-  if (/quota|storage/i.test(m)) return "Your Drive is full: free some space in Google Drive, then try again.";
-  if (/offline/i.test(m)) return "You are offline: add it when the network is back.";
-  return m.replace(/^Google Drive: /, "Google Drive says: ");
+  if (/Failed to fetch|NetworkError|network/i.test(m)) return _t("The network stopped. Try again when it is back.");
+  if (/quota|storage/i.test(m)) return _t("Your Drive is full: free some space in Google Drive, then try again.");
+  if (/offline/i.test(m)) return _t("You are offline: add it when the network is back.");
+  return m.replace(/^Google Drive: /, _t("Google Drive says: "));
 }
 
 async function pump() {
@@ -97,7 +98,7 @@ export function queueUploads(files, { open = true } = {}) {
 
 export function cancelUploads() {
   ctl.abort();
-  upq.value = { ...upq.value, items: upq.value.items.map(it => it.state === "wait" ? { ...it, state: "stop", error: "Stopped" } : it) };
+  upq.value = { ...upq.value, items: upq.value.items.map(it => it.state === "wait" ? { ...it, state: "stop", error: _t("Stopped") } : it) };
   for (const it of upq.value.items) if (it.state === "stop") { const w = waiters.get(it.key); if (w) { waiters.delete(it.key); w(null); } }
   ctl = new AbortController();
 }

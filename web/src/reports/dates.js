@@ -3,6 +3,7 @@ import { books, settings, bookHidden } from "../state.js";
 import { wordsOf } from "../docs.js";
 import { deadlineDates } from "./patterns.js";
 import { daysBetween, isoDate, isPaged } from "../util.js";
+import { _t } from "../i18n.js";
 
 const perFile = new Map(); // id:md5 -> items
 
@@ -25,7 +26,7 @@ async function fileDeadlines(book, file, cachedOnly = false) {
         const off = prev ? prev.length + 3 : 0;
         for (const d of deadlineDates({ text })) {
           if (d.at < off) continue;
-          out.push({ date: d.date, what: d.what || "Date", line, fileId: file.id, file: file.name, bookId: book.id,
+          out.push({ date: d.date, what: d.what || _t("Date"), line, fileId: file.id, file: file.name, bookId: book.id,
             book: book.name, page });
         }
       });
@@ -61,9 +62,9 @@ export function needs(items) {
 export function myItems(today = new Date()) {
   const st = settings.value;
   return [
-    ...(st.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? "About a page" : "Reminder", line: r.text, file: r.file || "", book: r.book || "" })),
-    ...(st.tasks || []).filter(t => t.due && !t.done).map(t => ({ ...t, id: t.id, date: new Date(t.due + "T00:00"), mine: true, task: true, what: "Task" + (t.who ? " · " + t.who : ""), line: t.text, file: t.file || "", book: t.book || "" })),
-    ...(st.calendar || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, cal: true, what: "Calendar", line: r.text, file: "", book: r.source || "" })),
+    ...(st.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? _t("About a page") : _t("Reminder"), line: r.text, file: r.file || "", book: r.book || "" })),
+    ...(st.tasks || []).filter(t => t.due && !t.done).map(t => ({ ...t, id: t.id, date: new Date(t.due + "T00:00"), mine: true, task: true, what: _t("Task") + (t.who ? " · " + t.who : ""), line: t.text, file: t.file || "", book: t.book || "" })),
+    ...(st.calendar || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, cal: true, what: _t("Calendar"), line: r.text, file: "", book: r.source || "" })),
   ].map(r => ({ ...r, days: daysBetween(today, r.date) }));
 }
 
@@ -79,10 +80,10 @@ export async function needsCount() {
 }
 
 export function status(days) {
-  if (days < 0) return { cls: "bad", text: days === -1 ? "Yesterday" : `${-days} days ago` };
-  if (days === 0) return { cls: "bad", text: "Today" };
-  if (days <= 30) return { cls: "warn", text: days === 1 ? "Tomorrow" : `In ${days} days` };
-  return { cls: "ok", text: `In ${days} days` };
+  if (days < 0) return { cls: "bad", text: days === -1 ? _t("Yesterday") : _t("{0} days ago", -days) };
+  if (days === 0) return { cls: "bad", text: _t("Today") };
+  if (days <= 30) return { cls: "warn", text: days === 1 ? _t("Tomorrow") : _t("In {0} days", days) };
+  return { cls: "ok", text: _t("In {0} days", days) };
 }
 
 // a link that adds the date to Google Calendar (no permission needed: it opens Calendar with the event filled in)
@@ -91,7 +92,7 @@ export function calendarLink(it) {
   const n = new Date(it.date); n.setDate(n.getDate() + 1);
   const d2 = isoDate(n).replace(/-/g, "");
   const title = `${it.what}: ${it.file.replace(/\.[^.]+$/, "")}`;
-  const details = `${it.line}\n\nFrom "${it.file}" in the book "${it.book}" (BindLens).`;
+  const details = _t("{0}\n\nFrom \"{1}\" in the book \"{2}\" (BindLens).", it.line, it.file, it.book);
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${d}/${d2}&details=${encodeURIComponent(details)}`;
 }
 

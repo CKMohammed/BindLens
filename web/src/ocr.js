@@ -2,6 +2,7 @@
 // page in the PDF, so Find, Reports and any PDF program can search and copy them.
 import { call, getDoc, afterEdit } from "./docs.js";
 import { toast } from "./state.js";
+import { _t } from "./i18n.js";
 
 let worker = null;
 async function tesseract(lang = "eng") {
@@ -33,7 +34,7 @@ export async function readImage(img) {
 // a page of a PDF in the book: draw it, read it, write the words in
 export async function readScannedPage(file, page) {
   const d = await getDoc(file);
-  if (!d.isPDF || d.readOnly) throw new Error("Only PDF pages can be read");
+  if (!d.isPDF || d.readOnly) throw new Error(_t("Only PDF pages can be read"));
   if (await call("hasText", d.key, page)) return 0;
   const p = d.pages[page];
   const scale = Math.min(3, 2400 / Math.max(p.w, p.h));

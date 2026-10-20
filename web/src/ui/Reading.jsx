@@ -10,6 +10,7 @@ import { openMenu } from "./dialogs.jsx";
 import { BookTile } from "./bookicons.jsx";
 import { isPaged, mix } from "../util.js";
 import { openPanel } from "../actions.js";
+import { _t, loc } from "../i18n.js";
 
 function pagesOf(f) { return docState.value[f.id]?.pages?.length || (isPaged(f.kind) ? 1 : 0); }
 
@@ -51,28 +52,28 @@ export function Contents({ book, aloud, onAloud, compact }) {
   const m = bookMeta(book.id);
   const color = m.color || book.color;
   const maxP = Math.max(1, ...files.map(pagesOf));
-  if (!open) return <button class="contents-pill" onClick={compact ? () => { import("../state.js").then(s => { s.zoom.value = 1; s.fitWidth.value = true; }); } : toggle} title={compact ? "The page is big: the contents step aside. Click to see them (the page fits the width again)" : "Show the contents"}><Icon n="list" size={16} />Contents <span class="muted">· {pct}%</span></button>;
+  if (!open) return <button class="contents-pill" onClick={compact ? () => { import("../state.js").then(s => { s.zoom.value = 1; s.fitWidth.value = true; }); } : toggle} title={compact ? _t("The page is big: the contents step aside. Click to see them (the page fits the width again)") : _t("Show the contents")}><Icon n="list" size={16} />{_t("Contents")} <span class="muted">· {pct}%</span></button>;
   let at = 0;
   return (
     <div class="contents-card" style={{ "--bk": color }}>
       <span class="ribbon" />
       <div class="row" style={{ alignItems: "flex-start" }}>
         <div class="grow">
-          <h2>Contents</h2>
+          <h2>{_t("Contents")}</h2>
           <div class="bookname">{book.name}</div>
         </div>
         <BookTile book={book} meta={m} size={38} />
-        <button class="ib" title="Hide the contents" onClick={toggle} style={{ width: 28, height: 28, marginLeft: 2 }}><Icon n="close" size={15} /></button>
+        <button class="ib" title={_t("Hide the contents")} onClick={toggle} style={{ width: 28, height: 28, marginLeft: 2 }}><Icon n="close" size={15} /></button>
       </div>
       <div class="rule" />
       <div class="row" style={{ alignItems: "flex-end", gap: 12 }}>
-        <div><div class="big">{files.length}</div><div class="tiny muted">document{files.length === 1 ? "" : "s"}</div></div>
+        <div><div class="big">{files.length}</div><div class="tiny muted">{_t("document")}{files.length === 1 ? "" : "s"}</div></div>
         <div class="bars grow" aria-hidden="true">
           {files.slice(0, 24).map(f => <i key={f.id} class={f.id === fileId.value ? "on" : ""} style={{ height: 6 + 30 * pagesOf(f) / maxP + "px" }} />)}
         </div>
-        <div class="tiny muted" style={{ textAlign: "right" }}>{total} pages<br /><b style={{ color: "var(--accent)" }}>{pct}%</b></div>
+        <div class="tiny muted" style={{ textAlign: "right" }}>{total} {_t("pages")}<br /><b style={{ color: "var(--accent)" }}>{pct}%</b></div>
       </div>
-      {files.length > 3 || files.some(f => (secMem.get(secKey(f)) || []).length > 12) ? <div class="toc-find"><Icon n="search" size={13} /><input value={q} placeholder="Find a part" onInput={(e) => setQ(e.target.value)} /></div> : null}
+      {files.length > 3 || files.some(f => (secMem.get(secKey(f)) || []).length > 12) ? <div class="toc-find"><Icon n="search" size={13} /><input value={q} placeholder={_t("Find a part")} onInput={(e) => setQ(e.target.value)} /></div> : null}
       <ol class="toc">
         {files.map((f, i) => {
           const start = at + 1; at += pagesOf(f);
@@ -91,7 +92,7 @@ export function Contents({ book, aloud, onAloud, compact }) {
                 <span class="no">{String(i + 1).padStart(2, "0")}</span>
                 <span class="nm">{f.sub ? <span class="muted">{f.sub} / </span> : null}{f.name.replace(/\.[^.]+$/, "")}</span>
                 <span class="dots" /><span class="pg">{isPaged(f.kind) ? start : <Icon n={fileIcon(f.kind)} size={13} />}</span>
-                {isPaged(f.kind) && f.kind !== "image" && <button class="tocx" title={openParts ? "Hide its parts" : "Its parts"} onClick={(e) => { e.stopPropagation(); setShut({ ...shut, [f.id]: openParts ? true : false }); if (!openParts) partsOf(f); }}><Icon n={openParts ? "down" : "right"} size={12} /></button>}
+                {isPaged(f.kind) && f.kind !== "image" && <button class="tocx" title={openParts ? _t("Hide its parts") : _t("Its parts")} onClick={(e) => { e.stopPropagation(); setShut({ ...shut, [f.id]: openParts ? true : false }); if (!openParts) partsOf(f); }}><Icon n={openParts ? "down" : "right"} size={12} /></button>}
               </div>
               {(openParts || (nq && shown.length > 0)) && <ol class="tocparts">
                 {(nq ? shown : parts).slice(0, 300).map((p, j) => (
@@ -100,21 +101,21 @@ export function Contents({ book, aloud, onAloud, compact }) {
                   </li>
                 ))}
               </ol>}
-              {on && parts === null && <div class="tiny muted" style={{ padding: "2px 0 4px 30px" }}>Finding its parts...</div>}
+              {on && parts === null && <div class="tiny muted" style={{ padding: "2px 0 4px 30px" }}>{_t("Finding its parts...")}</div>}
             </li>
           );
         })}
       </ol>
       <div class="progress"><i style={{ width: pct + "%" }} /><b style={{ left: pct + "%" }} /></div>
-      <div class="row tiny muted"><span class="grow">Page {before} of {total}</span><span>{pct}% of the book</span></div>
+      <div class="row tiny muted"><span class="grow">{_t("Page {0} of {1}", before, total)}</span><span>{pct}{_t("% of the book")}</span></div>
       <button class={"btn small " + (aloud ? "" : "soft")} style={{ marginTop: 10 }} onClick={onAloud}>
-        <Icon n={aloud ? "pause" : "play"} size={15} />{aloud ? "Stop reading" : "Read aloud"}</button>
+        <Icon n={aloud ? "pause" : "play"} size={15} />{aloud ? _t("Stop reading") : _t("Read aloud")}</button>
     </div>
   );
 }
 
 // the clock with the calendar: one small piece, discreet, in the top right corner - drag it anywhere
-const LOOKS = [["minimal", "Minimal"], ["soft", "Soft"], ["bold", "Bold"]];
+const LOOKS = [["minimal", _t("Minimal")], ["soft", _t("Soft")], ["bold", _t("Bold")]];
 // the map of the book beside the page, in the book's colour: each document a piece, as long as its pages; where you are
 export function BookMap({ book }) {
   const files = visibleFiles(book).filter(f => isPaged(f.kind));
@@ -126,11 +127,11 @@ export function BookMap({ book }) {
   for (const f of files) { if (f.id === fileId.value) { here = at + pageNo.value + 0.5; break; } at += Math.max(1, pagesOf(f)); }
   at = 0;
   return (
-    <div class="bookmap" style={{ "--bk": color }} aria-label="Where you are in the book">
+    <div class="bookmap" style={{ "--bk": color }} aria-label={_t("Where you are in the book")}>
       {files.map((f, i) => {
         const n = Math.max(1, pagesOf(f)), top = at / total * 100, h = n / total * 100; at += n;
         return <button key={f.id} class={"bm-doc" + (f.id === fileId.value ? " on" : "")} style={{ top: top + "%", height: `calc(${h}% - 2px)`, opacity: 0.45 + 0.4 * ((i % 2) ? 0.6 : 1) }}
-          onClick={() => go(f)}><span class="bm-tip">{f.name.replace(/\.[^.]+$/, "")} · {n} page{n === 1 ? "" : "s"}</span></button>;
+          onClick={() => go(f)}><span class="bm-tip">{f.name.replace(/\.[^.]+$/, "")} · {n} {_t("page")}{n === 1 ? "" : "s"}</span></button>;
       })}
       <i class="bm-here" style={{ top: (here / total * 100) + "%" }} />
     </div>
@@ -145,9 +146,9 @@ export function ClockCal({ bounds, compact }) {
   const ref = useRef();
   const [pos, setPos] = useState(c.pos || null);           // {right, top} in px from the top right corner
   const drag = useRef(null);
-  if (c.hidden) return <button class="clock-pill" title="Show the clock and the calendar" onClick={() => setSetting("clock", { ...c, hidden: false })}><Icon n="clock" size={15} /></button>;
+  if (c.hidden) return <button class="clock-pill" title={_t("Show the clock and the calendar")} onClick={() => setSetting("clock", { ...c, hidden: false })}><Icon n="clock" size={15} /></button>;
   // the page is big: the clock steps aside, small, so it never covers the page
-  if (compact) return <div class="clock-mini" title={now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}>{now.toLocaleTimeString(c.h12 ? "en-US" : "en-GB", { hour: "2-digit", minute: "2-digit", hour12: !!c.h12 })}</div>;
+  if (compact) return <div class="clock-mini" title={now.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" })}>{now.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit", hour12: !!c.h12 })}</div>;
   const set = (ch) => setSetting("clock", { ...c, ...ch });
   const down = (e) => {
     if (e.target.closest("button")) return;
@@ -164,31 +165,31 @@ export function ClockCal({ bounds, compact }) {
   };
   const up = () => { if (drag.current && pos) set({ pos }); drag.current = null; };
   const menu = (e) => openMenu(e, [
-    { title: "The clock and the calendar" },
+    { title: _t("The clock and the calendar") },
     ...LOOKS.map(([k, l]) => ({ label: (look === k ? "✓ " : "") + l, run: () => set({ look: k }) })),
     "-",
-    { label: (c.seconds ? "✓ " : "") + "Show the seconds", run: () => set({ seconds: !c.seconds }) },
-    { label: (c.h12 ? "✓ " : "") + "12-hour clock (am / pm)", run: () => set({ h12: !c.h12 }) },
-    { label: (c.big ? "✓ " : "") + "Bigger", run: () => set({ big: !c.big }) },
-    { label: "Put it back in the corner", icon: "undo", run: () => { setPos(null); set({ pos: null }); } },
-    { label: "Open What needs you", icon: "calendar", run: () => openPanel("dates") },
+    { label: (c.seconds ? "✓ " : "") + _t("Show the seconds"), run: () => set({ seconds: !c.seconds }) },
+    { label: (c.h12 ? "✓ " : "") + _t("12-hour clock (am / pm)"), run: () => set({ h12: !c.h12 }) },
+    { label: (c.big ? "✓ " : "") + _t("Bigger"), run: () => set({ big: !c.big }) },
+    { label: _t("Put it back in the corner"), icon: "undo", run: () => { setPos(null); set({ pos: null }); } },
+    { label: _t("Open What needs you"), icon: "calendar", run: () => openPanel("dates") },
     "-",
-    { label: "Hide it", icon: "close", run: () => set({ hidden: true }) },
+    { label: _t("Hide it"), icon: "close", run: () => set({ hidden: true }) },
   ]);
-  const time = now.toLocaleTimeString(c.h12 ? "en-US" : "en-GB", { hour: "2-digit", minute: "2-digit", second: c.seconds ? "2-digit" : undefined, hour12: !!c.h12 });
+  const time = now.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit", second: c.seconds ? "2-digit" : undefined, hour12: !!c.h12 });
   const p = pos || { right: 16, top: 14 };
   void bounds;
   return (
     <div ref={ref} class={"clockcal " + look + (c.big ? " big" : "")} style={{ right: p.right + "px", top: p.top + "px" }}
-      onPointerDown={down} onPointerMove={move} onPointerUp={up} title="Drag to move it">
-      <button class="cc-set" title="Personalise the clock and the calendar" onClick={menu}><Icon n="settings" size={12} /></button>
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} title={_t("Drag to move it")}>
+      <button class="cc-set" title={_t("Personalise the clock and the calendar")} onClick={menu}><Icon n="settings" size={12} /></button>
       <div class="cc-cal">
-        <div class="cc-m">{now.toLocaleDateString("en-GB", { month: "short" }).toUpperCase()}</div>
+        <div class="cc-m">{now.toLocaleDateString(loc, { month: "short" }).toUpperCase()}</div>
         <div class="cc-d">{now.getDate()}</div>
       </div>
       <div class="cc-right">
         <div class="cc-t">{time}</div>
-        <div class="cc-w">{now.toLocaleDateString("en-GB", { weekday: "long" })}</div>
+        <div class="cc-w">{now.toLocaleDateString(loc, { weekday: "long" })}</div>
       </div>
     </div>
   );
@@ -203,14 +204,14 @@ export function DocSwitch({ book }) {
   const prev = files[i - 1], next = files[i + 1];
   return (
     <div class="docswitch">
-      <button class="ib" title={prev ? "Before: " + prev.name : "This is the first document"} disabled={!prev} onClick={() => prev && go(prev)}><Icon n="left" size={18} /></button>
-      <button class="ds-cur" title="Go to another document" onClick={(e) => openMenu(e, [
+      <button class="ib" title={prev ? _t("Before: ") + prev.name : _t("This is the first document")} disabled={!prev} onClick={() => prev && go(prev)}><Icon n="left" size={18} /></button>
+      <button class="ds-cur" title={_t("Go to another document")} onClick={(e) => openMenu(e, [
         { title: book.name },
         ...files.map((f, k) => ({ label: `${String(k + 1).padStart(2, "0")}  ${f.name.replace(/\.[^.]+$/, "")}`, icon: fileIcon(f.kind), run: () => go(f) })),
       ])}>
         <Icon n={fileIcon(cur.kind)} size={16} /><span class="ellipsis">{cur.name.replace(/\.[^.]+$/, "")}</span><span class="tiny muted">{i + 1}/{files.length}</span><Icon n="down" size={14} />
       </button>
-      <button class="ib" title={next ? "Next: " + next.name : "This is the last document"} disabled={!next} onClick={() => next && go(next)}><Icon n="right" size={18} /></button>
+      <button class="ib" title={next ? _t("Next: ") + next.name : _t("This is the last document")} disabled={!next} onClick={() => next && go(next)}><Icon n="right" size={18} /></button>
     </div>
   );
 }

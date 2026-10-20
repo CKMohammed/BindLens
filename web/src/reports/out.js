@@ -3,6 +3,7 @@
 // Excel file, CSV and text - and the few figures and the chart that go on top. The rows stay exactly as written.
 import { settings, store, books } from "../state.js";
 import { escapeHtml, fmtDate, brandOf, mix } from "../util.js";
+import { _t, loc } from "../i18n.js";
 
 const BL_FRAME = ["#111218", "#FF85C2", "#FFC83D", "#FF85C2", "#111218"];   // the logo's colours
 export const NEW_BLUE = "#2F6FDE";
@@ -33,10 +34,10 @@ function gosOf(rep) {
 export function docsOf(rep) { return new Set(gosOf(rep).filter(Boolean).map(g => g.fileId)).size; }
 function booksOf(rep) { return new Set(gosOf(rep).filter(Boolean).map(g => g.bookId)).size; }
 
-const n0 = (v) => Number(v || 0).toLocaleString("en-GB");
+const n0 = (v) => Number(v || 0).toLocaleString(loc);
 function topKinds(rows, j, k = 3) {
   const m = new Map();
-  for (const r of rows) { const x = String(r.cells[j] || "").trim() || "Other"; m.set(x, (m.get(x) || 0) + 1); }
+  for (const r of rows) { const x = String(r.cells[j] || "").trim() || _t("Other"); m.set(x, (m.get(x) || 0) + 1); }
   return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, k);
 }
 
@@ -44,33 +45,33 @@ function topKinds(rows, j, k = 3) {
 export function summaryOf(rep) {
   const rows = rep.rows || [];
   const docs = docsOf(rep);
-  const D = { v: n0(docs), l: docs === 1 ? "Document" : "Documents" };
+  const D = { v: n0(docs), l: docs === 1 ? _t("Document") : _t("Documents") };
   switch (rep.id) {
-    case "contacts": return [{ v: n0(rows.length), l: "People and contacts" }, { v: n0(rows.filter(r => r.cells[1]).length), l: "With an email" }, { v: n0(rows.filter(r => r.cells[2]).length), l: "With a phone" }, D];
-    case "deadlines": return [{ v: n0(rows.filter(r => r.st === "bad").length), l: "Past or today", st: "bad" }, { v: n0(rows.filter(r => r.st === "warn").length), l: "In the next 30 days", st: "warn" }, { v: n0(rows.filter(r => r.st === "ok").length), l: "Later", st: "ok" }, D];
+    case "contacts": return [{ v: n0(rows.length), l: _t("People and contacts") }, { v: n0(rows.filter(r => r.cells[1]).length), l: _t("With an email") }, { v: n0(rows.filter(r => r.cells[2]).length), l: _t("With a phone") }, D];
+    case "deadlines": return [{ v: n0(rows.filter(r => r.st === "bad").length), l: _t("Past or today"), st: "bad" }, { v: n0(rows.filter(r => r.st === "warn").length), l: _t("In the next 30 days"), st: "warn" }, { v: n0(rows.filter(r => r.st === "ok").length), l: _t("Later"), st: "ok" }, D];
     case "money": {
       const vals = rows.filter(r => r.value != null);
       const big = vals.reduce((a, r) => (!a || r.value > a.value ? r : a), null);
-      return [{ v: n0(rows.length), l: "Amounts" }, { v: n0(rows.filter(r => r.cells[1] === "Total").length), l: "Totals" }, big && { v: big.cells[0], l: "The largest" }, D].filter(Boolean);
+      return [{ v: n0(rows.length), l: _t("Amounts") }, { v: n0(rows.filter(r => r.cells[1] === _t("Total")).length), l: _t("Totals") }, big && { v: big.cells[0], l: _t("The largest") }, D].filter(Boolean);
     }
-    case "privacy": return [{ v: n0(rows.length), l: "Personal data found" }, ...topKinds(rows, 0, 2).map(([k, c]) => ({ v: n0(c), l: k })), D];
-    case "health": { const ok = rows.filter(r => r.cells[4] === "All right").length; return [{ v: n0(rows.length), l: "Files" }, { v: n0(ok), l: "All right", st: "ok" }, { v: n0(rows.length - ok), l: "To look at", st: rows.length - ok ? "warn" : "" }]; }
-    case "status": return [{ v: n0(rows.length), l: "Files" }, ...topKinds(rows, 2, 3).map(([k, c]) => ({ v: n0(c), l: k }))];
-    case "case": return [{ v: n0(rep.facts?.books || 0), l: "Books" }, { v: n0(rows.filter(r => r.kind === "missing").length), l: "Documents missing", st: rows.some(r => r.kind === "missing") ? "bad" : "" },
-      { v: n0(rows.filter(r => r.kind === "file").length), l: "Files waiting" }, { v: n0(rows.filter(r => r.kind === "task").length), l: "Open tasks" }];
-    case "marks": return [{ v: n0(rows.length), l: "Marks" }, { v: n0(rows.filter(r => /Highlight|Underline/.test(r.cells[2])).length), l: "Highlights" }, { v: n0(rows.filter(r => /Note|Text/.test(r.cells[2])).length), l: "Notes and words" }, D];
-    case "compare": return [{ v: n0(rows.filter(r => r.cells[0] === "Changed").length), l: "Lines changed" }, { v: n0(rows.filter(r => r.cells[0].includes("first")).length), l: "Only in the first" }, { v: n0(rows.filter(r => r.cells[0].includes("second")).length), l: "Only in the second" }];
+    case "privacy": return [{ v: n0(rows.length), l: _t("Personal data found") }, ...topKinds(rows, 0, 2).map(([k, c]) => ({ v: n0(c), l: k })), D];
+    case "health": { const ok = rows.filter(r => r.cells[4] === _t("All right")).length; return [{ v: n0(rows.length), l: _t("Files") }, { v: n0(ok), l: _t("All right"), st: "ok" }, { v: n0(rows.length - ok), l: _t("To look at"), st: rows.length - ok ? "warn" : "" }]; }
+    case "status": return [{ v: n0(rows.length), l: _t("Files") }, ...topKinds(rows, 2, 3).map(([k, c]) => ({ v: n0(c), l: k }))];
+    case "case": return [{ v: n0(rep.facts?.books || 0), l: _t("Books") }, { v: n0(rows.filter(r => r.kind === "missing").length), l: _t("Documents missing"), st: rows.some(r => r.kind === "missing") ? "bad" : "" },
+      { v: n0(rows.filter(r => r.kind === "file").length), l: _t("Files waiting") }, { v: n0(rows.filter(r => r.kind === "task").length), l: _t("Open tasks") }];
+    case "marks": return [{ v: n0(rows.length), l: _t("Marks") }, { v: n0(rows.filter(r => [_t("Highlight"), _t("Underline")].includes(r.cells[2])).length), l: _t("Highlights") }, { v: n0(rows.filter(r => [_t("Note"), _t("Text"), _t("Sticky note")].includes(r.cells[2])).length), l: _t("Notes and words") }, D];
+    case "compare": return [{ v: n0(rows.filter(r => r.cells[0] === _t("Changed")).length), l: _t("Lines changed") }, { v: n0(rows.filter(r => r.cells[0] === _t("Only in the first")).length), l: _t("Only in the first") }, { v: n0(rows.filter(r => r.cells[0] === _t("Only in the second")).length), l: _t("Only in the second") }];
     default:
-      if (rep.tables) return [{ v: n0(rep.tables.length), l: rep.tables.length === 1 ? "Table" : "Tables" }, { v: n0(countOf(rep)), l: "Rows" }, D];
-      return [{ v: n0(countOf(rep)), l: "Rows" }, D, { v: n0(booksOf(rep)), l: booksOf(rep) === 1 ? "Book" : "Books" }];
+      if (rep.tables) return [{ v: n0(rep.tables.length), l: rep.tables.length === 1 ? _t("Table") : _t("Tables") }, { v: n0(countOf(rep)), l: _t("Rows") }, D];
+      return [{ v: n0(countOf(rep)), l: _t("Rows") }, D, { v: n0(booksOf(rep)), l: booksOf(rep) === 1 ? _t("Book") : _t("Books") }];
   }
 }
 
 export function factsOf(rep, th = repTheme()) {
   const now = new Date();
-  const t = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const t = now.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
   const n = countOf(rep), d = docsOf(rep);
-  return [rep.where, `${n0(n)} row${n === 1 ? "" : "s"}`, d ? `${n0(d)} document${d === 1 ? "" : "s"}` : "", `${fmtDate(now)}, ${t}`, th.brand && th.person ? "Prepared by " + th.person : ""].filter(Boolean).join("  ·  ");
+  return [rep.where, _t("{0} row{1}", n0(n), n === 1 ? "" : "s"), d ? _t("{0} document{1}", n0(d), d === 1 ? "" : "s") : "", `${fmtDate(now)}, ${t}`, th.brand && th.person ? _t("Prepared by ") + th.person : ""].filter(Boolean).join("  ·  ");
 }
 
 // ---- new since the last time: a short fingerprint of each row (without the columns that change by themselves)
@@ -104,11 +105,11 @@ export function visibleCols(columns, rows) {
   return columns.map((c, j) => j).filter(j => rows.some(r => (r.cells[j] || "").toString().trim() !== ""));
 }
 export function sheetsOf(rep) {
-  if (rep.pictures) return [{ name: rep.title, header: ["Name or value", "Where", "The row"], rows: rep.pictures.flatMap(sc => sc.items.map(it => ({ cells: [sc.title, it.title, it.text || ""], go: it.go }))) }];
-  if (rep.tables) return rep.tables.map(t => ({ name: t.title, header: t.header || (t.rows[0] || []).map((_, j) => "Column " + (j + 1)), rows: t.rows.map((r, i) => ({ cells: r, isNew: !!(t.isNew && t.isNew[i]), go: t.go })) }));
+  if (rep.pictures) return [{ name: rep.title, header: [_t("Name or value"), _t("Where"), _t("The row")], rows: rep.pictures.flatMap(sc => sc.items.map(it => ({ cells: [sc.title, it.title, it.text || ""], go: it.go }))) }];
+  if (rep.tables) return rep.tables.map(t => ({ name: t.title, header: t.header || (t.rows[0] || []).map((_, j) => _t("Column ") + (j + 1)), rows: t.rows.map((r, i) => ({ cells: r, isNew: !!(t.isNew && t.isNew[i]), go: t.go })) }));
   const cols = visibleCols(rep.columns, rep.rows);
-  const stCol = rep.stCol || "When";
-  return [{ name: rep.title, header: cols.map(j => rep.columns[j]), stAt: cols.findIndex(j => rep.columns[j] === stCol), docAt: cols.findIndex(j => rep.columns[j] === "Document"),
+  const stCol = rep.stCol || _t("When");
+  return [{ name: rep.title, header: cols.map(j => rep.columns[j]), stAt: cols.findIndex(j => rep.columns[j] === stCol), docAt: cols.findIndex(j => rep.columns[j] === _t("Document")),
     rows: rep.rows.map(r => ({ cells: cols.map(j => r.cells[j] ?? ""), st: r.st, isNew: !!r.isNew, go: r.go })) }];
 }
 
@@ -131,15 +132,15 @@ export function colChars(header, rows) {
 }
 
 // ---- the chart on top: dates by month (deadlines), the largest total in each document (money)
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MON = [_t("Jan"), _t("Feb"), _t("Mar"), _t("Apr"), _t("May"), _t("Jun"), _t("Jul"), _t("Aug"), _t("Sep"), _t("Oct"), _t("Nov"), _t("Dec")];
 function currencyOf(s) { const m = /€|EUR|\$|USD|£|GBP/i.exec(s || ""); if (!m) return ""; const c = m[0].toUpperCase(); return c === "EUR" ? "€" : c === "USD" ? "$" : c === "GBP" ? "£" : c; }
 export function chartOf(rep) {
   if (rep.id === "deadlines" && rep.rows.length) {
     const now = new Date();
     const y0 = now.getFullYear(), m0 = now.getMonth();
-    const items = [{ label: "Past", v: 0, mute: true, tip: "Dates already gone" }];
+    const items = [{ label: _t("Past"), v: 0, mute: true, tip: _t("Dates already gone") }];
     for (let k = 0; k < 12; k++) { const m = (m0 + k) % 12, y = y0 + Math.floor((m0 + k) / 12); items.push({ label: MON[m], sub: k === 0 || m === 0 ? String(y) : "", v: 0, tip: `${MON[m]} ${y}` }); }
-    items.push({ label: "Later", v: 0, tip: "After that" });
+    items.push({ label: _t("Later"), v: 0, tip: _t("After that") });
     const today = new Date(y0, m0, now.getDate());
     for (const r of rep.rows) {
       if (!r.date) continue;
@@ -148,7 +149,7 @@ export function chartOf(rep) {
       items[k >= 0 && k < 12 ? k + 1 : 13].v++;
     }
     if (items.every(x => !x.v)) return null;
-    return { kind: "col", title: "Dates by month", sub: "How many dates fall in each month; the dates already gone are together in grey.", unit: ["date", "dates"], items };
+    return { kind: "col", title: _t("Dates by month"), sub: _t("How many dates fall in each month; the dates already gone are together in grey."), unit: [_t("date"), _t("dates")], items };
   }
   if (rep.id === "money" && rep.rows.length) {
     const cur = new Map();
@@ -158,13 +159,13 @@ export function chartOf(rep) {
     for (const r of rep.rows) {
       if (r.value == null || !(r.value > 0)) continue;
       if (main && (currencyOf(r.cells[0]) || currencyOf(r.cells[2])) && (currencyOf(r.cells[0]) || currencyOf(r.cells[2])) !== main) continue;
-      const doc = r.cells[3], tot = r.cells[1] === "Total";
+      const doc = r.cells[3], tot = r.cells[1] === _t("Total");
       const o = by.get(doc);
       if (!o || (tot && !o.tot) || (tot === o.tot && r.value > o.v)) by.set(doc, { v: r.value, text: r.cells[0], tot });
     }
     if (by.size < 2) return null;
-    const items = [...by.entries()].map(([label, o]) => ({ label, v: o.v, text: o.text, tip: label + (o.tot ? " · total" : " · the largest amount") })).sort((a, b) => b.v - a.v).slice(0, 8);
-    return { kind: "bar", title: "The largest total in each document" + (main ? ` (${main})` : ""), sub: by.size > 8 ? `The ${items.length} largest of ${by.size} documents. Where a document has no line called total, its largest amount.` : "Where a document has no line called total, its largest amount.", items };
+    const items = [...by.entries()].map(([label, o]) => ({ label, v: o.v, text: o.text, tip: label + (o.tot ? _t(" · total") : _t(" · the largest amount")) })).sort((a, b) => b.v - a.v).slice(0, 8);
+    return { kind: "bar", title: _t("The largest total in each document") + (main ? ` (${main})` : ""), sub: by.size > 8 ? _t("The {0} largest of {1} documents. Where a document has no line called total, its largest amount.", items.length, by.size) : _t("Where a document has no line called total, its largest amount."), items };
   }
   return null;
 }
@@ -287,7 +288,7 @@ export async function reportPdfHtml(rep) {
   h += `<h1>${escapeHtml(rep.title)}</h1><p class="facts">${escapeHtml(factsOf(rep, th))}</p>`;
   let used = 66;
   if (sum.length) { h += `<table class="sum"><tr>${sum.map(x => `<td><b>${escapeHtml(x.v)}</b><span>${escapeHtml(x.l.toUpperCase())}</span></td>`).join("")}</tr></table>`; used += 38; }
-  if (rep.newCount) { h += `<p class="newnote">&#9632; ${rep.newCount} row${rep.newCount === 1 ? " is" : "s are"} new since ${escapeHtml(fmtDate(rep.newSince))} - in blue.</p>`; used += 14; }
+  if (rep.newCount) { h += `<p class="newnote">&#9632; ${escapeHtml(_t(rep.newCount === 1 ? "{0} row is new since {1} - in blue." : "{0} rows are new since {1} - in blue.", rep.newCount, fmtDate(rep.newSince)))}</p>`; used += 14; }
   if (ch) {
     const { svg, w: cw, h: chh } = chartSvg(ch, th, { w: 760 });
     const png = await svgPng(svg, cw, chh, 2.5);
@@ -300,7 +301,7 @@ export async function reportPdfHtml(rep) {
   if (rep.pictures) {
     for (const sc of rep.pictures) {
       h += `<h3>${escapeHtml(sc.title)}</h3>`;
-      if (!sc.items.length) h += `<p class="muted">Not found.</p>`;
+      if (!sc.items.length) h += `<p class="muted">${_t("Not found.")}</p>`;
       for (const it of sc.items) {
         h += `<p style="margin:7pt 0 2pt;color:#6B6878;font-size:7.5pt">${escapeHtml(it.title)}</p>`;
         h += it.png ? `<p style="margin:0"><img src="data:image/png;base64,${b64(it.png)}" style="width:${Math.min(AW, Math.round(it.w || 500))}pt"></p>` : `<p>${escapeHtml(it.text || "")}</p>`;
@@ -312,7 +313,7 @@ export async function reportPdfHtml(rep) {
   const avail = AH - 6;
   let y = used, first = true;
   for (const s of sheetsOf(rep)) {
-    if (!s.rows.length && !rep.tables) { h += `<p class="muted">Nothing found here.</p>`; continue; }
+    if (!s.rows.length && !rep.tables) { h += `<p class="muted">${_t("Nothing found here.")}</p>`; continue; }
     const chars = colChars(s.header, s.rows);
     const tot = chars.reduce((a, c) => a + c, 0);
     const pct = chars.map(c => c / tot * 100);
@@ -328,7 +329,7 @@ export async function reportPdfHtml(rep) {
     if (brk) y = 0;
     h += open(false, brk);
     y += titleH + hh;
-    if (rep.tables && !s.rows.length) { h += `<tr><td class="muted">No rows.</td></tr>`; y += 17; }
+    if (rep.tables && !s.rows.length) { h += `<tr><td class="muted">${_t("No rows.")}</td></tr>`; y += 17; }
     for (const r of s.rows) {
       const rh = rowH(r);
       if (y + rh > avail && y > titleH + hh + 1) { h += "</table>"; h += open(true, true); y = titleH + hh; }
@@ -356,7 +357,7 @@ export async function reportPdfSpec(rep, th) {
   return {
     frame: th.frame, line: th.brand ? th.line : "#CFCBD8",
     title: rep.title, right: th.brand ? th.name : th.person,
-    foot: "Made with BindLens", mid: priv ? "Confidential - personal data" : fmtDate(new Date()), alert: priv,
+    foot: _t("Made with BindLens"), mid: priv ? _t("Confidential - personal data") : fmtDate(new Date()), alert: priv,
     logo: logo ? logo : null,
   };
 }
@@ -378,7 +379,7 @@ export async function reportXlsx(rep) {
     return "";
   };
   for (const s of sheetsOf(rep)) {
-    let name = s.name.replace(/[\\/?*[\]:]/g, " ").slice(0, 28).trim() || "Rows";
+    let name = s.name.replace(/[\\/?*[\]:]/g, " ").slice(0, 28).trim() || _t("Rows");
     let k = 2;
     while (used.has(name.toLowerCase())) name = name.slice(0, 25) + " " + k++;
     used.add(name.toLowerCase());
@@ -387,7 +388,7 @@ export async function reportXlsx(rep) {
     const ws = wb.addWorksheet(name, {
       views: [{ state: "frozen", ySplit: HR, showGridLines: false }],
       pageSetup: { orientation: "landscape", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: `${HR}:${HR}`, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.6, header: 0.2, footer: 0.25 } },
-      headerFooter: { oddFooter: `&L&8Made with BindLens&C&8${rep.id === "privacy" ? "Confidential - personal data" : "&D"}&R&8Page &P of &N`, oddHeader: `&L&8${(s.name || "").replace(/&/g, "&&").slice(0, 80)}&R&8${(th.brand ? th.name : th.person || "").replace(/&/g, "&&")}` },
+      headerFooter: { oddFooter: `&L&8${_t("Made with BindLens")}&C&8${rep.id === "privacy" ? _t("Confidential - personal data") : "&D"}&R&8${_t("Page &P of &N")}`, oddHeader: `&L&8${(s.name || "").replace(/&/g, "&&").slice(0, 80)}&R&8${(th.brand ? th.name : th.person || "").replace(/&/g, "&&")}` },
       properties: { tabColor: { argb: argb(th.brand ? th.line : "#FF85C2") } },
     });
     const widths = colChars(s.header, s.rows);
@@ -396,7 +397,7 @@ export async function reportXlsx(rep) {
     const t = ws.getCell(1, 1); t.value = rep.tables ? s.name : rep.title; t.font = { name: "Calibri", size: 16, bold: true, color: { argb: argb(th.accent) } };
     ws.getRow(1).height = 26;
     const f2 = ws.getCell(2, 1); f2.value = rep.tables ? rep.title + "   ·   " + facts : facts; f2.font = { name: "Calibri", size: 9, color: { argb: "FF6B6878" } };
-    const f3 = ws.getCell(3, 1); f3.value = sum + (rep.newCount ? `   ·   ${rep.newCount} new since ${fmtDate(rep.newSince)} (in blue)` : ""); f3.font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF3B3946" } };
+    const f3 = ws.getCell(3, 1); f3.value = sum + (rep.newCount ? "   ·   " + _t("{0} new since {1} (in blue)", rep.newCount, fmtDate(rep.newSince)) : ""); f3.font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF3B3946" } };
     const hr = ws.getRow(HR);
     hr.values = s.header;
     hr.height = 20;

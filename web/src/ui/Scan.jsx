@@ -8,6 +8,7 @@ import { pickFiles } from "../actions.js";
 import { scrollTo } from "./Viewer.jsx";
 import { fmtDate, uniqueName, cleanName } from "../util.js";
 import { readScannedDoc } from "../ocr.js";
+import { _t, _n } from "../i18n.js";
 
 async function loadBitmap(file) {
   try { return await createImageBitmap(file, { imageOrientation: "from-image" }); }
@@ -116,7 +117,7 @@ export function Scan({ book: bid, into, at }) {
   };
 
   const addPage = async () => {
-    setBusy("Straightening the page...");
+    setBusy(_t("Straightening the page..."));
     try {
       const b = cur.bmp;
       const c = new OffscreenCanvas(b.width, b.height);
@@ -134,12 +135,12 @@ export function Scan({ book: bid, into, at }) {
       setQueue(rest);
       setCur(null);
       if (next) await startOn(next);
-    } catch (e) { toast("Could not straighten it: " + e.message, "bad"); }
+    } catch (e) { toast(_t("Could not straighten it: ") + e.message, "bad"); }
     setBusy("");
   };
 
   const finish = async () => {
-    setBusy("Making the PDF...");
+    setBusy(_t("Making the PDF..."));
     try {
       const u8 = await call("imagesToPdf", pages.map(p => p.jpg.slice(0)));
       const bytes = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
@@ -147,14 +148,14 @@ export function Scan({ book: bid, into, at }) {
       if (target) {
         await pageOp(target, "insertPages", at ?? 0, bytes);
         file = target;
-        toast(`${pages.length} page${pages.length > 1 ? "s" : ""} added to "${target.name}".`, "ok");
+        toast(_t("{0} page{1} added to \"{2}\".", pages.length, pages.length > 1 ? "s" : "", target.name), "ok");
       } else {
         const b = books.value.find(x => x.id === bid) || currentBook.value || books.value[0];
-        if (!b) { toast("Make a book first."); setBusy(""); return; }
+        if (!b) { toast(_t("Make a book first.")); setBusy(""); return; }
         // a name from the words of the first page: "Invoice 2026-10-14 - Harbour Cafe"
-        let value = "Scan " + fmtDate(new Date()), named = false;
+        let value = _t("Scan ") + fmtDate(new Date()), named = false;
         if (read) {
-          setBusy("Reading the first page, to give the scan a name...");
+          setBusy(_t("Reading the first page, to give the scan a name..."));
           try {
             const { readImage } = await import("../ocr.js");
             const { suggestScanName } = await import("../reports/naming.js");
@@ -162,52 +163,52 @@ export function Scan({ book: bid, into, at }) {
             const s = suggestScanName(r.text);
             if (s) { value = s; named = true; }
           } catch (e) { console.warn(e); }
-          setBusy("Making the PDF...");
+          setBusy(_t("Making the PDF..."));
         }
-        let name = await ask("Save the scan", { value, label: named ? `BindLens read the first page and suggests this name. It goes in "${b.name}" as a PDF.` : `It goes in "${b.name}" as a PDF.`, ok: "Save" });
+        let name = await ask(_t("Save the scan"), { value, label: named ? _t("BindLens read the first page and suggests this name. It goes in \"{0}\" as a PDF.", b.name) : _t("It goes in \"{0}\" as a PDF.", b.name), ok: _t("Save") });
         if (!name) { setBusy(""); return; }
         name = uniqueName(cleanName(name).replace(/\.pdf$/i, "") + ".pdf", b.files.map(f => f.name));
         file = await store.value.create(b.id, name, bytes, "application/pdf");
         addFileToBook(b.id, file);
-        logChange("Scanned", name, b.name);
+        logChange(_t("Scanned"), name, b.name);
         file = { ...file, kind: "pdf" };
         openBook(b.id, file.id, 0);
-        toast(`"${name}" is in "${b.name}".`, "ok");
+        toast(_t("\"{0}\" is in \"{1}\".", name, b.name), "ok");
       }
       if (read) {
-        setBusy("Reading the words (this takes a moment the first time)...");
+        setBusy(_t("Reading the words (this takes a moment the first time)..."));
         await getDoc(file);
-        const n = await readScannedDoc(file, (i, of) => setBusy(`Reading the words of page ${i + 1} of ${of}...`));
-        if (n) toast(`${n} words read: Find and Reports can use them now.`, "ok");
+        const n = await readScannedDoc(file, (i, of) => setBusy(_t("Reading the words of page {0} of {1}...", i + 1, of)));
+        if (n) toast(_t("{0} words read: Find and Reports can use them now.", n), "ok");
       }
       close();
       scrollTo.value = { fileId: file.id, page: target ? at ?? 0 : 0 };
-    } catch (e) { toast("Could not save the scan: " + e.message, "bad"); }
+    } catch (e) { toast(_t("Could not save the scan: ") + e.message, "bad"); }
     setBusy("");
   };
 
   return (
-    <Dialog title={target ? `Scan pages into "${target.name}"` : "Scan"} icon="camera" onClose={close} cls="mid"
+    <Dialog title={target ? _t("Scan pages into \"{0}\"", target.name) : _t("Scan")} icon="camera" onClose={close} cls="mid"
       foot={<>
-        <label class="chk small"><input type="checkbox" checked={clean} onChange={(e) => setClean(e.target.checked)} />Clean (black on white)</label>
-        <label class="chk small"><input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />Read the words</label>
+        <label class="chk small"><input type="checkbox" checked={clean} onChange={(e) => setClean(e.target.checked)} />{_t("Clean (black on white)")}</label>
+        <label class="chk small"><input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />{_t("Read the words")}</label>
         <span class="grow" />
-        {cur && <button class="btn" disabled={!!busy} onClick={addPage}><Icon n="check" size={17} />Use this page</button>}
-        {!cur && pages.length > 0 && <button class="btn" disabled={!!busy} onClick={finish}>{target ? "Add the pages" : `Make the PDF (${pages.length})`}</button>}
+        {cur && <button class="btn" disabled={!!busy} onClick={addPage}><Icon n="check" size={17} />{_t("Use this page")}</button>}
+        {!cur && pages.length > 0 && <button class="btn" disabled={!!busy} onClick={finish}>{target ? _t("Add the pages") : _t("Make the PDF ({0})", pages.length)}</button>}
       </>}>
       {busy && <div style={{ textAlign: "center" }}><div class="spinner" /><p class="small muted">{busy}</p></div>}
       {!busy && !cur && (
         <div style={{ textAlign: "center", padding: "10px 0" }}>
-          <p class="muted" style={{ marginTop: 0 }}>{pages.length ? "Another page?" : "Put the paper on a dark table, with light on it, and take a photo from above."}</p>
+          <p class="muted" style={{ marginTop: 0 }}>{pages.length ? _t("Another page?") : _t("Put the paper on a dark table, with light on it, and take a photo from above.")}</p>
           <div class="row wrap" style={{ justifyContent: "center" }}>
-            <button class="btn" onClick={() => take(true)}><Icon n="camera" />Take a photo</button>
-            <button class="btn ghost" onClick={() => take(false)}><Icon n="image" />Choose photos</button>
+            <button class="btn" onClick={() => take(true)}><Icon n="camera" />{_t("Take a photo")}</button>
+            <button class="btn ghost" onClick={() => take(false)}><Icon n="image" />{_t("Choose photos")}</button>
           </div>
         </div>
       )}
       {!busy && cur && (
         <>
-          <p class="small muted" style={{ marginTop: 0 }}>Drag the four corners onto the corners of the paper.</p>
+          <p class="small muted" style={{ marginTop: 0 }}>{_t("Drag the four corners onto the corners of the paper.")}</p>
           <div class="scanview">
             <div style={{ position: "relative", display: "inline-block" }}>
               <canvas ref={canvas} />
@@ -218,15 +219,15 @@ export function Scan({ book: bid, into, at }) {
             </div>
           </div>
           <div class="row" style={{ marginTop: 8 }}>
-            <button class="btn plain small" onClick={rotate}><Icon n="rotate" size={16} />Turn</button>
-            <button class="btn plain small" onClick={() => setCur({ ...cur, pts: findCorners(cur.bmp) })}>Find the paper again</button>
-            <button class="btn plain small" onClick={() => setCur({ ...cur, pts: [[0, 0], [cur.bmp.width, 0], [cur.bmp.width, cur.bmp.height], [0, cur.bmp.height]] })}>The whole photo</button>
+            <button class="btn plain small" onClick={rotate}><Icon n="rotate" size={16} />{_t("Turn")}</button>
+            <button class="btn plain small" onClick={() => setCur({ ...cur, pts: findCorners(cur.bmp) })}>{_t("Find the paper again")}</button>
+            <button class="btn plain small" onClick={() => setCur({ ...cur, pts: [[0, 0], [cur.bmp.width, 0], [cur.bmp.width, cur.bmp.height], [0, cur.bmp.height]] })}>{_t("The whole photo")}</button>
             <span class="grow" />
-            {queue.length > 0 && <span class="tiny muted">{queue.length} more photo{queue.length > 1 ? "s" : ""}</span>}
+            {queue.length > 0 && <span class="tiny muted">{_n(queue.length, "{0} more photo", "{0} more photos")}</span>}
           </div>
         </>
       )}
-      {pages.length > 0 && <div class="thumbs">{pages.map((p, i) => <img key={i} src={p.url} alt={"Page " + (i + 1)} />)}</div>}
+      {pages.length > 0 && <div class="thumbs">{pages.map((p, i) => <img key={i} src={p.url} alt={_t("Page ") + (i + 1)} />)}</div>}
     </Dialog>
   );
 }

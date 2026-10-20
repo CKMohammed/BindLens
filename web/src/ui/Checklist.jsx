@@ -6,6 +6,7 @@ import { Icon } from "./icons.jsx";
 import { openMenu } from "./dialogs.jsx";
 import { scrollTo } from "./Viewer.jsx";
 import { uid } from "../util.js";
+import { _t } from "../i18n.js";
 
 const STOP = new Set(["copy", "the", "and", "for", "with", "from", "signed", "sent", "approved", "form", "list", "plan", "report", "details", "number", "file", "documents", "document", "final", "of", "or", "to", "a"]);
 function words(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(w => w.length > 2); }
@@ -41,9 +42,9 @@ export function Checklist({ book }) {
     <div class="list checklist">
       {list.length > 0 && <div class="ck-head">
         <div class="ck-bar"><i style={{ width: (100 * done / list.length) + "%" }} /></div>
-        <span class="small"><b>{done}</b> of {list.length} {done === list.length ? "· complete" : ""}</span>
+        <span class="small"><b>{done}</b> {_t("of")} {list.length} {done === list.length ? _t("· complete") : ""}</span>
       </div>}
-      {!list.length && <p class="small muted" style={{ padding: "4px 8px" }}>A checklist of the documents this book needs - for a case file, a student, a project. Add the first one below.</p>}
+      {!list.length && <p class="small muted" style={{ padding: "4px 8px" }}>{_t("A checklist of the documents this book needs - for a case file, a student, a project. Add the first one below.")}</p>}
       {list.map(it => {
         const g = !it.done ? guess(book, it, used) : null;
         const fn = it.fileId && fileName(it.fileId);
@@ -53,24 +54,24 @@ export function Checklist({ book }) {
             <div class="grow" style={{ minWidth: 0 }}>
               <div class="ck-text">{it.text}</div>
               {fn ? <a href="#" class="tiny ellipsis" onClick={(e) => { e.preventDefault(); go(it.fileId); }}><Icon n="file" size={11} /> {fn}</a>
-                : g ? <button class="ck-guess tiny" onClick={() => set(it.id, { done: Date.now(), fileId: g.id })} title="Tick it with this document">Is it "{g.name}"? <b>Yes</b></button> : null}
+                : g ? <button class="ck-guess tiny" onClick={() => set(it.id, { done: Date.now(), fileId: g.id })} title={_t("Tick it with this document")}>{_t("Is it \"{0}\"?", g.name)} <b>{_t("Yes")}</b></button> : null}
             </div>
-            <button class="ib" style={{ width: 26, height: 26 }} title="More" onClick={(e) => openMenu(e, [
+            <button class="ib" style={{ width: 26, height: 26 }} title={_t("More")} onClick={(e) => openMenu(e, [
               { title: it.text },
-              { label: "Which document is it?", icon: "file", sub: [
+              { label: _t("Which document is it?"), icon: "file", sub: [
                 ...book.files.map(f => ({ label: f.name, run: () => set(it.id, { fileId: f.id, done: it.done || Date.now() }) })),
-                it.fileId && { label: "None", run: () => set(it.id, { fileId: "" }) },
+                it.fileId && { label: _t("None"), run: () => set(it.id, { fileId: "" }) },
               ] },
-              { label: "Rename...", icon: "rename", run: async () => { const { ask } = await import("./dialogs.jsx"); const t = await ask("The item", { value: it.text, ok: "Save" }); if (t) set(it.id, { text: t.slice(0, 120) }); } },
-              { label: "Move up", icon: "up", run: () => { const i = list.indexOf(it); if (i > 0) { const l = [...list]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); } } },
+              { label: _t("Rename..."), icon: "rename", run: async () => { const { ask } = await import("./dialogs.jsx"); const t = await ask(_t("The item"), { value: it.text, ok: _t("Save") }); if (t) set(it.id, { text: t.slice(0, 120) }); } },
+              { label: _t("Move up"), icon: "up", run: () => { const i = list.indexOf(it); if (i > 0) { const l = [...list]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); } } },
               "-",
-              { label: "Take it off the list", icon: "trash", danger: true, run: () => save(list.filter(x => x.id !== it.id)) },
+              { label: _t("Take it off the list"), icon: "trash", danger: true, run: () => save(list.filter(x => x.id !== it.id)) },
             ])}><Icon n="more" size={15} /></button>
           </div>
         );
       })}
       <div class="ck-add">
-        <input class="field" value={text} placeholder="Add a document it needs, e.g. Signed contract" onInput={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} />
+        <input class="field" value={text} placeholder={_t("Add a document it needs, e.g. Signed contract")} onInput={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} />
         <button class="btn small" onClick={add} disabled={!text.trim()}><Icon n="plus" size={15} /></button>
       </div>
     </div>

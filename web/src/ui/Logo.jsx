@@ -1,6 +1,7 @@
 // The BindLens logo, alive as in the Windows app: a golden light runs round it, the lens looks around now and then
 // (and on hover), and circles while BindLens is busy saving.
 import { saving } from "../state.js";
+import { _t } from "../i18n.js";
 
 const K = Math.PI / 180;
 const cx = 155.7, cy = 118.5, rr = 45.2;

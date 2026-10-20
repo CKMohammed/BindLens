@@ -1,4 +1,5 @@
 // The page's side of the document engine: call(fn, ...args) -> Promise, one call at a time in order.
+import { _t, lang } from "../i18n.js";
 let worker = null;
 let ready = null;
 let seq = 0;
@@ -6,13 +7,13 @@ const waiting = new Map();
 
 function start() {
   if (worker) return ready;
-  worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module", name: "bl;lang=" + lang });
   ready = new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("The document engine did not start")), 60000);
+    const t = setTimeout(() => reject(new Error(_t("The document engine did not start"))), 60000);
     worker.addEventListener("message", function first(e) {
       if (e.data && e.data.ready) { clearTimeout(t); worker.removeEventListener("message", first); resolve(); }
     });
-    worker.addEventListener("error", (e) => { clearTimeout(t); reject(new Error(e.message || "The document engine failed")); });
+    worker.addEventListener("error", (e) => { clearTimeout(t); reject(new Error(e.message || _t("The document engine failed"))); });
   });
   worker.onmessage = (e) => {
     const m = e.data;

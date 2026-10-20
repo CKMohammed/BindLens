@@ -9,18 +9,19 @@ import { scrollTo, docState } from "./Viewer.jsx";
 import { pickFiles } from "../actions.js";
 import { kindOf, uniqueName, baseName, isPaged } from "../util.js";
 import { parsePages } from "../filetools.js";
+import { _t, loc } from "../i18n.js";
 
 const close = () => { panel.value = null; };
 const ab = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
 
 const PAPER = [
-  ["blank", "Blank page", "The size of the page you are on"],
-  ["lined", "Lined page", "Lines and a margin, like a notebook"],
-  ["squared", "Squared page", "5 mm squares"],
-  ["dotted", "Dotted page", "A dot every 5 mm"],
+  ["blank", _t("Blank page"), _t("The size of the page you are on")],
+  ["lined", _t("Lined page"), _t("Lines and a margin, like a notebook")],
+  ["squared", _t("Squared page"), _t("5 mm squares")],
+  ["dotted", _t("Dotted page"), _t("A dot every 5 mm")],
 ];
-const GOOGLE = [["doc", "Google Docs", "word", "A letter, a report, notes"], ["sheet", "Google Sheets", "excel", "A table, figures, a budget"],
-  ["slides", "Google Slides", "slides", "Slides, a poster"]];
+const GOOGLE = [["doc", "Google Docs", "word", _t("A letter, a report, notes")], ["sheet", "Google Sheets", "excel", _t("A table, figures, a budget")],
+  ["slides", "Google Slides", "slides", _t("Slides, a poster")]];
 
 // the paper, drawn small
 function Paper({ k }) {
@@ -48,8 +49,8 @@ export async function addGooglePages(job, { replace = false } = {}) {
   const s = store.value;
   if (job.replace && !replace) { replace = true; job = { ...job, start: job.replace.start, n: job.replace.n }; }
   const file = fileFor(job.fileId);
-  if (!file) { toast("The document to add the pages to is no longer in the library."); return false; }
-  toast(`Bringing the pages of "${job.name}"...`);
+  if (!file) { toast(_t("The document to add the pages to is no longer in the library.")); return false; }
+  toast(_t("Bringing the pages of \"{0}\"...", job.name));
   const pdf = await s.exportPdf(job.id);
   const tag = { from: "google", kind: job.kind, id: job.id, name: job.name };
   let at = job.at;
@@ -62,10 +63,10 @@ export async function addGooglePages(job, { replace = false } = {}) {
   setSetting("googleJobs", (settings.value.googleJobs || []).filter(j => j.id !== job.id || j.fileId !== job.fileId));
   // the first time a page comes back from Google it is tagged, so its menu can open it there again
   if (replace && job.replace) job.replace = null;
-  logChange(replace ? "Put in anew the pages of " + job.name + " in" : "Added the pages of " + job.name + " to", file.name);
+  logChange(replace ? _t("Put in anew the pages of {0} in", job.name) : _t("Added the pages of {0} to", job.name), file.name);
   fileId.value = file.id; pageNo.value = replace ? job.start : at;
   setTimeout(() => { scrollTo.value = { fileId: file.id, page: replace ? job.start : at }; }, 160);
-  toast(replace ? `The pages of "${job.name}" are up to date.` : `The pages of "${job.name}" are in "${file.name}". Ctrl+Z takes them out.`, "ok", 5000);
+  toast(replace ? _t("The pages of \"{0}\" are up to date.", job.name) : _t("The pages of \"{0}\" are in \"{1}\". Ctrl+Z takes them out.", job.name, file.name), "ok", 5000);
   return true;
 }
 
@@ -86,7 +87,7 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
   const needsCopy = tf && tf.kind !== "pdf";
   const jobs = (settings.value.googleJobs || []).filter(j => book && j.book === book.id);
   useEffect(() => { if (tf) getDoc(tf).catch(() => {}); }, [target]);
-  if (!book) return <Dialog title="Add pages" icon="addpage" onClose={close}><p>Open a book first.</p></Dialog>;
+  if (!book) return <Dialog title={_t("Add pages")} icon="addpage" onClose={close}><p>{_t("Open a book first.")}</p></Dialog>;
 
   const atIndex = async (f) => {
     const d = await getDoc(f);
@@ -117,31 +118,32 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
     const f = await store.value.create(book.id, nm, bytes, "application/pdf");
     f.parent = book.id;
     addFileToBook(book.id, f);
-    logChange("Made", nm, book.name);
+    logChange(_t("Made"), nm, book.name);
     close();
     openBook(book.id, f.id, 0);
-    toast(`"${nm}" is in "${book.name}".`, "ok");
+    toast(_t("\"{0}\" is in \"{1}\".", nm, book.name), "ok");
   };
   const done = (f, at, k) => {
     close();
     fileId.value = f.id; pageNo.value = at;
     setTimeout(() => { scrollTo.value = { fileId: f.id, page: at }; }, 160);
-    toast(`${k === 1 ? "1 page" : k + " pages"} added${at === 0 ? " at the start" : ` after page ${at}`} of "${f.name}". Ctrl+Z takes ${k === 1 ? "it" : "them"} out.`, "ok", 5000);
+    const where = at === 0 ? _t(" at the start") : _t(" after page {0}", at);
+    toast(k === 1 ? _t("1 page added{0} of \"{1}\". Ctrl+Z takes it out.", where, f.name) : _t("{0} pages added{1} of \"{2}\". Ctrl+Z takes them out.", k, where, f.name), "ok", 5000);
   };
   const run = async (label, fn) => {
     if (busy) return;
     setBusy(label);
-    try { await fn(); } catch (e) { console.error(e); toast("The pages could not be added: " + (e.message || e), "bad", 6000); }
+    try { await fn(); } catch (e) { console.error(e); toast(_t("The pages could not be added: ") + (e.message || e), "bad", 6000); }
     setBusy("");
   };
 
   const addPaper = (k) => run(k, async () => {
     const z = await sizeRef(tf);
-    if (!tf) { const u8 = await call("blankPdf", count, z.w, z.h, k); await newDoc((k === "blank" ? "New pages" : PAPER.find(p => p[0] === k)[1] + "s") + ".pdf", ab(u8)); return; }
+    if (!tf) { const u8 = await call("blankPdf", count, z.w, z.h, k); await newDoc((k === "blank" ? _t("New pages") : ({ lined: _t("Lined pages"), squared: _t("Squared pages"), dotted: _t("Dotted pages") })[k]) + ".pdf", ab(u8)); return; }
     const f = await theTarget();
     const at = await atIndex(f);
     await pageOp(f, "insertBlank", at, count, z.w, z.h, k);
-    logChange(`Added ${count} ${k} page${count === 1 ? "" : "s"} to`, f.name, book.name);
+    logChange(_t("Added {0} {1} page{2} to", count, _t(k), count === 1 ? "" : "s"), f.name, book.name);
     done(f, at, count);
   });
   const addFiles = () => run("file", async () => {
@@ -153,7 +155,7 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
     if (pics.length) { const u8 = await call("imagesToPdf", await Promise.all(pics.map(x => x.arrayBuffer()))); parts.push(ab(u8)); }
     for (const x of fs.filter(y => kindOf(y.name, y.type) !== "image")) {
       const pdf = await anyToPdf(x.name, x.type, await x.arrayBuffer(), kindOf(x.name, x.type));
-      if (pdf) parts.push(pdf); else toast(`"${x.name}" cannot be turned into pages here.`);
+      if (pdf) parts.push(pdf); else toast(_t("\"{0}\" cannot be turned into pages here.", x.name));
     }
     if (!parts.length) return;
     if (!tf) {
@@ -171,35 +173,35 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
       const k = pages.length - before;
       at += k; total += k;
     }
-    logChange(`Added ${total} pages from ${fs.map(x => x.name).join(", ")} to`, f.name, book.name);
+    logChange(_t("Added {0} pages from {1} to", total, fs.map(x => x.name).join(", ")), f.name, book.name);
     done(f, at0, total);
   });
   const addOther = () => run("other", async () => {
     const src = fileFor(other.fileId);
     const d = await getDoc(src);
     const list = parsePages(other.pages || "1-", d.pages.length);
-    if (!list || !list.length) { toast("Write the pages like this: 1-3, 5"); return; }
+    if (!list || !list.length) { toast(_t("Write the pages like this: 1-3, 5")); return; }
     const u8 = await call("extractPages", d.key, list);
     if (!tf) { await newDoc(baseName(src.name) + " (pages).pdf", ab(u8)); return; }
     const f = await theTarget();
     const at = await atIndex(f);
     await pageOp(f, "insertPages", at, ab(u8));
-    logChange(`Added ${list.length} pages of ${src.name} to`, f.name, book.name);
+    logChange(_t("Added {0} pages of {1} to", list.length, src.name), f.name, book.name);
     done(f, at, list.length);
   });
   const startGoogle = (kind) => run("g" + kind, async () => {
     const s = store.value;
-    const name = (gname.trim() || ({ doc: "Notes", sheet: "Table", slides: "Slides" })[kind] + " " + new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })).slice(0, 80);
+    const name = (gname.trim() || ({ doc: _t("Notes"), sheet: _t("Table"), slides: _t("Slides") })[kind] + " " + new Date().toLocaleDateString(loc, { day: "numeric", month: "short" })).slice(0, 80);
     if (!tf) {
       // its own document in the book: the Google file lives in the book, BindLens shows its pages
       const g = await s.createGoogle(kind, name, book.id);
       g.parent = book.id;
       addFileToBook(book.id, g);
-      logChange("Made a Google " + ({ doc: "Doc", sheet: "Sheet", slides: "Slides" })[kind], name, book.name);
+      logChange(_t("Made a Google ") + ({ doc: "Doc", sheet: "Sheet", slides: "Slides" })[kind], name, book.name);
       openBeside(s.editLink(kind, g.id));
       close();
       openBook(book.id, g.id, 0);
-      toast(`"${name}" is open in Google ${({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[kind]}. When you come back, BindLens shows it as it is now.`, "ok", 7000);
+      toast(_t("\"{0}\" is open in Google {1}. When you come back, BindLens shows it as it is now.", name, ({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[kind]), "ok", 7000);
       return;
     }
     const f = await theTarget();
@@ -208,26 +210,26 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
     const job = { id: g.id, kind, name, fileId: f.id, at, book: book.id, made: Date.now() };
     setSetting("googleJobs", [...(settings.value.googleJobs || []), job]);
     openBeside(s.editLink(kind, g.id));
-    logChange("Opened Google " + ({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[kind] + " for pages of", f.name, book.name);
+    logChange(_t("Opened Google {0} for pages of", ({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[kind]), f.name, book.name);
   });
 
   const google = store.value.kind === "drive" && store.value.createGoogle;
   const docsOf = books.value.flatMap(b => b.files.filter(f => isPaged(f.kind) && f.kind !== "image" && f.id !== target).map(f => ({ f, b })));
   return (
-    <Dialog title="Add pages" icon="addpage" onClose={close} cls="wide addpages">
+    <Dialog title={_t("Add pages")} icon="addpage" onClose={close} cls="wide addpages">
       <div class="ap-where">
-        <label class="small"><span class="muted">To</span>
+        <label class="small"><span class="muted">{_t("To")}</span>
           <select class="field" value={target} onChange={(e) => setTarget(e.target.value)}>
-            {book.files.filter(f => isPaged(f.kind) && f.kind !== "image").map(f => <option key={f.id} value={f.id}>{f.name}{f.kind !== "pdf" ? " (BindLens makes a PDF copy)" : ""}</option>)}
-            <option value="new">A new document in "{book.name}"</option>
+            {book.files.filter(f => isPaged(f.kind) && f.kind !== "image").map(f => <option key={f.id} value={f.id}>{f.name}{f.kind !== "pdf" ? _t(" (BindLens makes a PDF copy)") : ""}</option>)}
+            <option value="new">{_t("A new document in \"{0}\"", book.name)}</option>
           </select></label>
-        {tf && <label class="small"><span class="muted">Where</span>
+        {tf && <label class="small"><span class="muted">{_t("Where")}</span>
           <select class="field" value={where} onChange={(e) => setWhere(e.target.value)}>
-            {atGiven != null && <option value="given">After page {atGiven}</option>}
-            {isCur && <option value="after">After this page ({pageNo.value + 1})</option>}
-            {isCur && <option value="before">Before this page ({pageNo.value + 1})</option>}
-            <option value="start">At the start</option>
-            <option value="end">At the end{n ? ` (after page ${n})` : ""}</option>
+            {atGiven != null && <option value="given">{_t("After page")} {atGiven}</option>}
+            {isCur && <option value="after">{_t("After this page ({0})", pageNo.value + 1)}</option>}
+            {isCur && <option value="before">{_t("Before this page ({0})", pageNo.value + 1)}</option>}
+            <option value="start">{_t("At the start")}</option>
+            <option value="end">{_t("At the end")}{n ? _t(" (after page {0})", n) : ""}</option>
           </select></label>}
       </div>
       {jobs.length > 0 && (
@@ -235,54 +237,54 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
           {jobs.map(j => (
             <div key={j.id} class="ap-job">
               <Icon n={GOOGLE.find(g => g[0] === j.kind)?.[2] || "word"} size={18} />
-              <span class="grow small"><b>{j.name}</b> is open in Google {({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[j.kind]} · its pages go into <b>{fileFor(j.fileId)?.name || "a document"}</b></span>
-              <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>Open it again</button>
-              <button class="btn small" disabled={!!busy} onClick={() => run("job", async () => { if (await addGooglePages(j)) close(); })}><Icon n="addpage" size={15} />Add these pages</button>
-              <button class="ib" title="Forget it (the Google file stays in your Drive)" onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).filter(x => x !== j))}><Icon n="close" size={16} /></button>
+              <span class="grow small"><b>{j.name}</b> {_t("is open in Google")} {({ doc: "Docs", sheet: "Sheets", slides: "Slides" })[j.kind]} {_t("· its pages go into")} <b>{fileFor(j.fileId)?.name || _t("a document")}</b></span>
+              <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>{_t("Open it again")}</button>
+              <button class="btn small" disabled={!!busy} onClick={() => run("job", async () => { if (await addGooglePages(j)) close(); })}><Icon n="addpage" size={15} />{_t("Add these pages")}</button>
+              <button class="ib" title={_t("Forget it (the Google file stays in your Drive)")} onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).filter(x => x !== j))}><Icon n="close" size={16} /></button>
             </div>
           ))}
         </div>
       )}
-      <div class="ap-sec">Paper</div>
+      <div class="ap-sec">{_t("Paper")}</div>
       <div class="ap-grid">
         {PAPER.map(([k, t, d]) => (
           <button key={k} class={"ap-card" + (busy === k ? " busy" : "")} onClick={() => addPaper(k)} disabled={!!busy}>
             <Paper k={k} /><span><b>{t}</b><small>{d}</small></span>
           </button>
         ))}
-        <label class="ap-count small"><span class="muted">How many</span>
+        <label class="ap-count small"><span class="muted">{_t("How many")}</span>
           <input class="field" type="number" min="1" max="50" value={count} onInput={(e) => setCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))} /></label>
       </div>
-      <div class="ap-sec">From somewhere else</div>
+      <div class="ap-sec">{_t("From somewhere else")}</div>
       <div class="ap-grid">
         <button class={"ap-card" + (busy === "file" ? " busy" : "")} onClick={addFiles} disabled={!!busy}>
-          <span class="ap-ico"><Icon n="upload" size={22} /></span><span><b>From a file</b><small>PDF, photos, Word, Excel, PowerPoint, text</small></span>
+          <span class="ap-ico"><Icon n="upload" size={22} /></span><span><b>{_t("From a file")}</b><small>{_t("PDF, photos, Word, Excel, PowerPoint, text")}</small></span>
         </button>
         <button class="ap-card" onClick={() => { close(); panel.value = { type: "scan", book: book.id, into: tf && !needsCopy ? tf.id : undefined, at: tf && isCur ? pageNo.value + 1 : undefined }; }} disabled={!!busy}>
-          <span class="ap-ico"><Icon n="camera" size={22} /></span><span><b>Scan paper</b><small>The camera of your phone, or photos</small></span>
+          <span class="ap-ico"><Icon n="camera" size={22} /></span><span><b>{_t("Scan paper")}</b><small>{_t("The camera of your phone, or photos")}</small></span>
         </button>
         <button class="ap-card" onClick={() => { close(); panel.value = { type: "write", book: book.id, into: tf && !needsCopy ? tf.id : undefined, at: tf && isCur ? pageNo.value + 1 : undefined }; }} disabled={!!busy}>
-          <span class="ap-ico"><Icon n="edit" size={22} /></span><span><b>Write a page here</b><small>A letter, notes, a table, in BindLens</small></span>
+          <span class="ap-ico"><Icon n="edit" size={22} /></span><span><b>{_t("Write a page here")}</b><small>{_t("A letter, notes, a table, in BindLens")}</small></span>
         </button>
         <div class={"ap-card ap-other" + (other ? " open" : "")}>
           <button class="ap-in" onClick={() => setOther(other ? null : { fileId: docsOf[0]?.f.id || "", pages: "1-" })} disabled={!docsOf.length}>
-            <span class="ap-ico"><Icon n="copy" size={22} /></span><span><b>Pages of another document</b><small>{docsOf.length ? "From any book of your library" : "There is no other document yet"}</small></span>
+            <span class="ap-ico"><Icon n="copy" size={22} /></span><span><b>{_t("Pages of another document")}</b><small>{docsOf.length ? _t("From any book of your library") : _t("There is no other document yet")}</small></span>
           </button>
           {other && <div class="ap-otherform">
             <select class="field" value={other.fileId} onChange={(e) => setOther({ ...other, fileId: e.target.value })}>
               {docsOf.map(({ f, b }) => <option key={f.id} value={f.id}>{b.name} · {f.name}</option>)}
             </select>
-            <input class="field" value={other.pages} placeholder="Pages, e.g. 1-3, 5 (1- is all)" onInput={(e) => setOther({ ...other, pages: e.target.value })} />
-            <button class="btn small" onClick={addOther} disabled={!!busy || !other.fileId}>Add them</button>
+            <input class="field" value={other.pages} placeholder={_t("Pages, e.g. 1-3, 5 (1- is all)")} onInput={(e) => setOther({ ...other, pages: e.target.value })} />
+            <button class="btn small" onClick={addOther} disabled={!!busy || !other.fileId}>{_t("Add them")}</button>
           </div>}
         </div>
       </div>
       {google && <>
-        <div class="ap-sec">Write it in Google, then bring the pages <span class="ap-new">New</span></div>
+        <div class="ap-sec">{_t("Write it in Google, then bring the pages")} <span class="ap-new">{_t("New")}</span></div>
         <p class="small muted" style={{ margin: "0 0 8px" }}>{tf
-          ? <>The real Google editor opens in a window beside BindLens. Write, then come back and press <b>Add these pages</b>: they go into "{tf.name}", where you chose. The Google file stays in your Drive, and later you can open it again and bring its pages anew.</>
-          : <>A Google document of its own in "{book.name}": it opens in a window beside BindLens, and BindLens shows its pages here as it changes.</>}</p>
-        <div class="ap-gname"><input class="field" value={gname} placeholder="Its name (e.g. Minutes of the meeting)" onInput={(e) => setGname(e.target.value)} /></div>
+          ? <>{_t("The real Google editor opens in a window beside BindLens. Write, then come back and press {0}: they go into \"{1}\", where you chose. The Google file stays in your Drive, and later you can open it again and bring its pages anew.", <b>{_t("Add these pages")}</b>, tf.name)}</>
+          : <>{_t("A Google document of its own in \"{0}\": it opens in a window beside BindLens, and BindLens shows its pages here as it changes.", book.name)}</>}</p>
+        <div class="ap-gname"><input class="field" value={gname} placeholder={_t("Its name (e.g. Minutes of the meeting)")} onInput={(e) => setGname(e.target.value)} /></div>
         <div class="ap-grid">
           {GOOGLE.map(([k, t, ic, d]) => (
             <button key={k} class={"ap-card" + (busy === "g" + k ? " busy" : "")} onClick={() => startGoogle(k)} disabled={!!busy}>
@@ -291,7 +293,7 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
           ))}
         </div>
       </>}
-      {busy && <div class="ap-busy"><div class="spinner" style={{ width: 20, height: 20, margin: 0 }} /><span class="small">Adding the pages...</span></div>}
+      {busy && <div class="ap-busy"><div class="spinner" style={{ width: 20, height: 20, margin: 0 }} /><span class="small">{_t("Adding the pages...")}</span></div>}
     </Dialog>
   );
 }

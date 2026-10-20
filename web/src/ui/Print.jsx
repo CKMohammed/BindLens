@@ -5,6 +5,7 @@ import { Dialog } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { getDoc, call, saveNow, fileFor } from "../docs.js";
 import { isPaged } from "../util.js";
+import { _t } from "../i18n.js";
 
 async function pdfBytesOf(file) {
   // the document as a PDF, marks included
@@ -46,7 +47,7 @@ async function makeIt(what, file, page, book, range) {
     const n = (await call("info", tmp)).pages.length;
     const { parsePages } = await import("../filetools.js");
     const pages = parsePages(range, n);
-    if (!pages) { await call("close", tmp); throw new Error("Write the pages like this: 1-3, 5"); }
+    if (!pages) { await call("close", tmp); throw new Error(_t("Write the pages like this: 1-3, 5")); }
     const out = await call("extractPages", tmp, pages);
     await call("close", tmp);
     return out;
@@ -75,7 +76,7 @@ async function makeIt(what, file, page, book, range) {
     const u8 = await pdfBytesOf(f);
     list.push(u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
   }
-  if (!list.length) throw new Error("Nothing in this book can be printed");
+  if (!list.length) throw new Error(_t("Nothing in this book can be printed"));
   return call("joinPdfs", list);
 }
 
@@ -97,10 +98,10 @@ export function Print() {
       const url = URL.createObjectURL(new Blob([u8], { type: "application/pdf" }));
       if (w) w.location.href = url; else window.open(url, "_blank");
       close();
-      toast("Print it from the new tab (the printer button, or Ctrl+P).", "ok", 5000);
+      toast(_t("Print it from the new tab (the printer button, or Ctrl+P)."), "ok", 5000);
     } catch (e) {
       if (w) w.close();
-      toast("Could not make the PDF: " + e.message, "bad");
+      toast(_t("Could not make the PDF: ") + e.message, "bad");
     }
     setBusy(false);
   };
@@ -110,17 +111,17 @@ export function Print() {
     </button>
   );
   return (
-    <Dialog title="Print" icon="print" onClose={close}
-      foot={<><button class="btn plain" onClick={close}>Cancel</button><button class="btn" disabled={busy || !book || (what === "pages" && !range.trim())} onClick={go}>{busy ? "Making it..." : <><Icon n="print" size={17} />Open to print</>}</button></>}>
+    <Dialog title={_t("Print")} icon="print" onClose={close}
+      foot={<><button class="btn plain" onClick={close}>{_t("Cancel")}</button><button class="btn" disabled={busy || !book || (what === "pages" && !range.trim())} onClick={go}>{busy ? _t("Making it...") : <><Icon n="print" size={17} />{_t("Open to print")}</>}</button></>}>
       <div style={{ display: "grid", gap: 8 }}>
-        {opt("page", "file", "This page", file ? `Page ${pageNo.value + 1} of ${file.name}` : "", !file)}
-        {opt("pages", "grid", "Some pages", file ? `Of ${file.name}` : "", !file)}
-        {what === "pages" && <input class="field" autoFocus placeholder="Which pages? For example 1-3, 5" value={range} onInput={(e) => setRange(e.target.value)} />}
-        {opt("doc", "pdf", "This document", file ? file.name : "", !file)}
-        {opt("book", "book", "The whole book", book ? `Every document of "${book.name}", one after another` : "", !book)}
+        {opt("page", "file", _t("This page"), file ? _t("Page {0} of {1}", pageNo.value + 1, file.name) : "", !file)}
+        {opt("pages", "grid", _t("Some pages"), file ? _t("Of {0}", file.name) : "", !file)}
+        {what === "pages" && <input class="field" autoFocus placeholder={_t("Which pages? For example 1-3, 5")} value={range} onInput={(e) => setRange(e.target.value)} />}
+        {opt("doc", "pdf", _t("This document"), file ? file.name : "", !file)}
+        {opt("book", "book", _t("The whole book"), book ? _t("Every document of \"{0}\", one after another", book.name) : "", !book)}
       </div>
-      <label class="chk" style={{ marginTop: 12 }}><input type="checkbox" checked={marks} onChange={(e) => setMarks(e.target.checked)} />With my marks (highlights, notes, stamps...)</label>
-      <p class="small muted" style={{ marginBottom: 0 }}>The PDF opens in a new tab of your browser. Print it from there with your printer.</p>
+      <label class="chk" style={{ marginTop: 12 }}><input type="checkbox" checked={marks} onChange={(e) => setMarks(e.target.checked)} />{_t("With my marks (highlights, notes, stamps...)")}</label>
+      <p class="small muted" style={{ marginBottom: 0 }}>{_t("The PDF opens in a new tab of your browser. Print it from there with your printer.")}</p>
     </Dialog>
   );
 }

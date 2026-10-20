@@ -95,6 +95,9 @@ label.chk{display:flex;align-items:center;gap:8px;cursor:pointer}
 .start .or{display:flex;align-items:center;gap:10px;color:var(--faint);margin:18px 0;font-size:13px}
 .start .or::before,.start .or::after{content:"";flex:1;height:1px;background:var(--line)}
 .start .fine{font-size:12.5px;color:var(--muted);margin-top:18px}
+.start .langpick{display:flex;gap:4px;justify-content:center;margin-top:14px}
+.start .langpick button{border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;padding:4px 12px;font:600 12.5px var(--f-ui, inherit);cursor:pointer}
+.start .langpick button.on{background:var(--btn, #111218);color:#fff;border-color:transparent}
 .spinner{width:34px;height:34px;border-radius:50%;border:3.5px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .9s linear infinite;margin:10px auto}
 
 /* ---------- top bar */

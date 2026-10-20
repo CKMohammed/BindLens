@@ -5,6 +5,7 @@ import { Dialog, confirm } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { getDoc, call, fileFor, pageOp, onDocChange } from "../docs.js";
 import { scrollTo, docState } from "./Viewer.jsx";
+import { _t } from "../i18n.js";
 
 function Thumb({ file, i, v }) {
   const ref = useRef();
@@ -35,7 +36,7 @@ export function Pages({ fileId: fid }) {
     getDoc(file).then(d => setPages(d.pages));
     return onDocChange(async (id) => { if (id === file.id) { const d = await getDoc(file); setPages([...d.pages]); setV(x => x + 1); } });
   }, [file?.id]);
-  if (!file) return <Dialog title="Pages" onClose={close}><p>Open a document first.</p></Dialog>;
+  if (!file) return <Dialog title={_t("Pages")} onClose={close}><p>{_t("Open a document first.")}</p></Dialog>;
   const pdf = file.kind === "pdf" && !docState.value[file.id]?.readOnly;
   const act = async (fn, ...a) => { const p = await pageOp(file, fn, ...a); setPages([...p]); setV(x => x + 1); };
   return (
@@ -51,18 +52,18 @@ export function Pages({ fileId: fid }) {
               <div class="row" style={{ justifyContent: "center", gap: 0 }}>
                 <span class="small muted" style={{ marginRight: 4 }}>{i + 1}</span>
                 {pdf && <>
-                  <button class="ib" title="Turn" onClick={() => act("rotatePage", i, 90)}><Icon n="rotate" size={16} /></button>
-                  <button class="ib" title="Move earlier" disabled={i === 0} onClick={() => act("movePage", i, i - 1)}><Icon n="left" size={16} /></button>
-                  <button class="ib" title="Move later" disabled={i === pages.length - 1} onClick={() => act("movePage", i, i + 1)}><Icon n="right" size={16} /></button>
-                  <button class="ib" title="Take it out" disabled={pages.length < 2} onClick={async () => { if (await confirm(`Take page ${i + 1} out?`, "Undo (Ctrl+Z) puts it back, and so does Deleted pages in the Pages menu.", { ok: "Take it out", danger: true })) { const { takePageOut } = await import("../filetools.js"); await takePageOut(file, i); const d = await getDoc(file); setPages([...d.pages]); setV(x => x + 1); } }}><Icon n="trash" size={16} /></button>
+                  <button class="ib" title={_t("Turn")} onClick={() => act("rotatePage", i, 90)}><Icon n="rotate" size={16} /></button>
+                  <button class="ib" title={_t("Move earlier")} disabled={i === 0} onClick={() => act("movePage", i, i - 1)}><Icon n="left" size={16} /></button>
+                  <button class="ib" title={_t("Move later")} disabled={i === pages.length - 1} onClick={() => act("movePage", i, i + 1)}><Icon n="right" size={16} /></button>
+                  <button class="ib" title={_t("Take it out")} disabled={pages.length < 2} onClick={async () => { if (await confirm(_t("Take page {0} out?", i + 1), _t("Undo (Ctrl+Z) puts it back, and so does Deleted pages in the Pages menu."), { ok: _t("Take it out"), danger: true })) { const { takePageOut } = await import("../filetools.js"); await takePageOut(file, i); const d = await getDoc(file); setPages([...d.pages]); setV(x => x + 1); } }}><Icon n="trash" size={16} /></button>
                 </>}
               </div>
             </div>
           ))}
         </div>
       )}
-      {!pdf && <p class="small muted">This document is not a PDF, so its pages cannot be moved here.</p>}
-      <div class="row" style={{ marginTop: 14 }}><span class="grow" /><button class="btn ghost small" onClick={() => { close(); panel.value = { type: "addpages", book: currentBook.value?.id }; }}><Icon n="addpage" size={16} />Add pages...</button></div>
+      {!pdf && <p class="small muted">{_t("This document is not a PDF, so its pages cannot be moved here.")}</p>}
+      <div class="row" style={{ marginTop: 14 }}><span class="grow" /><button class="btn ghost small" onClick={() => { close(); panel.value = { type: "addpages", book: currentBook.value?.id }; }}><Icon n="addpage" size={16} />{_t("Add pages...")}</button></div>
       {void currentBook}
     </Dialog>
   );

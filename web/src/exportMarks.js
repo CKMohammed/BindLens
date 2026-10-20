@@ -2,6 +2,7 @@
 import { allMarks, call } from "./docs.js";
 import { store, toast, logChange } from "./state.js";
 import { fmtDate, escapeHtml, download, rgbToHex } from "./util.js";
+import { _t } from "./i18n.js";
 
 export async function marksOfBook(book) {
   const out = [];
@@ -11,7 +12,7 @@ export async function marksOfBook(book) {
       for (const m of await allMarks(f)) {
         const words = (m.text || m.contents || "").trim();
         if (!words || m.type === "Stamp" || m.type === "Ink") continue;
-        out.push({ front: words, note: m.type === "FreeText" || m.type === "Text" ? "Your note" : "", file: f, page: m.page,
+        out.push({ front: words, note: m.type === "FreeText" || m.type === "Text" ? _t("Your note") : "", file: f, page: m.page,
           color: m.color ? rgbToHex(m.color) : "", type: m.type });
       }
     } catch (e) {}
@@ -27,12 +28,12 @@ const soft = (hex) => {
 };
 
 export function marksBlocks(book, list) {
-  const blocks = [{ h: `${book.name} - highlights and notes` }, { p: `${list.length} marks · ${fmtDate(new Date(), true)} · BindLens`, small: true, color: "6E6A82" }];
+  const blocks = [{ h: _t("{0} - highlights and notes", book.name) }, { p: _t("{0} marks · {1} · BindLens", list.length, fmtDate(new Date(), true)), small: true, color: "6E6A82" }];
   let lastFile = null;
   for (const c of list) {
     if (c.file.id !== lastFile) { blocks.push({ h2: c.file.name.replace(/\.[^.]+$/, "") }); lastFile = c.file.id; }
     const hl = /Highlight/.test(c.type || "");
-    blocks.push({ p: (c.note ? "Note: " : "") + c.front, italic: !!c.note, note: !!c.note, fill: hl ? soft(c.color) : "", bar: hl ? soft(c.color) : "C9C6D6", where: `page ${c.page + 1}` });
+    blocks.push({ p: (c.note ? _t("Note: ") : "") + c.front, italic: !!c.note, note: !!c.note, fill: hl ? soft(c.color) : "", bar: hl ? soft(c.color) : "C9C6D6", where: _t("page {0}", c.page + 1) });
   }
   return blocks;
 }
@@ -45,9 +46,9 @@ const CSS = "body{font-family:sans-serif;font-size:11pt;line-height:1.45} h1{fon
 
 export async function exportMarks(book, how, list) {
   list = list || await marksOfBook(book);
-  if (!list.length) { toast("This book has no highlights or notes yet."); return; }
+  if (!list.length) { toast(_t("This book has no highlights or notes yet.")); return; }
   const blocks = marksBlocks(book, list);
-  const name = `${book.name} - highlights and notes`;
+  const name = _t("{0} - highlights and notes", book.name);
   if (how === "pdf") {
     const u8 = await call("htmlToPdf", blocksHtml(blocks), CSS);
     window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank");
@@ -56,12 +57,12 @@ export async function exportMarks(book, how, list) {
   const { makeDocx } = await import("./docx.js");
   const docx = await makeDocx(blocks);
   if (how === "google" && store.value.createConverted) {
-    toast("Making the Google Doc...");
+    toast(_t("Making the Google Doc..."));
     const f = await store.value.createConverted(null, name, docx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "doc");
-    logChange("Made a Google Doc with the highlights of", book.name);
+    logChange(_t("Made a Google Doc with the highlights of"), book.name);
     const { openBeside } = await import("./ui/AddPages.jsx");
     openBeside(store.value.editLink("doc", f.id));
-    toast(`"${name}" is open in Google Docs. It is kept in the BindLens folder of your Drive.`, "ok", 6000);
+    toast(_t("\"{0}\" is open in Google Docs. It is kept in the BindLens folder of your Drive.", name), "ok", 6000);
     return;
   }
   download(docx, name + ".docx");

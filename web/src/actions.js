@@ -5,6 +5,7 @@ import { store, books, settings, setSetting, setBookMeta, toast, openBook, bookI
 import { ask, confirm } from "./ui/dialogs.jsx";
 import { cleanName, uniqueName, mimeOf, kindOf, colorFor } from "./util.js";
 import { saveAll } from "./docs.js";
+import { _t } from "./i18n.js";
 
 export function pickFiles({ accept = "", multiple = true, capture = null, folder = false } = {}) {
   return new Promise((resolve) => {
@@ -23,7 +24,7 @@ export function pickFiles({ accept = "", multiple = true, capture = null, folder
 }
 
 export async function newBook(name, { quiet = false } = {}) {
-  if (!name) name = await ask("New book", { label: "A book is a folder in your Google Drive, inside the BindLens folder.", placeholder: "e.g. Clients", ok: "Make the book" });
+  if (!name) name = await ask(_t("New book"), { label: _t("A book is a folder in your Google Drive, inside the BindLens folder."), placeholder: _t("e.g. Clients"), ok: _t("Make the book") });
   if (!name) return null;
   name = cleanName(name);
   const taken = books.value.map(b => b.name);
@@ -32,11 +33,11 @@ export async function newBook(name, { quiet = false } = {}) {
     const b = await store.value.createBook(name);
     books.value = [...books.value, { id: b.id, name: b.name, color: colorFor(b.name), files: [], modified: b.modified }];
     setSetting("bookOrder", books.value.map(x => x.id));
-    logChange("Made the book", name);
-    if (!quiet) toast(`"${name}" is ready. Add files to it.`, "ok");
+    logChange(_t("Made the book"), name);
+    if (!quiet) toast(_t("\"{0}\" is ready. Add files to it.", name), "ok");
     return books.value.find(x => x.id === b.id);
   } catch (e) {
-    toast("Could not make the book: " + e.message, "bad");
+    toast(_t("Could not make the book: ") + e.message, "bad");
     return null;
   }
 }
@@ -47,7 +48,7 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
     book = currentBook.value || books.value[0] || await newBook();
     if (!book) return [];
   }
-  if (store.value.offline) { toast("You are offline: new files can be added when the network is back.", "bad"); return []; }
+  if (store.value.offline) { toast(_t("You are offline: new files can be added when the network is back."), "bad"); return []; }
   const where = parent || book.id;
   // the panel in the corner shows them going up (three at a time); the first opens as soon as it is in
   const { queueUploads } = await import("./uploads.js");
@@ -56,7 +57,7 @@ export async function uploadFiles(book, files, { open = true, parent = null, qui
 }
 
 export async function addFromDrive(book) {
-  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? "With OneDrive, add the files from your computer (Add files)." : "Sign in with Google to add files from your Drive."); return; }
+  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add the files from your computer (Add files).") : _t("Sign in with Google to add files from your Drive.")); return; }
   try {
     const picked = await store.value.pick(true);
     if (!picked.length) return;
@@ -68,12 +69,12 @@ export async function addFromDrive(book) {
       const meta = await store.value.meta(p.id);
       const f = await store.value.copy(meta, book.id, uniqueName(meta.name, book.files.map(x => x.name)));
       addFileToBook(book.id, f);
-      logChange("Added from your Drive", f.name, book.name);
+      logChange(_t("Added from your Drive"), f.name, book.name);
       n++;
     }
-    if (n) toast(`${n} file${n > 1 ? "s" : ""} added to "${book.name}".`, "ok");
+    if (n) toast(_t("{0} file{1} added to \"{2}\".", n, n > 1 ? "s" : "", book.name), "ok");
   } catch (e) {
-    toast("Could not open your Drive: " + e.message, "bad", 6000);
+    toast(_t("Could not open your Drive: ") + e.message, "bad", 6000);
   }
 }
 
@@ -83,12 +84,12 @@ export async function addFromDrive(book) {
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const SKIP_MIME = new Set(["application/vnd.google-apps.shortcut", "application/vnd.google-apps.form", "application/vnd.google-apps.site", "application/vnd.google-apps.map"]);
 export async function addFolderFromDrive() {
-  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? "With OneDrive, add a folder from your computer (Add a folder)." : "Sign in with Google to add folders from your Drive."); return; }
+  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add a folder from your computer (Add a folder).") : _t("Sign in with Google to add folders from your Drive.")); return; }
   try {
-    const folders = (await store.value.pick(true, { folders: true, title: "Choose a folder from your Google Drive - it becomes a book" })).filter(p => p.mime === FOLDER_MIME);
+    const folders = (await store.value.pick(true, { folders: true, title: _t("Choose a folder from your Google Drive - it becomes a book") })).filter(p => p.mime === FOLDER_MIME);
     for (const fo of folders) await importDriveFolder(fo);
   } catch (e) {
-    toast("Could not open your Drive: " + e.message, "bad", 6000);
+    toast(_t("Could not open your Drive: ") + e.message, "bad", 6000);
   }
 }
 
@@ -106,11 +107,11 @@ async function importDriveFolder(fo) {
   let tree = [];
   try { tree = await walkDrive(fo.id, "", 0, []); } catch (e) { tree = []; }
   if (!tree.length) {
-    const ok = await confirm(`Choose the files of "${fo.name}"`,
-      `Google lets BindLens open only the files you choose (that keeps the rest of your Drive private). In the next window "${fo.name}" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select.`,
-      { ok: "Choose the files" });
+    const ok = await confirm(_t("Choose the files of \"{0}\"", fo.name),
+      _t("Google lets BindLens open only the files you choose (that keeps the rest of your Drive private). In the next window \"{0}\" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select.", fo.name),
+      { ok: _t("Choose the files") });
     if (!ok) return;
-    const picked = (await store.value.pick(true, { parent: fo.id, title: `"${fo.name}": select all the files (Ctrl+A), then Select` })).filter(p => p.mime !== FOLDER_MIME && !SKIP_MIME.has(p.mime));
+    const picked = (await store.value.pick(true, { parent: fo.id, title: _t("\"{0}\": select all the files (Ctrl+A), then Select", fo.name) })).filter(p => p.mime !== FOLDER_MIME && !SKIP_MIME.has(p.mime));
     if (!picked.length) return;
     for (const p of picked) tree.push({ file: await store.value.meta(p.id), path: "" });
   }
@@ -118,7 +119,7 @@ async function importDriveFolder(fo) {
   if (!made) return;
   const subs = new Map();
   let n = 0;
-  toast(`Adding ${tree.length} file${tree.length === 1 ? "" : "s"} from "${fo.name}"...`);
+  toast(_t("Adding {0} file{1} from \"{2}\"...", tree.length, tree.length === 1 ? "" : "s", fo.name));
   for (const { file, path } of tree) {
     let parent = made.id;
     try {
@@ -142,46 +143,46 @@ async function importDriveFolder(fo) {
       f.parent = parent;
       addFileToBook(made.id, f);
       n++;
-      if (n % 5 === 0 && n < tree.length) toast(`"${fo.name}": ${n} of ${tree.length} files added...`);
+      if (n % 5 === 0 && n < tree.length) toast(_t("\"{0}\": {1} of {2} files added...", fo.name, n, tree.length));
     } catch (e) {
-      toast(`Could not add ${file.name}: ${e.message}`, "bad", 5000);
+      toast(_t("Could not add {0}: {1}", file.name, e.message), "bad", 5000);
     }
   }
-  logChange("Added a folder from your Drive", `${fo.name} (${n} files)`, made.name);
-  toast(`"${made.name}" is ready: ${n} file${n === 1 ? "" : "s"} from your Drive.`, "ok");
+  logChange(_t("Added a folder from your Drive"), _t("{0} ({1} files)", fo.name, n), made.name);
+  toast(_t("\"{0}\" is ready: {1} file{2} from your Drive.", made.name, n, n === 1 ? "" : "s"), "ok");
   openBook(made.id);
 }
 
 export async function renameBook(book) {
-  const name = await ask("Rename the book", { value: book.name, ok: "Rename" });
+  const name = await ask(_t("Rename the book"), { value: book.name, ok: _t("Rename") });
   if (!name || name === book.name) return;
   await store.value.rename(book.id, cleanName(name));
-  logChange("Renamed the book", `${book.name} → ${cleanName(name)}`);
+  logChange(_t("Renamed the book"), `${book.name} → ${cleanName(name)}`);
   books.value = books.value.map(b => b.id === book.id ? { ...b, name: cleanName(name) } : b);
 }
 
 export async function deleteBook(book) {
   if (book.shared) { unlinkBook(book); return; }
-  const ok = await confirm(`Move "${book.name}" to the bin?`,
-    `The folder and its ${book.files.length} file${book.files.length === 1 ? "" : "s"} go to your Google Drive bin, where you can get them back for 30 days.`,
-    { ok: "Move to the bin", danger: true });
+  const ok = await confirm(_t("Move \"{0}\" to the bin?", book.name),
+    _t("The folder and its {0} file{1} go to your Google Drive bin, where you can get them back for 30 days.", book.files.length, book.files.length === 1 ? "" : "s"),
+    { ok: _t("Move to the bin"), danger: true });
   if (!ok) return;
   await saveAll();
   await store.value.trash(book.id);
-  logChange("Moved the book to the bin", book.name);
+  logChange(_t("Moved the book to the bin"), book.name);
   batch(() => {
     books.value = books.value.filter(b => b.id !== book.id);
     if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
   });
-  toast(`"${book.name}" is in the bin.`);
+  toast(_t("\"{0}\" is in the bin.", book.name));
 }
 
 export async function toggleBookLock(book) {
   const { bookMeta, setBookMeta, settings: st, panel: pnl } = await import("./state.js");
-  if (!st.value.pin) { toast("Choose a PIN first (Settings), then lock the book with it."); pnl.value = { type: "pin" }; return; }
+  if (!st.value.pin) { toast(_t("Choose a PIN first (Settings), then lock the book with it.")); pnl.value = { type: "pin" }; return; }
   const locked = !bookMeta(book.id).locked;
   setBookMeta(book.id, { locked });
-  toast(locked ? `"${book.name}" opens only with your PIN now.` : `"${book.name}" opens without a PIN now.`, "ok");
+  toast(locked ? _t("\"{0}\" opens only with your PIN now.", book.name) : _t("\"{0}\" opens without a PIN now.", book.name), "ok");
 }
 
 export function setBookColor(book, color) {
@@ -201,29 +202,29 @@ export function moveBook(book, by) {
 
 export async function renameFile(book, file) {
   const ext = /\.[^.]+$/.exec(file.name)?.[0] || "";
-  let name = await ask("Rename the file", { value: file.name.replace(/\.[^.]+$/, ""), ok: "Rename" });
+  let name = await ask(_t("Rename the file"), { value: file.name.replace(/\.[^.]+$/, ""), ok: _t("Rename") });
   if (!name) return;
   name = cleanName(name);
   if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) name += ext;
   await store.value.rename(file.id, name);
-  logChange("Renamed", `${file.name} → ${name}`, book.name);
+  logChange(_t("Renamed"), `${file.name} → ${name}`, book.name);
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, name, kind: kindOf(name, f.mime) } : f) } : b);
 }
 
 export async function deleteFile(book, file) {
-  const ok = await confirm(`Move "${file.name}" to the bin?`, "It goes to your Google Drive bin, where you can get it back for 30 days.",
-    { ok: "Move to the bin", danger: true });
+  const ok = await confirm(_t("Move \"{0}\" to the bin?", file.name), _t("It goes to your Google Drive bin, where you can get it back for 30 days."),
+    { ok: _t("Move to the bin"), danger: true });
   if (!ok) return;
   await saveAll();
   await store.value.trash(file.id);
-  logChange("Moved to the bin", file.name, book.name);
+  logChange(_t("Moved to the bin"), file.name, book.name);
   removeFile(file.id);
   if (fileId.value === file.id) {
     const b = books.value.find(x => x.id === book.id);
     fileId.value = b?.files[0]?.id || null;
     pageNo.value = 0;
   }
-  toast(`"${file.name}" is in the bin.`);
+  toast(_t("\"{0}\" is in the bin.", file.name));
 }
 
 export async function moveFileTo(book, file, toBook) {
@@ -232,8 +233,8 @@ export async function moveFileTo(book, file, toBook) {
   f.parent = toBook.id;
   removeFile(file.id);
   addFileToBook(toBook.id, f);
-  logChange("Moved", `${file.name}: ${book.name} → ${toBook.name}`, toBook.name);
-  toast(`Moved to "${toBook.name}".`, "ok");
+  logChange(_t("Moved"), `${file.name}: ${book.name} → ${toBook.name}`, toBook.name);
+  toast(_t("Moved to \"{0}\".", toBook.name), "ok");
 }
 
 export function moveFileInBook(book, file, by) {
@@ -249,7 +250,7 @@ export function moveFileInBook(book, file, by) {
 export async function refresh() {
   await saveAll();
   await reloadLibrary();
-  toast("Up to date with your Drive.");
+  toast(_t("Up to date with your Drive."));
 }
 
 export function openPanel(type, opts = {}) { panel.value = { type, ...opts }; }
@@ -272,36 +273,36 @@ export function continueReading() {
 
 // ---- sub-books: folders inside a book (as in the Windows app)
 export async function newSubBook(book, parentSub = null) {
-  let name = await ask(parentSub ? `New sub-book inside "${parentSub.name}"` : `New sub-book in "${book.name}"`,
-    { label: "A sub-book is a folder inside the book's folder in your Drive. Its files are part of the book.", placeholder: "e.g. 2026", ok: "Make it" });
+  let name = await ask(parentSub ? _t("New sub-book inside \"{0}\"", parentSub.name) : _t("New sub-book in \"{0}\"", book.name),
+    { label: _t("A sub-book is a folder inside the book's folder in your Drive. Its files are part of the book."), placeholder: "e.g. 2026", ok: _t("Make it") });
   if (!name) return null;
   name = cleanName(name);
   const path = (parentSub ? parentSub.path + "/" : "") + name;
-  if ((book.subs || []).some(x => x.path.toLowerCase() === path.toLowerCase())) { toast("There is a sub-book with that name already."); return null; }
+  if ((book.subs || []).some(x => x.path.toLowerCase() === path.toLowerCase())) { toast(_t("There is a sub-book with that name already.")); return null; }
   const made = await store.value.createSub(name, parentSub ? parentSub.id : book.id);
   const sub = { id: made.id, name, path };
   books.value = books.value.map(b => b.id === book.id ? { ...b, subs: [...(b.subs || []), sub].sort((a, c) => a.path.localeCompare(c.path, undefined, { numeric: true })) } : b);
-  logChange("Made the sub-book", path, book.name);
-  toast(`"${name}" is ready inside "${book.name}".`, "ok");
+  logChange(_t("Made the sub-book"), path, book.name);
+  toast(_t("\"{0}\" is ready inside \"{1}\".", name, book.name), "ok");
   return sub;
 }
 
 export async function renameSub(book, sub) {
-  let name = await ask("Rename the sub-book", { value: sub.name, ok: "Rename" });
+  let name = await ask(_t("Rename the sub-book"), { value: sub.name, ok: _t("Rename") });
   if (!name || name === sub.name) return;
   name = cleanName(name);
   await store.value.rename(sub.id, name);
-  logChange("Renamed the sub-book", `${sub.path} → ${name}`, book.name);
+  logChange(_t("Renamed the sub-book"), `${sub.path} → ${name}`, book.name);
   await reloadLibrary();
 }
 
 export async function deleteSub(book, sub) {
   const n = book.files.filter(f => f.sub === sub.path || f.sub.startsWith(sub.path + "/")).length;
-  const ok = await confirm(`Move "${sub.name}" to the bin?`, `The folder and its ${n} file${n === 1 ? "" : "s"} go to your Google Drive bin, where you can get them back for 30 days.`, { ok: "Move to the bin", danger: true });
+  const ok = await confirm(_t("Move \"{0}\" to the bin?", sub.name), _t("The folder and its {0} file{1} go to your Google Drive bin, where you can get them back for 30 days.", n, n === 1 ? "" : "s"), { ok: _t("Move to the bin"), danger: true });
   if (!ok) return;
   await saveAll();
   await store.value.trash(sub.id);
-  logChange("Moved the sub-book to the bin", sub.path, book.name);
+  logChange(_t("Moved the sub-book to the bin"), sub.path, book.name);
   await reloadLibrary();
 }
 
@@ -313,15 +314,15 @@ export async function moveFileToSub(book, file, sub) {
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, parent: to, sub: sub ? sub.path : "" } : f) } : b);
   const { sortFiles } = await import("./state.js");
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: sortFiles([...b.files], settings.value.books?.[b.id]?.fileOrder || []) } : b);
-  logChange("Moved", `${file.name} → ${sub ? sub.path : "the top of the book"}`, book.name);
-  toast(sub ? `Moved into "${sub.name}".` : "Moved to the top of the book.", "ok");
+  logChange(_t("Moved"), `${file.name} → ${sub ? sub.path : _t("the top of the book")}`, book.name);
+  toast(sub ? _t("Moved into \"{0}\".", sub.name) : _t("Moved to the top of the book."), "ok");
 }
 
 // a folder from the computer: a new book with all its files (its folders become sub-books)
 export async function addFolder(book = null) {
   const files = await pickFiles({ folder: true });
   if (!files.length) return;
-  const top = (files[0].webkitRelativePath || "").split("/")[0] || "New book";
+  const top = (files[0].webkitRelativePath || "").split("/")[0] || _t("New book");
   if (!book) book = await newBook(top);
   if (!book) return;
   const subIds = new Map((book.subs || []).map(x => [x.path, x]));
@@ -365,39 +366,39 @@ export async function addDocsAsBooks() {
 // out of BindLens, but kept in the Drive ("My Drive"): a book (its folder) or a file
 export async function releaseBook(book) {
   if (book.shared) { unlinkBook(book); return; }
-  const ok = await confirm(`Take "${book.name}" out of BindLens?`, store.value.kind === "drive"
-    ? "The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
+  const ok = await confirm(_t("Take \"{0}\" out of BindLens?", book.name), store.value.kind === "drive"
+    ? _t("The folder and its files go to My Drive, outside the BindLens folder. Nothing is deleted.") : _t("In the example library it just goes away."), { ok: _t("Take it out") });
   if (!ok) return;
   await saveAll();
   try { await store.value.release(book.id, store.value.rootId); }
-  catch (e) { toast("Google Drive did not let BindLens move it (" + e.message + "). Move the folder out of the BindLens folder in Google Drive itself.", "bad", 8000); return; }
-  logChange("Took the book out of BindLens (it is in My Drive)", book.name);
+  catch (e) { toast(_t("Google Drive did not let BindLens move it ({0}). Move the folder out of the BindLens folder in Google Drive itself.", e.message), "bad", 8000); return; }
+  logChange(_t("Took the book out of BindLens (it is in My Drive)"), book.name);
   batch(() => {
     books.value = books.value.filter(b => b.id !== book.id);
     if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
   });
-  toast(`"${book.name}" is in My Drive now.`, "ok");
+  toast(_t("\"{0}\" is in My Drive now.", book.name), "ok");
 }
 
 export async function releaseFile(book, file) {
-  const ok = await confirm(`Take "${file.name}" out of this book?`, store.value.kind === "drive"
-    ? "It goes to My Drive, outside the BindLens folder. Nothing is deleted." : "In the example library it just goes away.", { ok: "Take it out" });
+  const ok = await confirm(_t("Take \"{0}\" out of this book?", file.name), store.value.kind === "drive"
+    ? _t("It goes to My Drive, outside the BindLens folder. Nothing is deleted.") : _t("In the example library it just goes away."), { ok: _t("Take it out") });
   if (!ok) return;
   await saveAll();
   try { await store.value.release(file.id, file.parent || book.id); }
-  catch (e) { toast("Google Drive did not let BindLens move it (" + e.message + "). Move the file out of the BindLens folder in Google Drive itself.", "bad", 8000); return; }
-  logChange("Took out of the book (it is in My Drive)", file.name, book.name);
+  catch (e) { toast(_t("Google Drive did not let BindLens move it ({0}). Move the file out of the BindLens folder in Google Drive itself.", e.message), "bad", 8000); return; }
+  logChange(_t("Took out of the book (it is in My Drive)"), file.name, book.name);
   removeFile(file.id);
   if (fileId.value === file.id) { const b = books.value.find(x => x.id === book.id); fileId.value = b?.files[0]?.id || null; pageNo.value = 0; }
-  toast(`"${file.name}" is in My Drive now.`, "ok");
+  toast(_t("\"{0}\" is in My Drive now.", file.name), "ok");
 }
 
 // ---- books colleagues shared with you: they stay in their Drive; BindLens only remembers them
 export async function addSharedBook() {
-  if (store.value.kind !== "drive") { toast("Sign in with Google to open a book a colleague shared with you."); return; }
+  if (store.value.kind !== "drive") { toast(_t("Sign in with Google to open a book a colleague shared with you.")); return; }
   let folders = [];
-  try { folders = (await store.value.pick(false, { shared: true, title: "A book (folder) a colleague shared with you" })).filter(p => p.mime === FOLDER_MIME); }
-  catch (e) { toast("Could not open your Drive: " + e.message, "bad", 6000); return; }
+  try { folders = (await store.value.pick(false, { shared: true, title: _t("A book (folder) a colleague shared with you") })).filter(p => p.mime === FOLDER_MIME); }
+  catch (e) { toast(_t("Could not open your Drive: ") + e.message, "bad", 6000); return; }
   const fo = folders[0];
   if (!fo) return;
   const linked = settings.value.linkedBooks || [];
@@ -406,27 +407,27 @@ export async function addSharedBook() {
   let b = books.value.find(x => x.id === fo.id);
   if (!b || !b.files.length) {
     // Google lets BindLens see only the files you choose: choose them once
-    const ok = await confirm(`Choose the files of "${fo.name}"`, `Google lets BindLens open only the files you choose. In the next window "${fo.name}" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select. Later, "Bring in new files" in the book's menu adds the ones your colleague puts in.`, { ok: "Choose the files" });
-    if (ok) { await store.value.pick(true, { parent: fo.id, title: `"${fo.name}": select all the files (Ctrl+A), then Select` }); await reloadLibrary(); }
+    const ok = await confirm(_t("Choose the files of \"{0}\"", fo.name), _t("Google lets BindLens open only the files you choose. In the next window \"{0}\" is open: select all its files (Ctrl+A, or Cmd+A on a Mac) and press Select. Later, \"Bring in new files\" in the book's menu adds the ones your colleague puts in.", fo.name), { ok: _t("Choose the files") });
+    if (ok) { await store.value.pick(true, { parent: fo.id, title: _t("\"{0}\": select all the files (Ctrl+A), then Select", fo.name) }); await reloadLibrary(); }
     b = books.value.find(x => x.id === fo.id);
   }
-  if (b) { logChange("Opened a book shared with you", b.name); toast(`"${b.name}" is in your library. It stays in your colleague's Drive: what you mark, they see.`, "ok", 6000); openBook(b.id); }
-  else toast(`Google did not let BindLens open "${fo.name}". Ask your colleague to share it with your Google account.`, "bad", 7000);
+  if (b) { logChange(_t("Opened a book shared with you"), b.name); toast(_t("\"{0}\" is in your library. It stays in your colleague's Drive: what you mark, they see.", b.name), "ok", 6000); openBook(b.id); }
+  else toast(_t("Google did not let BindLens open \"{0}\". Ask your colleague to share it with your Google account.", fo.name), "bad", 7000);
 }
 
 export async function bringNewFiles(book) {
-  await store.value.pick(true, { parent: book.id, title: `"${book.name}": select the new files, then Select` });
+  await store.value.pick(true, { parent: book.id, title: _t("\"{0}\": select the new files, then Select", book.name) });
   await reloadLibrary();
-  toast(`"${book.name}" is up to date.`, "ok");
+  toast(_t("\"{0}\" is up to date.", book.name), "ok");
 }
 
 export async function unlinkBook(book) {
-  const ok = await confirm(`Take "${book.name}" out of your library?`, "It is a book a colleague shared with you: it stays in their Drive, as it is. You can open it again with Add > A book shared with me.", { ok: "Take it out" });
+  const ok = await confirm(_t("Take \"{0}\" out of your library?", book.name), _t("It is a book a colleague shared with you: it stays in their Drive, as it is. You can open it again with Add > A book shared with me."), { ok: _t("Take it out") });
   if (!ok) return;
   setSetting("linkedBooks", (settings.value.linkedBooks || []).filter(x => x.id !== book.id));
   batch(() => {
     books.value = books.value.filter(b => b.id !== book.id);
     if (bookId.value === book.id) { view.value = "home"; bookId.value = null; }
   });
-  logChange("Took out of the library the shared book", book.name);
+  logChange(_t("Took out of the library the shared book"), book.name);
 }

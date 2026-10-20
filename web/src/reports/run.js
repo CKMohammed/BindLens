@@ -8,32 +8,33 @@ import { RE, allMatches, cleanPhone, looksLikeName, NAME_IN_TEXT, NAME_HDR, ORG_
 import { sheetRows } from "../engine/office.js";
 import { isPaged, fmtDate, ext, daysBetween, fmtSize } from "../util.js";
 import { status } from "./dates.js";
+import { _t, _tv } from "../i18n.js";
 
 export const REPORTS = [
-  { id: "contacts", title: "People & contacts", icon: "people", desc: "Everyone with their email, phone and address, from any table or text." },
-  { id: "tables", title: "All tables", icon: "table", desc: "Every table exactly as it is, with its column titles - ready for Excel." },
-  { id: "deadlines", title: "Deadlines", icon: "clock", desc: "Renewals, due dates, 'valid until', deadlines - and how long is left." },
-  { id: "rows", title: "Rows with a name or value", icon: "table", desc: "Every table row (and line) with the names or values you write, with its own columns and column titles, exactly as it is - one section for each.", ask: "Names or values, with commas between them" },
-  { id: "snapshot", title: "Rows as they look", icon: "image", desc: "The same rows as pictures, exactly as they look in each file, with the table's column titles over them.", ask: "Names or values, with commas between them" },
-  { id: "columns", title: "Columns from every table", icon: "table", desc: "The columns you name (e.g. Name, Email) from every table that has them, row by row, as they are.", ask: "Column titles, with commas between them" },
-  { id: "forms", title: "Form answers", icon: "list", desc: "Every 'Label: answer' line of your forms and documents, as it is written: one row each." },
-  { id: "status", title: "Status of files", icon: "check", desc: "Every file with its status (Pending, Checked, Signed, Done...), book by book." },
-  { id: "privacy", title: "Personal data (GDPR)", icon: "lock", desc: "PPS numbers, bank accounts (IBAN), card numbers, dates of birth, emails and phones - each with its line and where it is." },
-  { id: "health", title: "Document health", icon: "info", desc: "Scanned pages without words, empty pages, very big files, files that cannot be opened - file by file." },
-  { id: "duplicates", title: "Duplicates", icon: "copy", desc: "The same file twice, and the same row in several places." },
-  { id: "find", title: "Find a word or a name", icon: "search", desc: "Every line where it appears.", ask: "The word or the name" },
-  { id: "person", title: "Everything about one person", icon: "people", desc: "Every place a person appears, with the emails and phones next to them.", ask: "The person's name" },
-  { id: "money", title: "Invoices & money", icon: "money", desc: "Each amount with its line: totals, prices, what is due." },
-  { id: "marks", title: "My highlights & notes", icon: "highlighter", desc: "Everything you marked, by document." },
-  { id: "case", title: "Case files: what is missing", icon: "checklist", desc: "Book by book: the checklist documents still missing, the files waiting and the open tasks." },
-  { id: "Emails", title: "Emails", icon: "at", desc: "Every email address, with the line it is in." },
-  { id: "Phones", title: "Phone numbers", icon: "phone", desc: "Every phone and mobile number." },
-  { id: "Names", title: "Names of people", icon: "people", desc: "Every person named in your documents." },
-  { id: "Addresses", title: "Addresses & postcodes", icon: "map", desc: "Street addresses, Eircodes and postcodes." },
-  { id: "Dates", title: "All dates", icon: "calendar", desc: "Every date, in order." },
-  { id: "IDs", title: "IDs & reference numbers", icon: "hash", desc: "Invoice, order and reference numbers, IBAN." },
-  { id: "Companies", title: "Companies & organisations", icon: "building", desc: "Companies, universities, councils, banks..." },
-  { id: "Links", title: "Links & websites", icon: "link", desc: "Every web address." },
+  { id: "contacts", title: _t("People & contacts"), icon: "people", desc: _t("Everyone with their email, phone and address, from any table or text.") },
+  { id: "tables", title: _t("All tables"), icon: "table", desc: _t("Every table exactly as it is, with its column titles - ready for Excel.") },
+  { id: "deadlines", title: _t("Deadlines"), icon: "clock", desc: _t("Renewals, due dates, 'valid until', deadlines - and how long is left.") },
+  { id: "rows", title: _t("Rows with a name or value"), icon: "table", desc: _t("Every table row (and line) with the names or values you write, with its own columns and column titles, exactly as it is - one section for each."), ask: _t("Names or values, with commas between them") },
+  { id: "snapshot", title: _t("Rows as they look"), icon: "image", desc: _t("The same rows as pictures, exactly as they look in each file, with the table's column titles over them."), ask: _t("Names or values, with commas between them") },
+  { id: "columns", title: _t("Columns from every table"), icon: "table", desc: _t("The columns you name (e.g. Name, Email) from every table that has them, row by row, as they are."), ask: _t("Column titles, with commas between them") },
+  { id: "forms", title: _t("Form answers"), icon: "list", desc: _t("Every 'Label: answer' line of your forms and documents, as it is written: one row each.") },
+  { id: "status", title: _t("Status of files"), icon: "check", desc: _t("Every file with its status (Pending, Checked, Signed, Done...), book by book.") },
+  { id: "privacy", title: _t("Personal data (GDPR)"), icon: "lock", desc: _t("PPS numbers, bank accounts (IBAN), card numbers, dates of birth, emails and phones - each with its line and where it is.") },
+  { id: "health", title: _t("Document health"), icon: "info", desc: _t("Scanned pages without words, empty pages, very big files, files that cannot be opened - file by file.") },
+  { id: "duplicates", title: _t("Duplicates"), icon: "copy", desc: _t("The same file twice, and the same row in several places.") },
+  { id: "find", title: _t("Find a word or a name"), icon: "search", desc: _t("Every line where it appears."), ask: _t("The word or the name") },
+  { id: "person", title: _t("Everything about one person"), icon: "people", desc: _t("Every place a person appears, with the emails and phones next to them."), ask: _t("The person's name") },
+  { id: "money", title: _t("Invoices & money"), icon: "money", desc: _t("Each amount with its line: totals, prices, what is due.") },
+  { id: "marks", title: _t("My highlights & notes"), icon: "highlighter", desc: _t("Everything you marked, by document.") },
+  { id: "case", title: _t("Case files: what is missing"), icon: "checklist", desc: _t("Book by book: the checklist documents still missing, the files waiting and the open tasks.") },
+  { id: "Emails", title: _t("Emails"), icon: "at", desc: _t("Every email address, with the line it is in.") },
+  { id: "Phones", title: _t("Phone numbers"), icon: "phone", desc: _t("Every phone and mobile number.") },
+  { id: "Names", title: _t("Names of people"), icon: "people", desc: _t("Every person named in your documents.") },
+  { id: "Addresses", title: _t("Addresses & postcodes"), icon: "map", desc: _t("Street addresses, Eircodes and postcodes.") },
+  { id: "Dates", title: _t("All dates"), icon: "calendar", desc: _t("Every date, in order.") },
+  { id: "IDs", title: _t("IDs & reference numbers"), icon: "hash", desc: _t("Invoice, order and reference numbers, IBAN.") },
+  { id: "Companies", title: _t("Companies & organisations"), icon: "building", desc: _t("Companies, universities, councils, banks...") },
+  { id: "Links", title: _t("Links & websites"), icon: "link", desc: _t("Every web address.") },
 ];
 
 // ---- reading a file into pages of rows and tables
@@ -125,7 +126,7 @@ async function contacts(scope, progress) {
       });
     });
   }
-  return { columns: ["Name", "Email", "Phone", "Address", "Company", "Document", "Page"], rows: dropEmptyColumns(rows, 5) };
+  return { columns: [_t("Name"), _t("Email"), _t("Phone"), _t("Address"), _t("Company"), _t("Document"), _t("Page")], rows: dropEmptyColumns(rows, 5) };
 }
 
 function dropEmptyColumns(rows, upTo) {
@@ -142,7 +143,7 @@ async function tables(scope, progress) {
     pages.forEach((pg, page) => {
       pg.tables.forEach((t, k) => {
         if (!t.rows.length) return;
-        out.push({ title: `${docName(f)}${t.sheet ? " · " + t.sheet : pages.length > 1 ? " · page " + (page + 1) : ""}${pg.tables.length > 1 ? " · table " + (k + 1) : ""}`,
+        out.push({ title: `${docName(f)}${t.sheet ? " · " + t.sheet : pages.length > 1 ? _t(" · page ") + (page + 1) : ""}${pg.tables.length > 1 ? _t(" · table ") + (k + 1) : ""}`,
           header: t.header, rows: t.rows, go: where(b, f, page, (t.rows[0] || [])[0]) });
       });
     });
@@ -172,14 +173,14 @@ async function deadlines(scope, progress) {
         for (const d of deadlineDates({ text, cells: r.cells, header: r.header })) {
           if (!r.cells && d.at < off) continue;
           const days = daysBetween(today, d.date);
-          rows.push({ date: d.date, cells: [fmtDate(d.date), status(days).text, d.what || "Date", r.text, docName(f), String(page + 1)], st: status(days).cls, go: where(b, f, page, d.text) });
+          rows.push({ date: d.date, cells: [fmtDate(d.date), status(days).text, d.what || _t("Date"), r.text, docName(f), String(page + 1)], st: status(days).cls, go: where(b, f, page, d.text) });
         }
       });
     });
   }
   rows.sort((a, c) => a.date - c.date);
   const seen = new Set();
-  return { columns: ["Date", "When", "What", "The line", "Document", "Page"], rows: rows.filter(r => { const k = r.cells.join("|"); if (seen.has(k)) return false; seen.add(k); return true; }) };
+  return { columns: [_t("Date"), _t("When"), _t("What"), _t("The line"), _t("Document"), _t("Page")], rows: rows.filter(r => { const k = r.cells.join("|"); if (seen.has(k)) return false; seen.add(k); return true; }) };
 }
 
 async function findWord(scope, progress, q) {
@@ -188,13 +189,13 @@ async function findWord(scope, progress, q) {
   const list = filesIn(scope);
   for (const [n, { b, f }] of list.entries()) {
     progress(n, list.length, f.name);
-    if (f.name.toLowerCase().includes(nq)) rows.push({ cells: [docName(f), "", "(in the name of the document)", b.name], go: where(b, f, 0) });
+    if (f.name.toLowerCase().includes(nq)) rows.push({ cells: [docName(f), "", _t("(in the name of the document)"), b.name], go: where(b, f, 0) });
     const { pages } = await readFile(f);
     pages.forEach((pg, page) => {
       for (const r of pg.rows) if ((r.text || "").toLowerCase().includes(nq)) rows.push({ cells: [docName(f), String(page + 1), r.text, b.name], go: where(b, f, page, q) });
     });
   }
-  return { columns: ["Document", "Page", "The line", "Book"], rows };
+  return { columns: [_t("Document"), _t("Page"), _t("The line"), _t("Book")], rows };
 }
 
 // rows with a name or value: every table row that has it (its cells and the table's titles), and every line
@@ -240,7 +241,7 @@ function totalsRow(header, rows) {
     if (vals.every(v => v != null) && (SUM_HDR.test(h) || /hour|hrs|qty|quantity|units|days|horas/i.test(h))) { tot[j] = String(Math.round(vals.reduce((a, c) => a + c, 0) * 100) / 100); any = true; }
   }
   if (!any) return null;
-  tot[0] = "Total";
+  tot[0] = _t("Total");
   return tot;
 }
 
@@ -260,13 +261,13 @@ async function rowsWith(scope, progress, q) {
     }
     for (const g of groups.values()) {
       const { x } = g;
-      const header = x.cells ? (x.header || x.cells.map((_, j) => "Column " + (j + 1))) : ["The line"];
+      const header = x.cells ? (x.header || x.cells.map((_, j) => _t("Column ") + (j + 1))) : [_t("The line")];
       const rows = [...g.rows];
       const tot = x.cells ? totalsRow(header, rows) : null;
       if (tot) rows.push(tot);
-      tables.push({ title: `${v} · ${docName(x.f)}${x.sheet ? " · " + x.sheet : ""} · page ${[...g.pages].join(", ")}`, header, rows, go: where(x.b, x.f, x.page, v) });
+      tables.push({ title: _t("{0} · {1}{2} · page {3}", v, docName(x.f), x.sheet ? " · " + x.sheet : "", [...g.pages].join(", ")), header, rows, go: where(x.b, x.f, x.page, v) });
     }
-    if (!mine.length) tables.push({ title: `${v} · not found`, header: ["The line"], rows: [], go: null });
+    if (!mine.length) tables.push({ title: _t("{0} · not found", v), header: [_t("The line")], rows: [], go: null });
   }
   return { tables };
 }
@@ -286,8 +287,8 @@ async function rowPictures(scope, progress, q) {
       rects.push([X0, r.y - 3, X1, r.y1 + 3]);
       try {
         const png = await readOnce(x.f, (key) => call("clip", key, x.page, rects, 2));
-        items.push({ title: `${docName(x.f)} · page ${x.page + 1}`, png, text: r.text, w: X1 - X0, go: where(x.b, x.f, x.page, v) });
-      } catch (e) { items.push({ title: `${docName(x.f)} · page ${x.page + 1}`, text: r.text, go: where(x.b, x.f, x.page, v) }); }
+        items.push({ title: _t("{0} · page {1}", docName(x.f), x.page + 1), png, text: r.text, w: X1 - X0, go: where(x.b, x.f, x.page, v) });
+      } catch (e) { items.push({ title: _t("{0} · page {1}", docName(x.f), x.page + 1), text: r.text, go: where(x.b, x.f, x.page, v) }); }
     }
     sections.push({ title: v, items });
   }
@@ -314,7 +315,7 @@ async function columnsFrom(scope, progress, q) {
       }
     });
   }
-  return { columns: [...valuesOf(q), "Document", "Page"], rows };
+  return { columns: [...valuesOf(q), _t("Document"), _t("Page")], rows };
 }
 
 const LABEL_RE = /^\s*([\p{Lu}\p{N}][\p{L}\p{N} .'()/&-]{0,40}?)\s*[:：]\s*(.+)$/u;
@@ -339,7 +340,7 @@ async function forms(scope, progress) {
       }
     });
   }
-  return { columns: ["Label", "Answer", "Document", "Page"], rows };
+  return { columns: [_t("Label"), _t("Answer"), _t("Document"), _t("Page")], rows };
 }
 
 // case files: what each book still needs - from its checklist, the status of its files and its tasks
@@ -352,32 +353,32 @@ async function caseFiles(scope) {
   for (const b of scope) {
     const list = bookMeta(b.id).checklist || [];
     const done = list.filter(x => x.done).length;
-    const prog = list.length ? `${done} of ${list.length}` : "";
+    const prog = list.length ? _t("{0} of {1}", done, list.length) : "";
     if (!list.length) without++;
-    for (const it of list) if (!it.done) rows.push({ kind: "missing", st: "bad", cells: [b.name, "Missing", "Document: " + it.text, prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
+    for (const it of list) if (!it.done) rows.push({ kind: "missing", st: "bad", cells: [b.name, _t("Missing"), _t("Document: ") + it.text, prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
     for (const f of b.files) {
       const s = statusOf(f.id);
-      if (WAIT.has(s)) rows.push({ kind: "file", st: s === "Urgent" ? "bad" : "warn", cells: [b.name, s, f.name, prog, f.modified ? fmtDate(new Date(f.modified)) : ""], go: where(b, f, 0) });
+      if (WAIT.has(s)) rows.push({ kind: "file", st: s === "Urgent" ? "bad" : "warn", cells: [b.name, _tv(s), f.name, prog, f.modified ? fmtDate(new Date(f.modified)) : ""], go: where(b, f, 0) });
     }
     for (const t of (settings.value.tasks || [])) {
       if (t.done || t.bookId !== b.id) continue;
       const due = t.due ? new Date(t.due + "T00:00") : null;
       const days = due ? daysBetween(today, due) : null;
       const f = t.fileId && b.files.find(x => x.id === t.fileId);
-      rows.push({ kind: "task", st: due ? status(days).cls : "", cells: [b.name, due ? (days < 0 ? "Task, late" : "Task") : "Task", t.text + (t.who ? " - " + t.who : "") + (t.file ? ` ("${t.file}")` : ""), prog, due ? fmtDate(due) : ""], go: f ? where(b, f, t.page || 0) : b.files[0] ? where(b, b.files[0], 0) : null });
+      rows.push({ kind: "task", st: due ? status(days).cls : "", cells: [b.name, due ? (days < 0 ? _t("Task, late") : _t("Task")) : _t("Task"), t.text + (t.who ? " - " + t.who : "") + (t.file ? ` ("${t.file}")` : ""), prog, due ? fmtDate(due) : ""], go: f ? where(b, f, t.page || 0) : b.files[0] ? where(b, b.files[0], 0) : null });
     }
-    if (list.length && done === list.length && !rows.some(r => r.cells[0] === b.name)) rows.push({ kind: "ok", st: "ok", cells: [b.name, "Complete", "Every document of the checklist is here", prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
+    if (list.length && done === list.length && !rows.some(r => r.cells[0] === b.name)) rows.push({ kind: "ok", st: "ok", cells: [b.name, _t("Complete"), _t("Every document of the checklist is here"), prog, ""], go: b.files[0] ? where(b, b.files[0], 0) : null });
   }
   const order = { missing: 0, file: 1, task: 2, ok: 3 };
   rows.sort((a, c) => a.cells[0].localeCompare(c.cells[0]) || order[a.kind] - order[c.kind]);
-  return { columns: ["Book", "State", "What", "Checklist", "Date"], stCol: "State", rows, facts: { books: scope.length, without } };
+  return { columns: [_t("Book"), _t("State"), _t("What"), _t("Checklist"), _t("Date")], stCol: _t("State"), rows, facts: { books: scope.length, without } };
 }
 
 async function statusReport(scope) {
   const { statusOf } = await import("../state.js");
   const rows = [];
-  for (const b of scope) for (const f of b.files) rows.push({ cells: [f.name, f.sub ? b.name + " / " + f.sub : b.name, statusOf(f.id) || "No status", f.modified ? fmtDate(new Date(f.modified)) : ""], go: where(b, f, 0) });
-  return { columns: ["File", "Book", "Status", "Changed"], rows };
+  for (const b of scope) for (const f of b.files) rows.push({ cells: [f.name, f.sub ? b.name + " / " + f.sub : b.name, _tv(statusOf(f.id)) || _t("No status"), f.modified ? fmtDate(new Date(f.modified)) : ""], go: where(b, f, 0) });
+  return { columns: [_t("File"), _t("Book"), _t("Status"), _t("Changed")], rows };
 }
 
 // two documents side by side: the lines only in one, only in the other, and the lines changed (not AI: line by line)
@@ -405,9 +406,9 @@ export async function compareDocs(a, b) {
       const alike = (x, y) => { const a1 = words(x.t), b1 = words(y.t); let c = 0; for (const w of a1) if (b1.has(w)) c++; return c / Math.max(1, Math.max(a1.size, b1.size)) >= 0.5; };
       let gi = 0, ai = 0;
       while (gi < gone.length || ai < added.length) {
-        if (gi < gone.length && ai < added.length && alike(gone[gi], added[ai])) { push("Changed", gone[gi++], added[ai++]); continue; }
-        if (gi < gone.length) push("Only in the first", gone[gi++], null);
-        else push("Only in the second", null, added[ai++]);
+        if (gi < gone.length && ai < added.length && alike(gone[gi], added[ai])) { push(_t("Changed"), gone[gi++], added[ai++]); continue; }
+        if (gi < gone.length) push(_t("Only in the first"), gone[gi++], null);
+        else push(_t("Only in the second"), null, added[ai++]);
       }
       gone.length = 0; added.length = 0;
     };
@@ -419,10 +420,10 @@ export async function compareDocs(a, b) {
     flush();
   } else {
     const sa = new Set(A.map(x => x.t)), sb = new Set(B.map(x => x.t));
-    for (const x of A) if (!sb.has(x.t)) push("Only in the first", x, null);
-    for (const y of B) if (!sa.has(y.t)) push("Only in the second", null, y);
+    for (const x of A) if (!sb.has(x.t)) push(_t("Only in the first"), x, null);
+    for (const y of B) if (!sa.has(y.t)) push(_t("Only in the second"), null, y);
   }
-  return { columns: ["What", a.file.name.replace(/\.[^.]+$/, ""), b.file.name.replace(/\.[^.]+$/, ""), "Page", "Page"], rows,
+  return { columns: [_t("What"), a.file.name.replace(/\.[^.]+$/, ""), b.file.name.replace(/\.[^.]+$/, ""), _t("Page"), _t("Page")], rows,
     same: rows.length === 0 };
 }
 
@@ -431,7 +432,10 @@ function luhn(d) { let s = 0, alt = false; for (let i = d.length - 1; i >= 0; i-
 const PPS_RE = /\b\d{7}[A-W][A-IW]?\b/g;
 const IBAN_RE = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g;
 const CARD_RE = /\b(?:\d[ -]?){13,19}\b/g;
-const DOB_RE = /\b(?:d\.?o\.?b\.?|date of birth|born|birth date|fecha de nacimiento)\b/i;
+const DOB_RE = /\b(?:d\.?o\.?b\.?|date of birth|born|birth date|fecha de nacimiento|f\. ?nac\.?|nacid[oa] el)\b/i;
+// Spanish DNI and NIE: 8 digits (or X/Y/Z and 7) and the letter that checks them
+const DNI_RE = /\b[XYZ]?\d{7,8}[A-Z]\b/g;
+const dniOk = (v) => { const m = /^([XYZ]?)(\d{7,8})([A-Z])$/.exec(v); if (!m || (m[1] ? m[2].length !== 7 : m[2].length !== 8)) return false; const n = Number(("XYZ".indexOf(m[1]) >= 0 ? String("XYZ".indexOf(m[1])) : "") + m[2]); return "TRWAGMYFPDXBNJZSQVHLCKE"[n % 23] === m[3]; };
 async function personalData(scope, progress) {
   const rows = [];
   const list = filesIn(scope);
@@ -442,18 +446,19 @@ async function personalData(scope, progress) {
       pg.rows.forEach((r, i) => {
         const text = r.text || "";
         const add = (what, v) => rows.push({ cells: [what, v, text, docName(f), String(page + 1)], go: where(b, f, page, v) });
-        for (const m of allMatches(PPS_RE, text)) add("PPS number", m.v);
-        for (const m of allMatches(IBAN_RE, text)) if (/\d{6,}/.test(m.v.replace(/ /g, ""))) add("Bank account (IBAN)", m.v);
-        for (const m of allMatches(CARD_RE, text)) { const d = m.v.replace(/\D/g, ""); if (d.length >= 13 && d.length <= 19 && luhn(d) && !/^0+$/.test(d)) add("Card number", m.v.trim()); }
+        for (const m of allMatches(PPS_RE, text)) add(_t("PPS number"), m.v);
+        for (const m of allMatches(DNI_RE, text)) if (dniOk(m.v)) add(_t("DNI / NIE number"), m.v);
+        for (const m of allMatches(IBAN_RE, text)) if (/\d{6,}/.test(m.v.replace(/ /g, ""))) add(_t("Bank account (IBAN)"), m.v);
+        for (const m of allMatches(CARD_RE, text)) { const d = m.v.replace(/\D/g, ""); if (d.length >= 13 && d.length <= 19 && luhn(d) && !/^0+$/.test(d)) add(_t("Card number"), m.v.trim()); }
         const hdrDob = r.cells && r.header ? r.header.findIndex(h => DOB_RE.test(h || "")) : -1;
-        if (hdrDob >= 0 && r.cells[hdrDob]) add("Date of birth", r.cells[hdrDob]);
-        else if (DOB_RE.test(text) || DOB_RE.test(pg.rows[i - 1]?.text || "")) for (const d of parseDatesAt(text)) add("Date of birth", d.text);
-        for (const m of allMatches(RE.Emails, text)) add("Email", m.v);
-        for (const m of allMatches(RE.Phones, text)) { const p = cleanPhone(m.v); if (p && !parseDatesAt(p).length) add("Phone", p); }
+        if (hdrDob >= 0 && r.cells[hdrDob]) add(_t("Date of birth"), r.cells[hdrDob]);
+        else if (DOB_RE.test(text) || DOB_RE.test(pg.rows[i - 1]?.text || "")) for (const d of parseDatesAt(text)) add(_t("Date of birth"), d.text);
+        for (const m of allMatches(RE.Emails, text)) add(_t("Email"), m.v);
+        for (const m of allMatches(RE.Phones, text)) { const p = cleanPhone(m.v); if (p && !parseDatesAt(p).length) add(_t("Phone"), p); }
       });
     });
   }
-  return { columns: ["What", "The value", "The line", "Document", "Page"], rows };
+  return { columns: [_t("What"), _t("The value"), _t("The line"), _t("Document"), _t("Page")], rows };
 }
 
 async function health(scope, progress) {
@@ -464,7 +469,7 @@ async function health(scope, progress) {
     progress(n, list.length, f.name);
     const notes = [];
     let pagesN = "";
-    if (f.size && f.size > 20e6) notes.push(`Very big (${Math.round(f.size / 1e6)} MB): Make this file smaller`);
+    if (f.size && f.size > 20e6) notes.push(_t("Very big ({0} MB): Make this file smaller", Math.round(f.size / 1e6)));
     if (isPaged(f.kind) && f.kind !== "image") {
       try {
         const w = await wordsOf(f);
@@ -480,14 +485,14 @@ async function health(scope, progress) {
             }
           });
         } else w.pages.forEach((t, i) => { if (!(t || "").trim()) empty.push(i + 1); });
-        if (scanned.length) notes.push(`Scanned pages without words: ${scanned.join(", ")} (Read the words of its scanned pages)`);
-        if (empty.length) notes.push(`Empty pages: ${empty.join(", ")}`);
-      } catch (e) { notes.push("Cannot be opened: " + (e.message || e)); }
+        if (scanned.length) notes.push(_t("Scanned pages without words: {0} (Read the words of its scanned pages)", scanned.join(", ")));
+        if (empty.length) notes.push(_t("Empty pages: {0}", empty.join(", ")));
+      } catch (e) { notes.push(_t("Cannot be opened: ") + (e.message || e)); }
     }
-    rows.push({ cells: [f.name, b.name, pagesN, f.size ? fmtSize(f.size) : "", notes.length ? notes.join(" · ") : "All right"], go: where(b, f, 0) });
+    rows.push({ cells: [f.name, b.name, pagesN, f.size ? fmtSize(f.size) : "", notes.length ? notes.join(" · ") : _t("All right")], go: where(b, f, 0) });
   }
-  rows.sort((a, c) => (a.cells[4] === "All right") - (c.cells[4] === "All right"));
-  return { columns: ["File", "Book", "Pages", "Size", "What to look at"], rows };
+  rows.sort((a, c) => (a.cells[4] === _t("All right")) - (c.cells[4] === _t("All right")));
+  return { columns: [_t("File"), _t("Book"), _t("Pages"), _t("Size"), _t("What to look at")], rows };
 }
 
 async function duplicates(scope, progress) {
@@ -496,7 +501,7 @@ async function duplicates(scope, progress) {
   // the same file twice (same contents), or the same name in two books
   const byMd5 = new Map();
   for (const { b, f } of list) if (f.md5) { if (!byMd5.has(f.md5)) byMd5.set(f.md5, []); byMd5.get(f.md5).push({ b, f }); }
-  for (const g of byMd5.values()) if (g.length > 1) for (const { b, f } of g) rows.push({ cells: ["The same file", f.name, `${g.length} copies: ${g.map(x => x.b.name).join(", ")}`, b.name, ""], go: where(b, f, 0) });
+  for (const g of byMd5.values()) if (g.length > 1) for (const { b, f } of g) rows.push({ cells: [_t("The same file"), f.name, _t("{0} copies: {1}", g.length, g.map(x => x.b.name).join(", ")), b.name, ""], go: where(b, f, 0) });
   // the same row in several places (tables only, at least 3 words)
   const seen = new Map();
   for (const [n, { b, f }] of list.entries()) {
@@ -511,8 +516,8 @@ async function duplicates(scope, progress) {
       }
     });
   }
-  for (const g of seen.values()) if (g.length > 1) for (const x of g) rows.push({ cells: ["The same row", x.text, `${g.length} times`, docName(x.f), String(x.page + 1)], go: where(x.b, x.f, x.page, x.text.slice(0, 40)) });
-  return { columns: ["What", "Which", "How many", "Where", "Page"], rows };
+  for (const g of seen.values()) if (g.length > 1) for (const x of g) rows.push({ cells: [_t("The same row"), x.text, _t("{0} times", g.length), docName(x.f), String(x.page + 1)], go: where(x.b, x.f, x.page, x.text.slice(0, 40)) });
+  return { columns: [_t("What"), _t("Which"), _t("How many"), _t("Where"), _t("Page")], rows };
 }
 
 async function person(scope, progress, q) {
@@ -534,7 +539,7 @@ async function person(scope, progress, q) {
       });
     });
   }
-  return { columns: ["Document", "Page", "The line", "Email", "Phone", "Dates"], rows };
+  return { columns: [_t("Document"), _t("Page"), _t("The line"), _t("Email"), _t("Phone"), _t("Dates")], rows };
 }
 
 const SUM_HDR = /\b(amount|total|cost|price|paid|due|balance|fee|fees|charge|importe|precio)\b|€|\$|£|eur\b/i;
@@ -557,18 +562,18 @@ async function money(scope, progress) {
       }
       for (const r of pg.rows) {
         for (const m of allMatches(RE.Amounts, r.text || "")) {
-          const kind = /total/i.test(r.text) ? "Total" : /due|owed|balance|pay/i.test(r.text) ? "Due" : /budget/i.test(r.text) ? "Budget" : "";
+          const kind = /total/i.test(r.text) ? _t("Total") : /due|owed|balance|pay|pendiente|a pagar|adeud|saldo|vencimiento/i.test(r.text) ? _t("Due") : /budget|presupuesto/i.test(r.text) ? _t("Budget") : "";
           rows.push({ cells: [m.v.trim(), kind, r.text, docName(f), String(page + 1)], value: amountValue(m.v), go: where(b, f, page, m.v.trim()) });
         }
       }
     });
   }
-  return { columns: ["Amount", "Kind", "The line", "Document", "Page"], rows };
+  return { columns: [_t("Amount"), _t("Kind"), _t("The line"), _t("Document"), _t("Page")], rows };
 }
 
 async function marks(scope, progress) {
   const rows = [];
-  const names = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: "Drawing", FreeText: "Text", Text: "Note", Square: "Box", Circle: "Circle", Line: "Line", Stamp: "Stamp" };
+  const names = { Highlight: _t("Highlight"), Underline: _t("Underline"), StrikeOut: _t("Strike-out"), Squiggly: _t("Wavy line"), Ink: _t("Drawing"), FreeText: _t("Text"), Text: _t("Note"), Square: _t("Box"), Circle: _t("Circle"), Line: _t("Line"), Stamp: _t("Stamp") };
   const list = filesIn(scope).filter(x => x.f.kind === "pdf");
   for (const [n, { b, f }] of list.entries()) {
     progress(n, list.length, f.name);
@@ -578,7 +583,7 @@ async function marks(scope, progress) {
       }
     } catch (e) {}
   }
-  return { columns: ["Document", "Page", "Mark", "The words", "Date"], rows };
+  return { columns: [_t("Document"), _t("Page"), _t("Mark"), _t("The words"), _t("Date")], rows };
 }
 
 async function extract(kind, scope, progress) {
@@ -611,8 +616,8 @@ async function extract(kind, scope, progress) {
     });
   }
   if (kind === "Dates") rows.sort((a, c) => a.date - c.date);
-  const label = { Emails: "Email", Phones: "Phone", Names: "Name", Addresses: "Address", Dates: "Date", IDs: "Number", Companies: "Company", Links: "Link" }[kind] || kind;
-  return { columns: [label, "The line", "Document", "Page"], rows };
+  const label = { Emails: _t("Email"), Phones: _t("Phone"), Names: _t("Name"), Addresses: _t("Address"), Dates: _t("Date"), IDs: _t("Number"), Companies: _t("Company"), Links: _t("Link") }[kind] || kind;
+  return { columns: [label, _t("The line"), _t("Document"), _t("Page")], rows };
 }
 
 export async function runReport(id, scope, { q = "", progress = () => {} } = {}) {

@@ -6,6 +6,7 @@ import { openMenu } from "./dialogs.jsx";
 import { Icon } from "./icons.jsx";
 import { blobUrl } from "./Viewer.jsx";
 import { download } from "../util.js";
+import { _t } from "../i18n.js";
 
 export const pip = signal(null); // {file, src, t}
 
@@ -46,7 +47,7 @@ export function Gallery({ fileId: fid }) {
   if (!items.length) {
     return (
       <div class="gallery" onClick={close}>
-        <div class="stage"><div style={{ textAlign: "center" }}><Icon n="image" size={40} /><p>{book ? `"${book.name}" has no photos or videos.` : "No photos or videos yet."}</p><button class="btn">Close</button></div></div>
+        <div class="stage"><div style={{ textAlign: "center" }}><Icon n="image" size={40} /><p>{book ? _t("\"{0}\" has no photos or videos.", book.name) : _t("No photos or videos yet.")}</p><button class="btn">{_t("Close")}</button></div></div>
       </div>
     );
   }
@@ -54,13 +55,13 @@ export function Gallery({ fileId: fid }) {
   return (
     <div class="gallery">
       <div class="gtop">
-        <b class="grow ellipsis">{cur.f.name} <span style={{ opacity: .6, fontWeight: 400 }}>· {i + 1} of {items.length}{!book ? " · " + cur.b.name : ""}</span></b>
-        <button class="ib" title={play ? "Stop the slideshow (space)" : "Slideshow (space)"} onClick={() => setPlay(!play)}><Icon n={play ? "pause" : "play"} /></button>
-        <button class="ib" title="Slideshow - how fast" onClick={(e) => openMenu(e, [{ title: "Slideshow - how fast" }, ...[[2, "Quick (2 seconds)"], [3.5, "Normal (3.5 seconds)"], [6, "Slow (6 seconds)"], [10, "Very slow (10 seconds)"]].map(([v, l]) => ({ label: ((settings.value.slideSecs || 3.5) === v ? "✓ " : "") + l, run: () => { setSetting("slideSecs", v); } }))])}><Icon n="clock" /></button>
-        {cur.f.kind === "video" && <button class="ib" title="Play in a corner while you read" onClick={() => { pip.value = { file: cur.f, src: u }; close(); }}><Icon n="pip" /></button>}
-        <button class="ib" title="Download" onClick={async () => { const r = await fetch(u); download(await r.blob(), cur.f.name); }}><Icon n="download" /></button>
-        <button class="ib" title="Full screen" onClick={() => document.documentElement.requestFullscreen?.()}><Icon n="full" /></button>
-        <button class="ib" title="Close (Esc)" onClick={close}><Icon n="close" /></button>
+        <b class="grow ellipsis">{cur.f.name} <span style={{ opacity: .6, fontWeight: 400 }}>· {i + 1} {_t("of")} {items.length}{!book ? " · " + cur.b.name : ""}</span></b>
+        <button class="ib" title={play ? _t("Stop the slideshow (space)") : _t("Slideshow (space)")} onClick={() => setPlay(!play)}><Icon n={play ? "pause" : "play"} /></button>
+        <button class="ib" title={_t("Slideshow - how fast")} onClick={(e) => openMenu(e, [{ title: _t("Slideshow - how fast") }, ...[[2, _t("Quick (2 seconds)")], [3.5, _t("Normal (3.5 seconds)")], [6, _t("Slow (6 seconds)")], [10, _t("Very slow (10 seconds)")]].map(([v, l]) => ({ label: ((settings.value.slideSecs || 3.5) === v ? "✓ " : "") + l, run: () => { setSetting("slideSecs", v); } }))])}><Icon n="clock" /></button>
+        {cur.f.kind === "video" && <button class="ib" title={_t("Play in a corner while you read")} onClick={() => { pip.value = { file: cur.f, src: u }; close(); }}><Icon n="pip" /></button>}
+        <button class="ib" title={_t("Download")} onClick={async () => { const r = await fetch(u); download(await r.blob(), cur.f.name); }}><Icon n="download" /></button>
+        <button class="ib" title={_t("Full screen")} onClick={() => document.documentElement.requestFullscreen?.()}><Icon n="full" /></button>
+        <button class="ib" title={_t("Close (Esc)")} onClick={close}><Icon n="close" /></button>
       </div>
       <div class="stage">
         {!u ? <div class="spinner" /> : cur.f.kind === "video" ? <video src={u} controls autoPlay playsInline style={{ maxWidth: "92%", maxHeight: "100%" }} /> : <img src={u} alt={cur.f.name} />}
@@ -93,8 +94,8 @@ export function Pip() {
     <div class="pip" ref={ref} style={pos ? { left: pos.x + "px", top: pos.y + "px", right: "auto", bottom: "auto" } : null}>
       <video src={p.src} controls autoPlay playsInline onLoadedMetadata={(e) => { if (p.t) e.target.currentTime = p.t; }} />
       <div class="bar" onPointerDown={startDrag}>
-        <button class="ib" title="Big" onClick={() => { panel.value = { type: "gallery", fileId: p.file.id }; pip.value = null; }}><Icon n="expand" size={16} /></button>
-        <button class="ib" title="Close" onClick={() => { pip.value = null; }}><Icon n="close" size={16} /></button>
+        <button class="ib" title={_t("Big")} onClick={() => { panel.value = { type: "gallery", fileId: p.file.id }; pip.value = null; }}><Icon n="expand" size={16} /></button>
+        <button class="ib" title={_t("Close")} onClick={() => { pip.value = null; }}><Icon n="close" size={16} /></button>
       </div>
       {void toast}
     </div>

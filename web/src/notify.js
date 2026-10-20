@@ -3,6 +3,7 @@
 import { settings, toast, openBook, locked } from "./state.js";
 import { needsNow, itemKey } from "./reports/dates.js";
 import { isoDate } from "./util.js";
+import { _t } from "./i18n.js";
 
 export const canNotify = typeof window !== "undefined" && "Notification" in window;
 
@@ -28,7 +29,7 @@ export async function checkNow() {
     if (it.days > 1 || it.days < -1) continue;
     const k = it.id ? "m:" + it.id : itemKey(it);
     if (s[k] === today) continue;
-    const when = it.days === 0 ? "Today" : it.days === 1 ? "Tomorrow" : "Yesterday";
+    const when = it.days === 0 ? _t("Today") : it.days === 1 ? _t("Tomorrow") : _t("Yesterday");
     await show(`${when}: ${it.what}`, [it.file ? it.file.replace(/\.[^.]+$/, "") : "", it.line].filter(Boolean).join(" - ").slice(0, 180), k);
     mark(k); n++;
     if (n >= 4) break;
@@ -45,9 +46,9 @@ export function startNotifications() {
 }
 
 export async function turnOn() {
-  if (!canNotify) { toast("This browser cannot show notifications."); return false; }
+  if (!canNotify) { toast(_t("This browser cannot show notifications.")); return false; }
   const p = await Notification.requestPermission();
-  if (p !== "granted") { toast("The browser said no. Allow notifications for bindlens.com in its settings, then try again.", "", 6000); return false; }
+  if (p !== "granted") { toast(_t("The browser said no. Allow notifications for bindlens.com in its settings, then try again."), "", 6000); return false; }
   return true;
 }
 

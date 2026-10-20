@@ -23,25 +23,26 @@ import { CommentsDrawer } from "./Comments.jsx";
 import { Ribbon } from "./Ribbon.jsx";
 import { AloudPlayer, toggleAloud } from "./Aloud.jsx";
 import { addGooglePages, openBeside } from "./AddPages.jsx";
+import { _t, loc, _tv } from "../i18n.js";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
   // a tool goes back to the arrow after one use; a double-click keeps it on (lock)
-  return <button class={"ib" + (on ? " on" : "") + (on && lock && toolLock.value ? " locked" : "")} title={label + (lock ? " - double-click: keep it on" : "")} aria-label={label}
+  return <button class={"ib" + (on ? " on" : "") + (on && lock && toolLock.value ? " locked" : "")} title={label + (lock ? _t(" - double-click: keep it on") : "")} aria-label={label}
     onClick={onClick} disabled={disabled} onContextMenu={onContextMenu}
-    onDblClick={lock ? () => { tool.value = lock; toolLock.value = true; toast("It stays on until you choose the arrow."); } : undefined}><Icon n={n} />{children}</button>;
+    onDblClick={lock ? () => { tool.value = lock; toolLock.value = true; toast(_t("It stays on until you choose the arrow.")); } : undefined}><Icon n={n} />{children}</button>;
 }
 
 // "Saved · 22:41" - always there, quiet; red when something did not save
 function SaveState() {
   const s = saving.value;
   const demo = store.value.kind === "demo";
-  const at = s.last ? new Date(s.last).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const at = s.last ? new Date(s.last).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" }) : "";
   const where = store.value.kind === "onedrive" ? "OneDrive" : "Google Drive";
-  if (offline.value.on || offline.value.waiting) return <span class="savestate off" title="No network: your changes are kept in this browser and go up to your Drive when the network is back"><Icon n="wifi" size={14} />{offline.value.waiting ? `Offline · ${offline.value.waiting} to save` : "Offline"}</span>;
-  if (s.error) return <span class="savestate bad" title={s.error}><Icon n="x" size={14} />Not saved</span>;
-  if (s.n) return <span class="savestate busy" title={"Saving in your " + where}><span class="sdot" />Saving</span>;
-  if (demo) return <span class="savestate" title="The example library: nothing is saved">Example</span>;
-  return <span class="savestate" title={s.last ? `Everything is saved in your ${where} (${at})` : `Saved in your ${where}`}><Icon n="check" size={14} />{s.last ? "Saved · " + at : "Saved"}</span>;
+  if (offline.value.on || offline.value.waiting) return <span class="savestate off" title={_t("No network: your changes are kept in this browser and go up to your Drive when the network is back")}><Icon n="wifi" size={14} />{offline.value.waiting ? _t("Offline · {0} to save", offline.value.waiting) : _t("Offline")}</span>;
+  if (s.error) return <span class="savestate bad" title={s.error}><Icon n="x" size={14} />{_t("Not saved")}</span>;
+  if (s.n) return <span class="savestate busy" title={_t("Saving in your ") + where}><span class="sdot" />{_t("Saving")}</span>;
+  if (demo) return <span class="savestate" title={_t("The example library: nothing is saved")}>{_t("Example")}</span>;
+  return <span class="savestate" title={s.last ? _t("Everything is saved in your {0} ({1})", where, at) : _t("Saved in your {0}", where)}><Icon n="check" size={14} />{s.last ? _t("Saved · ") + at : _t("Saved")}</span>;
 }
 
 function TopBar({ book }) {
@@ -49,38 +50,38 @@ function TopBar({ book }) {
   const m = toolMenus(book);
   if (narrow.value) {
     // on a phone: the tools in one button, the rest under "more"
-    const TOOLS = [["select", "select", "Select and move"], ["pen", "pen", "Pen"], ["highlight", "highlighter", "Highlighter"],
-      ["text", "text", "Text"], ["note", "note", "Sticky note"], ["tick", "tick", "Tick"], ["cross", "cross", "Cross"],
-      ["edit", "textedit", "Change the text"], ["eraser", "eraser", "Eraser"]];
-    const cur = TOOLS.find(x => x[0] === t) || (t === "shape" ? ["shape", "shape", "Shapes"] : t === "stamp" ? ["stamp", "stamp", "Stamp"] : t === "sign" ? ["sign", "sign", "Signature"] : TOOLS[0]);
+    const TOOLS = [["select", "select", _t("Select and move")], ["pen", "pen", _t("Pen")], ["highlight", "highlighter", _t("Highlighter")],
+      ["text", "text", _t("Text")], ["note", "note", _t("Sticky note")], ["tick", "tick", _t("Tick")], ["cross", "cross", _t("Cross")],
+      ["edit", "textedit", _t("Change the text")], ["eraser", "eraser", _t("Eraser")]];
+    const cur = TOOLS.find(x => x[0] === t) || (t === "shape" ? ["shape", "shape", _t("Shapes")] : t === "stamp" ? ["stamp", "stamp", _t("Stamp")] : t === "sign" ? ["sign", "sign", _t("Signature")] : TOOLS[0]);
     return (
       <div class="topbar">
-        <T n="sidebar" label="Library" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
-        <T n="home" label="Home" onClick={goHome} />
-        <button class="ib on" title="Tool" onClick={(e) => openMenu(e, [
+        <T n="sidebar" label={_t("Library")} on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
+        <T n="home" label={_t("Home")} onClick={goHome} />
+        <button class="ib on" title={_t("Tool")} onClick={(e) => openMenu(e, [
           ...TOOLS.map(([k, icon, label]) => ({ label, icon, run: () => setTool(k) })),
-          { label: "Shapes...", icon: "shape", run: () => m.shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
-          { label: "Stamps and signature...", icon: "stamp", run: () => m.stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+          { label: _t("Shapes..."), icon: "shape", run: () => m.shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
+          { label: _t("Stamps and signature..."), icon: "stamp", run: () => m.stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
         ])}><Icon n={cur[1]} /></button>
-        <button class="ib" title="Colours" onClick={m.colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
-        <T n="undo" label="Undo" onClick={undo} disabled={!undoStack.value.length} />
+        <button class="ib" title={_t("Colours")} onClick={m.colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
+        <T n="undo" label={_t("Undo")} onClick={undo} disabled={!undoStack.value.length} />
         <span class="grow" />
-        <T n="search" label="Find" onClick={() => openPanel("find")} />
-        <T n="addpage" label="Add pages, files, a scan" onClick={m.addMenu} />
-        <button class="ib" title="More" onClick={(e) => openMenu(e, [
-          { label: readMode.value ? "Leave reading mode" : "Reading mode", icon: "read", run: () => { readMode.value = !readMode.value; } },
-          { label: "Redo", icon: "redo", run: redo },
-          { label: "Reports", icon: "reports", run: () => openPanel("reports") },
-          { label: "What needs you", icon: "clock", run: () => openPanel("dates") },
-          { label: "Comments", icon: "comment", run: () => { commentsOpen.value = {}; } },
-          { label: "Tasks", icon: "task", run: () => openPanel("tasks") },
-          { label: "Share this book...", icon: "share", run: () => openPanel("share", { id: book.id }) },
-          { label: "Photos as a gallery", icon: "image", run: () => openPanel("gallery") },
-          { label: "Print", icon: "print", run: () => openPanel("print") },
+        <T n="search" label={_t("Find")} onClick={() => openPanel("find")} />
+        <T n="addpage" label={_t("Add pages, files, a scan")} onClick={m.addMenu} />
+        <button class="ib" title={_t("More")} onClick={(e) => openMenu(e, [
+          { label: readMode.value ? _t("Leave reading mode") : _t("Reading mode"), icon: "read", run: () => { readMode.value = !readMode.value; } },
+          { label: _t("Redo"), icon: "redo", run: redo },
+          { label: _t("Reports"), icon: "reports", run: () => openPanel("reports") },
+          { label: _t("What needs you"), icon: "clock", run: () => openPanel("dates") },
+          { label: _t("Comments"), icon: "comment", run: () => { commentsOpen.value = {}; } },
+          { label: _t("Tasks"), icon: "task", run: () => openPanel("tasks") },
+          { label: _t("Share this book..."), icon: "share", run: () => openPanel("share", { id: book.id }) },
+          { label: _t("Photos as a gallery"), icon: "image", run: () => openPanel("gallery") },
+          { label: _t("Print"), icon: "print", run: () => openPanel("print") },
           "-",
-          { label: "Settings", icon: "settings", run: () => openPanel("settings") },
-          { label: "Help", icon: "help", run: () => openPanel("help") },
-          { label: "Send feedback...", icon: "feedback", run: () => openPanel("feedback") },
+          { label: _t("Settings"), icon: "settings", run: () => openPanel("settings") },
+          { label: _t("Help"), icon: "help", run: () => openPanel("help") },
+          { label: _t("Send feedback..."), icon: "feedback", run: () => openPanel("feedback") },
         ])}><Icon n="more" /></button>
       </div>
     );
@@ -89,18 +90,18 @@ function TopBar({ book }) {
   const onFrame = frameBarOn();
   return (
     <div class={"topbar slim" + (onFrame ? "" : " withtools")}>
-      <button class="brand" onClick={goHome} title="Home"><Logo size={36} still /></button>
-      <T n="home" label="Home" onClick={goHome} />
-      <T n="sidebar" label="Library (show / hide)" on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
+      <button class="brand" onClick={goHome} title={_t("Home")}><Logo size={36} still /></button>
+      <T n="home" label={_t("Home")} onClick={goHome} />
+      <T n="sidebar" label={_t("Library (show / hide)")} on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
       <span class="crumb" title={book.name}><BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={22} /><b class="ellipsis">{book.name}</b><Icon n="right" size={13} /></span>
       <DocSwitch book={book} />
       {!onFrame && <RowTools book={book} />}
       <span class="grow" />
-      <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}><Icon n="search" size={16} /><span class="ellipsis">Find anything</span><kbd>Ctrl+K</kbd></div>
+      <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}><Icon n="search" size={16} /><span class="ellipsis">{_t("Find anything")}</span><kbd>{_t("Ctrl+K")}</kbd></div>
       <SaveState />
-      <button class="btn ghost small" title="Add pages, files, a scan, a written page" onClick={m.addMenu}><Icon n="plus" size={16} />Add</button>
-      <button class={"btn small " + (readMode.value ? "" : "ghost")} title="Reading mode: the page, the contents, calm" onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={16} />Read</button>
-      <T n="print" label="Print (Ctrl+P)" onClick={() => openPanel("print")} />
+      <button class="btn ghost small" title={_t("Add pages, files, a scan, a written page")} onClick={m.addMenu}><Icon n="plus" size={16} />{_t("Add")}</button>
+      <button class={"btn small " + (readMode.value ? "" : "ghost")} title={_t("Reading mode: the page, the contents, calm")} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={16} />{_t("Read")}</button>
+      <T n="print" label={_t("Print (Ctrl+P)")} onClick={() => openPanel("print")} />
       <FullButton small />
       <AccountButton />
     </div>
@@ -115,7 +116,7 @@ async function addBlankPage() {
   const at = pageNo.value + 1;
   await pageOp(f, "insertBlank", at, 1, Math.round(p.w), Math.round(p.h), "blank");
   pageNo.value = at; setTimeout(() => { scrollTo.value = { fileId: f.id, page: at }; }, 160);
-  toast(`A blank page is after page ${at}. Ctrl+Z takes it out.`, "ok");
+  toast(_t("A blank page is after page {0}. Ctrl+Z takes it out.", at), "ok");
 }
 
 function Rail({ book }) {
@@ -125,7 +126,7 @@ function Rail({ book }) {
         <button key={b.id} class={"tab" + (b.id === book.id ? " on" : "")} title={b.name}
           onClick={() => openBook(b.id)} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={{ ...bookMeta(b.id), tstyle: "flat" }} size={34} /></button>
       ))}
-      <button class="ib" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
+      <button class="ib" title={_t("New book")} onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
     </div>
   );
 }
@@ -138,7 +139,7 @@ function FileRow({ book, f, cur, indent }) {
       onClick={() => { fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; if (isPhone()) leftOpen.value = false; }}
       onContextMenu={(e) => { e.preventDefault(); fileMenu(e, book, f); }}>
       <span class="ico"><Icon n={/\.eml$/i.test(f.name) ? "mail" : fileIcon(f.kind)} size={18} /></span>
-      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {tag}</span>}</span>
+      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {_tv(tag)}</span>}</span>
       <span class="n">{st?.pages ? st.pages.length : ""}</span>
       <span class="ib" style={{ width: 26, height: 26 }} onClick={(e) => { e.stopPropagation(); fileMenu(e, book, f); }}><Icon n="more" size={16} /></span>
     </button>
@@ -148,12 +149,12 @@ function FileRow({ book, f, cur, indent }) {
 function subMenu(e, book, sub) {
   openMenu(e, [
     { title: sub.path },
-    { label: "Open this sub-book", icon: "book", run: () => { subView.value = { book: book.id, path: sub.path }; const f = visibleFiles(book)[0]; if (f) { fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; } } },
-    { label: "Add files here...", icon: "upload", run: async () => uploadFiles(book, await pickFiles(), { open: false, parent: sub.id }) },
-    { label: "New sub-book inside...", icon: "plus", run: () => newSubBook(book, sub) },
-    { label: "Rename...", icon: "rename", run: () => renameSub(book, sub) },
+    { label: _t("Open this sub-book"), icon: "book", run: () => { subView.value = { book: book.id, path: sub.path }; const f = visibleFiles(book)[0]; if (f) { fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; } } },
+    { label: _t("Add files here..."), icon: "upload", run: async () => uploadFiles(book, await pickFiles(), { open: false, parent: sub.id }) },
+    { label: _t("New sub-book inside..."), icon: "plus", run: () => newSubBook(book, sub) },
+    { label: _t("Rename..."), icon: "rename", run: () => renameSub(book, sub) },
     "-",
-    { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteSub(book, sub) },
+    { label: _t("Move to the bin"), icon: "trash", danger: true, run: () => deleteSub(book, sub) },
   ]);
 }
 
@@ -186,10 +187,10 @@ function FilesList({ book }) {
   }
   return (
     <div class="list">
-      {sv && <div class="row small" style={{ padding: "2px 6px 6px" }}><Icon n="book" size={15} /><span class="grow ellipsis">Only <b>{sv}</b></span><button class="btn plain small" onClick={() => { subView.value = null; }}>Show all the book</button></div>}
-      {filter && <div class="row small" style={{ padding: "2px 6px 6px" }}><span class="grow">Only files marked <b style={{ color: statusColor(filter) }}>{filter}</b></span><button class="btn plain small" onClick={() => setSetting("fileFilter", "")}>All files</button></div>}
-      {!book.files.length && <p class="small muted" style={{ padding: 8 }}>No files yet.</p>}
-      {book.files.length > 0 && !files.length && <p class="small muted" style={{ padding: 8 }}>No files here.</p>}
+      {sv && <div class="row small" style={{ padding: "2px 6px 6px" }}><Icon n="book" size={15} /><span class="grow ellipsis">{_t("Only")} <b>{sv}</b></span><button class="btn plain small" onClick={() => { subView.value = null; }}>{_t("Show all the book")}</button></div>}
+      {filter && <div class="row small" style={{ padding: "2px 6px 6px" }}><span class="grow">{_t("Only files marked")} <b style={{ color: statusColor(filter) }}>{_tv(filter)}</b></span><button class="btn plain small" onClick={() => setSetting("fileFilter", "")}>{_t("All files")}</button></div>}
+      {!book.files.length && <p class="small muted" style={{ padding: 8 }}>{_t("No files yet.")}</p>}
+      {book.files.length > 0 && !files.length && <p class="small muted" style={{ padding: 8 }}>{_t("No files here.")}</p>}
       {out}
     </div>
   );
@@ -198,17 +199,17 @@ function FilesList({ book }) {
 function statusItems(f) {
   const cur = statusOf(f.id);
   return [
-    ...STATUSES.map(([name, col]) => ({ label: (cur === name ? "✓ " : "") + name, color: col, run: () => setStatus(f.id, name) })),
-    { label: "Your own...", icon: "rename", run: async () => { const t = await ask("Status", { label: `The status of "${f.name}"`, value: cur, ok: "Set it" }); if (t) setStatus(f.id, t.slice(0, 20)); } },
+    ...STATUSES.map(([name, col]) => ({ label: (cur === name ? "✓ " : "") + _tv(name), color: col, run: () => setStatus(f.id, name) })),
+    { label: _t("Your own..."), icon: "rename", run: async () => { const t = await ask(_t("Status"), { label: _t("The status of \"{0}\"", f.name), value: cur, ok: _t("Set it") }); if (t) setStatus(f.id, t.slice(0, 20)); } },
     "-",
-    { label: "No status", run: () => setStatus(f.id, "") },
+    { label: _t("No status"), run: () => setStatus(f.id, "") },
   ];
 }
 
 async function editWritten(f, page) {
   const d = await getDoc(f);
   const w = await call("writtenAt", d.key, page);
-  if (!w) { toast("This page was not written in BindLens, so it has no words to open in Write. Use Change the text instead."); return; }
+  if (!w) { toast(_t("This page was not written in BindLens, so it has no words to open in Write. Use Change the text instead.")); return; }
   openPanel("write", { edit: { fileId: f.id, start: w.start, n: w.n, html: w.html } });
 }
 
@@ -217,56 +218,56 @@ function fileMenu(e, book, f) {
   const pdf = f.kind === "pdf";
   openMenu(e, [
     { title: f.name },
-    { label: "Status" + (statusOf(f.id) ? ": " + statusOf(f.id) : ""), icon: "check", sub: statusItems(f) },
-    { label: "Rename", icon: "rename", run: () => renameFile(book, f) },
-    { label: "Move up", icon: "up", run: () => moveFileInBook(book, f, -1) },
-    { label: "Move down", icon: "down", run: () => moveFileInBook(book, f, 1) },
-    (book.subs || []).length > 0 && { label: "Move to a sub-book", icon: "book", sub: [
-      f.sub && { label: "The top of the book", run: () => moveFileToSub(book, f, null) },
+    { label: _t("Status") + (statusOf(f.id) ? ": " + _tv(statusOf(f.id)) : ""), icon: "check", sub: statusItems(f) },
+    { label: _t("Rename"), icon: "rename", run: () => renameFile(book, f) },
+    { label: _t("Move up"), icon: "up", run: () => moveFileInBook(book, f, -1) },
+    { label: _t("Move down"), icon: "down", run: () => moveFileInBook(book, f, 1) },
+    (book.subs || []).length > 0 && { label: _t("Move to a sub-book"), icon: "book", sub: [
+      f.sub && { label: _t("The top of the book"), run: () => moveFileToSub(book, f, null) },
       ...book.subs.filter(sb => sb.path !== f.sub).map(sb => ({ label: sb.path, icon: "book", run: () => moveFileToSub(book, f, sb) })),
     ] },
-    others.length > 0 && { label: "Move to another book", icon: "right", sub: others.map(b => ({ label: b.name, swatch: b.color, run: () => moveFileTo(book, f, b) })) },
+    others.length > 0 && { label: _t("Move to another book"), icon: "right", sub: others.map(b => ({ label: b.name, swatch: b.color, run: () => moveFileTo(book, f, b) })) },
     "-",
-    pdf && { label: "Edit this written page...", icon: "edit", run: () => editWritten(f, f.id === fileId.value ? pageNo.value : 0) },
-    pdf && { label: "Pages and copies", icon: "grid", sub: [
-      { label: "Save pages as a new PDF...", icon: "copy", run: () => FT.savePagesAsPdf(f, f.id === fileId.value ? pageNo.value : 0) },
-      { label: "Split into one PDF per page...", icon: "grid", run: () => FT.splitFile(f) },
-      { label: "Add pages from another PDF...", icon: "addpage", run: async () => FT.addPagesFromPdf(f, (await getDoc(f)).pages.length) },
-      { label: "Watermark...", icon: "type", run: () => FT.watermark(f) },
-      { label: "Make this file smaller... (pictures, scans)", icon: "download", run: () => FT.makeSmaller(f) },
-      { label: "Deleted pages... (put a page back)", icon: "undo", run: () => openPanel("deleted", { fileId: f.id }) },
+    pdf && { label: _t("Edit this written page..."), icon: "edit", run: () => editWritten(f, f.id === fileId.value ? pageNo.value : 0) },
+    pdf && { label: _t("Pages and copies"), icon: "grid", sub: [
+      { label: _t("Save pages as a new PDF..."), icon: "copy", run: () => FT.savePagesAsPdf(f, f.id === fileId.value ? pageNo.value : 0) },
+      { label: _t("Split into one PDF per page..."), icon: "grid", run: () => FT.splitFile(f) },
+      { label: _t("Add pages from another PDF..."), icon: "addpage", run: async () => FT.addPagesFromPdf(f, (await getDoc(f)).pages.length) },
+      { label: _t("Watermark..."), icon: "type", run: () => FT.watermark(f) },
+      { label: _t("Make this file smaller... (pictures, scans)"), icon: "download", run: () => FT.makeSmaller(f) },
+      { label: _t("Deleted pages... (put a page back)"), icon: "undo", run: () => openPanel("deleted", { fileId: f.id }) },
     ] },
-    pdf && { label: "Copy with a password...", icon: "lock", run: () => openPanel("protect", { fileId: f.id }) },
-    pdf && { label: "Read-only copy...", icon: "lock", run: () => openPanel("protect", { fileId: f.id, readOnly: true }) },
-    { label: "Earlier versions...", icon: "clock", run: () => openPanel("versions", { fileId: f.id }) },
-    isPaged(f.kind) && f.kind !== "image" && { label: "Compare with another document", icon: "copy", sub: [
+    pdf && { label: _t("Copy with a password..."), icon: "lock", run: () => openPanel("protect", { fileId: f.id }) },
+    pdf && { label: _t("Read-only copy..."), icon: "lock", run: () => openPanel("protect", { fileId: f.id, readOnly: true }) },
+    { label: _t("Earlier versions..."), icon: "clock", run: () => openPanel("versions", { fileId: f.id }) },
+    isPaged(f.kind) && f.kind !== "image" && { label: _t("Compare with another document"), icon: "copy", sub: [
       ...book.files.filter(x => x.id !== f.id && isPaged(x.kind) && x.kind !== "image").map(x => ({ label: x.name, icon: fileIcon(x.kind), run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) })),
       ...books.value.filter(b2 => b2.id !== book.id && b2.files.some(x => isPaged(x.kind) && x.kind !== "image")).map(b2 => ({ label: b2.name, swatch: b2.color, sub: b2.files.filter(x => isPaged(x.kind) && x.kind !== "image").map(x => ({ label: x.name, icon: fileIcon(x.kind), run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) })) })),
     ] },
-    { label: "Print...", icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
-    { label: "Send by email...", icon: "mail", run: () => FT.sendFile(f) },
-    { label: "Download a copy", icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
-    f.kind === "gdoc" && store.value.editLink && { label: "Edit it in Google", icon: "edit", run: () => openBeside(store.value.editLink(/spreadsheet/.test(f.mime) ? "sheet" : /presentation/.test(f.mime) ? "slides" : "doc", f.id)) },
-    f.kind === "gdoc" && { label: "Show it as it is now", icon: "rotate", run: () => refreshGoogle(f, true) },
-    store.value.cloud && { label: "Open in " + store.value.cloud, icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
-    f.kind === "image" && { label: "Open the photos as a gallery", icon: "image", run: () => openPanel("gallery", { fileId: f.id }) },
-    pdf && { label: "Make scanned pages searchable (OCR)", icon: "type", run: async () => {
+    { label: _t("Print..."), icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
+    { label: _t("Send by email..."), icon: "mail", run: () => FT.sendFile(f) },
+    { label: _t("Download a copy"), icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
+    f.kind === "gdoc" && store.value.editLink && { label: _t("Edit it in Google"), icon: "edit", run: () => openBeside(store.value.editLink(/spreadsheet/.test(f.mime) ? "sheet" : /presentation/.test(f.mime) ? "slides" : "doc", f.id)) },
+    f.kind === "gdoc" && { label: _t("Show it as it is now"), icon: "rotate", run: () => refreshGoogle(f, true) },
+    store.value.cloud && { label: _t("Open in ") + store.value.cloud, icon: "drive", run: () => window.open(store.value.webLink(f), "_blank") },
+    f.kind === "image" && { label: _t("Open the photos as a gallery"), icon: "image", run: () => openPanel("gallery", { fileId: f.id }) },
+    pdf && { label: _t("Make scanned pages searchable (OCR)"), icon: "type", run: async () => {
       const { readScannedDoc } = await import("../ocr.js");
-      toast("Reading the scanned pages (it takes a moment)...");
+      toast(_t("Reading the scanned pages (it takes a moment)..."));
       const n = await readScannedDoc(f);
-      toast(n ? `${n} words read in "${f.name}".` : `"${f.name}" has no scanned pages without words.`, n ? "ok" : "");
+      toast(n ? _t("{0} words read in \"{1}\".", n, f.name) : _t("\"{0}\" has no scanned pages without words.", f.name), n ? "ok" : "");
     } },
-    store.value.officePdf && ["word", "excel", "powerpoint"].includes(f.kind) && { label: (settings.value.googleLook || {})[f.id] ? "Show it BindLens's own way (quicker)" : `Show it as it looks (${store.value.kind === "drive" ? "Google" : "OneDrive"} converts it)`, icon: "eye", run: async () => {
+    store.value.officePdf && ["word", "excel", "powerpoint"].includes(f.kind) && { label: (settings.value.googleLook || {})[f.id] ? _t("Show it BindLens's own way (quicker)") : _t("Show it as it looks ({0} converts it)", store.value.kind === "drive" ? _t("Google") : _t("OneDrive")), icon: "eye", run: async () => {
       const g = { ...(settings.value.googleLook || {}) };
       if (g[f.id]) delete g[f.id]; else g[f.id] = true;
       setSetting("googleLook", g);
       const { reopen, notifyChanged } = await import("../docs.js");
-      toast(g[f.id] ? `Asking ${store.value.cloud} to show it as it looks...` : "BindLens shows it its own way.");
+      toast(g[f.id] ? _t("Asking {0} to show it as it looks...", store.value.cloud) : _t("BindLens shows it its own way."));
       await reopen(f); notifyChanged(f.id, "pages");
     } },
     "-",
-    store.value.kind !== "onedrive" && { label: "Take it out of this book (it stays in your Drive)", icon: "logout", run: () => releaseFile(book, f) },
-    { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteFile(book, f) },
+    store.value.kind !== "onedrive" && { label: _t("Take it out of this book (it stays in your Drive)"), icon: "logout", run: () => releaseFile(book, f) },
+    { label: _t("Move to the bin"), icon: "trash", danger: true, run: () => deleteFile(book, f) },
   ]);
 }
 
@@ -286,15 +287,15 @@ function MarksList({ book }) {
     return () => { alive = false; };
   }, [book.id, vs]);
   if (!list) return <div class="list"><div class="spinner" /></div>;
-  if (!list.length) return <div class="list"><p class="small muted" style={{ padding: 8 }}>No marks yet. Use the highlighter, the pen or a sticky note on any PDF page.</p></div>;
-  const label = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: "Drawing", FreeText: "Text", Text: "Note", Square: "Box", Circle: "Circle", Line: "Line", Stamp: "Stamp" };
+  if (!list.length) return <div class="list"><p class="small muted" style={{ padding: 8 }}>{_t("No marks yet. Use the highlighter, the pen or a sticky note on any PDF page.")}</p></div>;
+  const label = { Highlight: _t("Highlight"), Underline: _t("Underline"), StrikeOut: _t("Strike-out"), Squiggly: _t("Wavy line"), Ink: _t("Drawing"), FreeText: _t("Text"), Text: _t("Note"), Square: _t("Box"), Circle: _t("Circle"), Line: _t("Line"), Stamp: _t("Stamp") };
   return (
     <div class="list">
       <div class="row marks-export">
-        <span class="tiny muted grow">{list.length} marks</span>
-        <button class="btn plain small" title="Your highlights and notes as a Word file" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "word")}><Icon n="word" size={14} />Word</button>
-        <button class="btn plain small" title="As a PDF" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "pdf")}><Icon n="pdf" size={14} />PDF</button>
-        {store.value.createConverted && <button class="btn plain small" title="As a Google Doc, to keep writing" onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast("Google: " + e.message, "bad"))}><Icon n="drive" size={14} />Docs</button>}
+        <span class="tiny muted grow">{list.length} {_t("marks")}</span>
+        <button class="btn plain small" title={_t("Your highlights and notes as a Word file")} onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "word")}><Icon n="word" size={14} />{_t("Word")}</button>
+        <button class="btn plain small" title={_t("As a PDF")} onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "pdf")}><Icon n="pdf" size={14} />{_t("PDF")}</button>
+        {store.value.createConverted && <button class="btn plain small" title={_t("As a Google Doc, to keep writing")} onClick={async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast(_t("Google: ") + e.message, "bad"))}><Icon n="drive" size={14} />{_t("Docs")}</button>}
       </div>
       {list.map((m, i) => (
         <button key={i} class="mark-row" onClick={() => { scrollTo.value = { fileId: m.file.id, page: m.page, y: m.rect[1] }; selectedMark.value = { fileId: m.file.id, ...m }; }}>
@@ -332,12 +333,12 @@ function SearchList({ book }) {
   return (
     <div class="list">
       <div class="row" style={{ padding: "4px 2px 8px" }}>
-        <input class="field" placeholder="Find in this book" value={q} onInput={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") run(); }} />
-        <button class="btn small" onClick={run}>Find</button>
+        <input class="field" placeholder={_t("Find in this book")} value={q} onInput={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") run(); }} />
+        <button class="btn small" onClick={run}>{_t("Find")}</button>
       </div>
       {busy && <div class="spinner" />}
-      {h && !busy && <p class="tiny muted" style={{ padding: "0 6px" }}>{h.list.length ? `${h.list.reduce((a, x) => a + x.count, 0)} found on ${h.list.length} page${h.list.length === 1 ? "" : "s"}` : "Not found in this book."}
-        {h.list.length > 0 && <button class="btn plain small" onClick={() => { searchHits.value = null; setQ(""); }}>Clear</button>}</p>}
+      {h && !busy && <p class="tiny muted" style={{ padding: "0 6px" }}>{h.list.length ? _t("{0} found on {1} page{2}", h.list.reduce((a, x) => a + x.count, 0), h.list.length, h.list.length === 1 ? "" : "s") : _t("Not found in this book.")}
+        {h.list.length > 0 && <button class="btn plain small" onClick={() => { searchHits.value = null; setQ(""); }}>{_t("Clear")}</button>}</p>}
       {h && h.list.map((it, i) => (
         <button key={i} class={"filerow" + (h.cur === it ? " on" : "")} onClick={() => { searchHits.value = { ...h, cur: it }; scrollTo.value = { fileId: it.fileId, page: it.page, y: it.quads[0]?.[1] }; }}>
           <span class="grow ellipsis">{it.file}</span><span class="n">p. {it.page + 1} · {it.count}</span>
@@ -358,25 +359,25 @@ function Side({ book }) {
   const tab = sideTab.value;
   const bookMenu = (e, b) => openMenu(e, [
     { title: b.name },
-    { label: "Rename", icon: "rename", run: () => renameBook(b) },
-    { label: "Icon and colour...", icon: "palette", run: () => openPanel("bookstyle", { id: b.id }) },
-    { label: "New sub-book...", icon: "plus", run: () => newSubBook(b) },
-    { label: "Add a folder as a sub-book...", icon: "book", run: () => addFolder(b) },
-    { label: "Save the whole book as one PDF...", icon: "download", run: () => FT.wholeBookAsPdf(b) },
-    { label: bookMeta(b.id).locked ? "Open it without the PIN" : "Lock it with the PIN", icon: "lock", run: () => toggleBookLock(b) },
-    { title: "Colour" },
+    { label: _t("Rename"), icon: "rename", run: () => renameBook(b) },
+    { label: _t("Icon and colour..."), icon: "palette", run: () => openPanel("bookstyle", { id: b.id }) },
+    { label: _t("New sub-book..."), icon: "plus", run: () => newSubBook(b) },
+    { label: _t("Add a folder as a sub-book..."), icon: "book", run: () => addFolder(b) },
+    { label: _t("Save the whole book as one PDF..."), icon: "download", run: () => FT.wholeBookAsPdf(b) },
+    { label: bookMeta(b.id).locked ? _t("Open it without the PIN") : _t("Lock it with the PIN"), icon: "lock", run: () => toggleBookLock(b) },
+    { title: _t("Colour") },
     ...BOOK_COLORS.slice(0, 8).map(c => ({ label: "", swatch: c, run: () => setBookColor(b, c) })),
     "-",
-    store.value.kind !== "onedrive" && { label: "Take it out of BindLens (it stays in your Drive)", icon: "logout", run: () => releaseBook(b) },
-    { label: "Move to the bin", icon: "trash", danger: true, run: () => deleteBook(b) },
+    store.value.kind !== "onedrive" && { label: _t("Take it out of BindLens (it stays in your Drive)"), icon: "logout", run: () => releaseBook(b) },
+    { label: _t("Move to the bin"), icon: "trash", danger: true, run: () => deleteBook(b) },
   ]);
   return (
     <div class={"side" + (leftOpen.value ? "" : " closed")}>
       <div class="head">
-        <h3>Library</h3><span class="tiny muted">{books.value.length} books · {books.value.reduce((a, b) => a + b.files.length, 0)} files</span>
+        <h3>{_t("Library")}</h3><span class="tiny muted">{books.value.length} {_t("books ·")} {books.value.reduce((a, b) => a + b.files.length, 0)} {_t("files")}</span>
         <span class="grow" />
-        <button class="ib" title="Up to date with my Drive" onClick={refresh}><Icon n="rotate" size={17} /></button>
-        <button class="ib" title="New book" onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
+        <button class="ib" title={_t("Up to date with my Drive")} onClick={refresh}><Icon n="rotate" size={17} /></button>
+        <button class="ib" title={_t("New book")} onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
         {isPhone() && <button class="ib" onClick={() => { leftOpen.value = false; }}><Icon n="close" /></button>}
       </div>
       <div class="books">
@@ -389,26 +390,26 @@ function Side({ book }) {
         ))}
       </div>
       <div class="subtabs">
-        <button class={tab === "files" ? "on" : ""} onClick={() => { sideTab.value = "files"; }}>Files</button>
-        <button class={tab === "marks" ? "on" : ""} onClick={() => { sideTab.value = "marks"; }}>Marks</button>
-        <button class={tab === "search" ? "on" : ""} onClick={() => { sideTab.value = "search"; }}>Search</button>
-        <button class={tab === "check" ? "on" : ""} onClick={() => { sideTab.value = "check"; }} title="The documents this book needs">Checklist{checkProgress(book.id) ? <span class="tabn">{checkProgress(book.id).done}/{checkProgress(book.id).of}</span> : null}</button>
+        <button class={tab === "files" ? "on" : ""} onClick={() => { sideTab.value = "files"; }}>{_t("Files")}</button>
+        <button class={tab === "marks" ? "on" : ""} onClick={() => { sideTab.value = "marks"; }}>{_t("Marks")}</button>
+        <button class={tab === "search" ? "on" : ""} onClick={() => { sideTab.value = "search"; }}>{_t("Search")}</button>
+        <button class={tab === "check" ? "on" : ""} onClick={() => { sideTab.value = "check"; }} title={_t("The documents this book needs")}>{_t("Checklist")}{checkProgress(book.id) ? <span class="tabn">{checkProgress(book.id).done}/{checkProgress(book.id).of}</span> : null}</button>
       </div>
       {tab === "files" && <div class="row" style={{ padding: "0 10px 4px" }}>
         <button class="btn plain small" style={{ padding: "2px 6px" }} onClick={(e) => openMenu(e, [
-          { label: "All files", run: () => setSetting("fileFilter", "") },
-          ...STATUSES.map(([n, c]) => ({ label: `Only "${n}"`, color: c, run: () => setSetting("fileFilter", n) })),
-          ...[...new Set(Object.values(settings.value.tags || {}))].filter(t => !STATUSES.some(x => x[0] === t)).map(t => ({ label: `Only "${t}"`, run: () => setSetting("fileFilter", t) })),
-        ])} title="Show only the files with a status"><Icon n="list" size={14} />{settings.value.fileFilter ? `Only "${settings.value.fileFilter}"` : "All files"}<Icon n="down" size={12} /></button>
+          { label: _t("All files"), run: () => setSetting("fileFilter", "") },
+          ...STATUSES.map(([n, c]) => ({ label: _t("Only \"{0}\"", _tv(n)), color: c, run: () => setSetting("fileFilter", n) })),
+          ...[...new Set(Object.values(settings.value.tags || {}))].filter(t => !STATUSES.some(x => x[0] === t)).map(t => ({ label: _t("Only \"{0}\"", t), run: () => setSetting("fileFilter", t) })),
+        ])} title={_t("Show only the files with a status")}><Icon n="list" size={14} />{settings.value.fileFilter ? _t("Only \"{0}\"", _tv(settings.value.fileFilter)) : _t("All files")}<Icon n="down" size={12} /></button>
         <span class="grow" />
-        <button class="btn plain small" style={{ padding: "2px 6px" }} title="A folder inside this book" onClick={() => newSubBook(book)}><Icon n="plus" size={14} />Sub-book</button>
+        <button class="btn plain small" style={{ padding: "2px 6px" }} title={_t("A folder inside this book")} onClick={() => newSubBook(book)}><Icon n="plus" size={14} />{_t("Sub-book")}</button>
       </div>}
       {tab === "files" && <FilesList book={book} />}
       {tab === "marks" && <MarksList book={book} />}
       {tab === "search" && <SearchList book={book} />}
       {tab === "check" && <Checklist book={book} />}
       <div class="foot">
-        <button class="btn ghost" onClick={async () => uploadFiles(book, await pickFiles(), { open: false })}><Icon n="plus" size={17} />Add files</button>
+        <button class="btn ghost" onClick={async () => uploadFiles(book, await pickFiles(), { open: false })}><Icon n="plus" size={17} />{_t("Add files")}</button>
       </div>
     </div>
   );
@@ -458,51 +459,51 @@ function PageBar({ book }) {
     if (pdf) try { tg = await call("taggedAt", (await getDoc(f)).key, pageNo.value); } catch (er) { tg = null; }
     const gname = tg && { doc: "Google Docs", sheet: "Google Sheets", slides: "Google Slides" }[tg.tag.kind];
     openMenu(e, [
-      { title: `Page ${pageNo.value + 1} of ${f ? f.name : ""}` },
-      tg && store.value.editLink && { label: `Open it in ${gname} again`, icon: "edit", run: () => openBeside(store.value.editLink(tg.tag.kind, tg.tag.id)) },
-      tg && store.value.exportPdf && { label: `Bring its pages anew from ${gname}`, icon: "rotate", run: () => addGooglePages({ ...tg.tag, fileId: f.id, start: tg.start, n: tg.n }, { replace: true }).catch(er => toast("Google: " + er.message, "bad")) },
+      { title: _t("Page {0} of {1}", pageNo.value + 1, f ? f.name : "") },
+      tg && store.value.editLink && { label: _t("Open it in {0} again", gname), icon: "edit", run: () => openBeside(store.value.editLink(tg.tag.kind, tg.tag.id)) },
+      tg && store.value.exportPdf && { label: _t("Bring its pages anew from {0}", gname), icon: "rotate", run: () => addGooglePages({ ...tg.tag, fileId: f.id, start: tg.start, n: tg.n }, { replace: true }).catch(er => toast(_t("Google: ") + er.message, "bad")) },
       tg && "-",
-      { label: "Add pages here...", icon: "addpage", run: () => openPanel("addpages", { book: book.id }) },
-      pdf && { label: "Turn it right", icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, 90) },
-      pdf && { label: "Turn it left", icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, -90) },
-      pdf && { label: "Move it up", icon: "up", disabled: pageNo.value === 0, run: () => pageOp(f, "movePage", pageNo.value, pageNo.value - 1).then(() => { pageNo.value--; }) },
-      pdf && { label: "Move it down", icon: "down", run: () => pageOp(f, "movePage", pageNo.value, pageNo.value + 1).then(() => { pageNo.value++; }) },
-      pdf && { label: "A blank page after it", icon: "addpage", run: addBlankPage },
-      pdf && { label: "Write a page after it...", icon: "edit", run: () => openPanel("write", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
-      pdf && { label: "Scan pages after it...", icon: "camera", run: () => openPanel("scan", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
-      pdf && { label: "Add pages from another PDF...", icon: "addpage", run: () => FT.addPagesFromPdf(f, pageNo.value + 1) },
-      pdf && { label: "Edit this written page...", icon: "edit", run: () => editWritten(f, pageNo.value) },
-      pdf && { label: "Crop...", icon: "fit", run: () => { tool.value = "crop"; toast("Drag a box round the part of the page to keep."); } },
-      pdf && { label: "Save pages as a new PDF...", icon: "copy", run: () => FT.savePagesAsPdf(f, pageNo.value) },
-      f && { label: "Remind me about this page...", icon: "clock", run: () => remindPage(book, f, pageNo.value) },
-      f && { label: "A task about this page...", icon: "task", run: () => openPanel("tasks", { about: true }) },
-      pdf && { label: "Read the words of this page (a scan)", icon: "type", run: async () => {
-        toast("Reading the words of the page...");
+      { label: _t("Add pages here..."), icon: "addpage", run: () => openPanel("addpages", { book: book.id }) },
+      pdf && { label: _t("Turn it right"), icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, 90) },
+      pdf && { label: _t("Turn it left"), icon: "rotate", run: () => pageOp(f, "rotatePage", pageNo.value, -90) },
+      pdf && { label: _t("Move it up"), icon: "up", disabled: pageNo.value === 0, run: () => pageOp(f, "movePage", pageNo.value, pageNo.value - 1).then(() => { pageNo.value--; }) },
+      pdf && { label: _t("Move it down"), icon: "down", run: () => pageOp(f, "movePage", pageNo.value, pageNo.value + 1).then(() => { pageNo.value++; }) },
+      pdf && { label: _t("A blank page after it"), icon: "addpage", run: addBlankPage },
+      pdf && { label: _t("Write a page after it..."), icon: "edit", run: () => openPanel("write", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
+      pdf && { label: _t("Scan pages after it..."), icon: "camera", run: () => openPanel("scan", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
+      pdf && { label: _t("Add pages from another PDF..."), icon: "addpage", run: () => FT.addPagesFromPdf(f, pageNo.value + 1) },
+      pdf && { label: _t("Edit this written page..."), icon: "edit", run: () => editWritten(f, pageNo.value) },
+      pdf && { label: _t("Crop..."), icon: "fit", run: () => { tool.value = "crop"; toast(_t("Drag a box round the part of the page to keep.")); } },
+      pdf && { label: _t("Save pages as a new PDF..."), icon: "copy", run: () => FT.savePagesAsPdf(f, pageNo.value) },
+      f && { label: _t("Remind me about this page..."), icon: "clock", run: () => remindPage(book, f, pageNo.value) },
+      f && { label: _t("A task about this page..."), icon: "task", run: () => openPanel("tasks", { about: true }) },
+      pdf && { label: _t("Read the words of this page (a scan)"), icon: "type", run: async () => {
+        toast(_t("Reading the words of the page..."));
         const { readScannedPage } = await import("../ocr.js");
         const n = await readScannedPage(f, pageNo.value);
-        toast(n ? `${n} words read: you can find, copy and change them now.` : "This page has its words already, or none were found.", n ? "ok" : "");
+        toast(n ? _t("{0} words read: you can find, copy and change them now.", n) : _t("This page has its words already, or none were found."), n ? "ok" : "");
       } },
       pdf && "-",
-      pdf && (docState.value[f.id]?.pages?.length || 1) > 1 && { label: "Take this page out", icon: "trash", danger: true, run: async () => {
+      pdf && (docState.value[f.id]?.pages?.length || 1) > 1 && { label: _t("Take this page out"), icon: "trash", danger: true, run: async () => {
         const { confirm } = await import("./dialogs.jsx");
-        if (await confirm("Take this page out?", "You can put it back with Undo (Ctrl+Z), or later with Deleted pages.", { ok: "Take it out", danger: true })) await FT.takePageOut(f, pageNo.value);
+        if (await confirm(_t("Take this page out?"), _t("You can put it back with Undo (Ctrl+Z), or later with Deleted pages."), { ok: _t("Take it out"), danger: true })) await FT.takePageOut(f, pageNo.value);
       } },
-      pdf && { label: "Deleted pages... (put a page back)", icon: "undo", run: () => openPanel("deleted", { fileId: f.id }) },
-      { label: "All pages (grid)", icon: "grid", run: () => openPanel("pages", { fileId: f?.id }) },
+      pdf && { label: _t("Deleted pages... (put a page back)"), icon: "undo", run: () => openPanel("deleted", { fileId: f.id }) },
+      { label: _t("All pages (grid)"), icon: "grid", run: () => openPanel("pages", { fileId: f?.id }) },
     ]);
   };
   return (
     <div class="pagebar">
-      <button class="ib" title="Previous page" onClick={() => go(-1)}><Icon n="left" /></button>
+      <button class="ib" title={_t("Previous page")} onClick={() => go(-1)}><Icon n="left" /></button>
       <span class="pn">{cur || 1} / {total}</span>
-      <button class="ib" title="Next page" onClick={() => go(1)}><Icon n="right" /></button>
+      <button class="ib" title={_t("Next page")} onClick={() => go(1)}><Icon n="right" /></button>
       <span class="sep" />
-      <button class="ib" title="Smaller (go on: the pages side by side, then the whole book)" onClick={() => { zoom.value = Math.max(0.08, zoom.value / 1.2); }}><Icon n="zoomout" /></button>
+      <button class="ib" title={_t("Smaller (go on: the pages side by side, then the whole book)")} onClick={() => { zoom.value = Math.max(0.08, zoom.value / 1.2); }}><Icon n="zoomout" /></button>
       <span class="small" style={{ minWidth: 42, textAlign: "center" }}>{Math.round(zoom.value * 100)}%</span>
-      <button class="ib" title="Bigger" onClick={() => { zoom.value = Math.min(4, zoom.value * 1.15); }}><Icon n="zoomin" /></button>
-      <button class={"ib" + (fitWidth.value && zoom.value === 1 && !fitPage.value ? " on" : "")} title="Fit the width" onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; }}><Icon n="fit" /></button>
-      <button class={"ib hide-phone" + (fitPage.value ? " on" : "")} title="Fit the whole page" onClick={() => { fitWidth.value = true; fitPage.value = !fitPage.value; zoom.value = 1; }}><Icon n="expand" /></button>
-      <button class="ib" title="Pages: turn, move, add, take out" onClick={pagesMenu}><Icon n="grid" /></button>
+      <button class="ib" title={_t("Bigger")} onClick={() => { zoom.value = Math.min(4, zoom.value * 1.15); }}><Icon n="zoomin" /></button>
+      <button class={"ib" + (fitWidth.value && zoom.value === 1 && !fitPage.value ? " on" : "")} title={_t("Fit the width")} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; }}><Icon n="fit" /></button>
+      <button class={"ib hide-phone" + (fitPage.value ? " on" : "")} title={_t("Fit the whole page")} onClick={() => { fitWidth.value = true; fitPage.value = !fitPage.value; zoom.value = 1; }}><Icon n="expand" /></button>
+      <button class="ib" title={_t("Pages: turn, move, add, take out")} onClick={pagesMenu}><Icon n="grid" /></button>
     </div>
   );
 }
@@ -510,28 +511,28 @@ function PageBar({ book }) {
 // "Remind me about this page": a reminder in What needs you, that opens the page
 async function remindPage(book, f, page) {
   const { isoDate, uid, fmtDate } = await import("../util.js");
-  const text = await ask("Remind me about this page", { label: `Page ${page + 1} of "${f.name}". What do you want to remember?`, placeholder: "e.g. Check the figures with Aoife", ok: "Next" });
+  const text = await ask(_t("Remind me about this page"), { label: _t("Page {0} of \"{1}\". What do you want to remember?", page + 1, f.name), placeholder: _t("e.g. Check the figures with Aoife"), ok: _t("Next") });
   if (!text) return;
-  const d = await ask("When?", { label: "The date, e.g. 2026-11-20", value: isoDate(new Date(Date.now() + 7 * 86400000)), ok: "Add the reminder" });
-  if (!d || isNaN(new Date(d + "T00:00"))) { if (d) toast("Write the date like this: 2026-11-20"); return; }
+  const d = await ask(_t("When?"), { label: _t("The date, e.g. 2026-11-20"), value: isoDate(new Date(Date.now() + 7 * 86400000)), ok: _t("Add the reminder") });
+  if (!d || isNaN(new Date(d + "T00:00"))) { if (d) toast(_t("Write the date like this: 2026-11-20")); return; }
   setSetting("reminders", [...(settings.value.reminders || []), { id: uid(), date: d, text, bookId: book.id, fileId: f.id, page, file: f.name, book: book.name }]);
-  toast(`On ${fmtDate(new Date(d + "T00:00"))}, What needs you shows it.`, "ok");
+  toast(_t("On {0}, What needs you shows it.", fmtDate(new Date(d + "T00:00"))), "ok");
 }
 
 function RRail() {
   if (settings.value.hideRail) return null;
   return (
-    <div class="rrail" onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ label: "Hide the quick bar (Settings brings it back)", icon: "close", run: () => setSetting("hideRail", true) }]); }}>
-      <button class="ib" title="Reading mode" onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" /></button>
-      <button class="ib" title="What needs you" onClick={() => openPanel("dates")}><Icon n="clock" /></button>
-      <button class="ib" title="Reports" onClick={() => openPanel("reports")}><Icon n="table" /></button>
-      <button class="ib" title="Photos as a gallery" onClick={() => openPanel("gallery")}><Icon n="image" /></button>
-      <button class="ib" title="Scan" onClick={() => openPanel("scan")}><Icon n="camera" /></button>
-      <button class="ib" title="Write" onClick={() => openPanel("write")}><Icon n="edit" /></button>
-      <button class="ib" title="Study cards (your highlights)" onClick={() => openPanel("study")}><Icon n="star" /></button>
+    <div class="rrail" onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ label: _t("Hide the quick bar (Settings brings it back)"), icon: "close", run: () => setSetting("hideRail", true) }]); }}>
+      <button class="ib" title={_t("Reading mode")} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" /></button>
+      <button class="ib" title={_t("What needs you")} onClick={() => openPanel("dates")}><Icon n="clock" /></button>
+      <button class="ib" title={_t("Reports")} onClick={() => openPanel("reports")}><Icon n="table" /></button>
+      <button class="ib" title={_t("Photos as a gallery")} onClick={() => openPanel("gallery")}><Icon n="image" /></button>
+      <button class="ib" title={_t("Scan")} onClick={() => openPanel("scan")}><Icon n="camera" /></button>
+      <button class="ib" title={_t("Write")} onClick={() => openPanel("write")}><Icon n="edit" /></button>
+      <button class="ib" title={_t("Study cards (your highlights)")} onClick={() => openPanel("study")}><Icon n="star" /></button>
       <span class="grow" />
-      <button class="ib" title="Lock with a PIN" onClick={() => openPanel("pin")}><Icon n="lock" /></button>
-      <button class="ib" title="Help" onClick={() => openPanel("help")}><Icon n="help" /></button>
+      <button class="ib" title={_t("Lock with a PIN")} onClick={() => openPanel("pin")}><Icon n="lock" /></button>
+      <button class="ib" title={_t("Help")} onClick={() => openPanel("help")}><Icon n="help" /></button>
     </div>
   );
 }
@@ -548,8 +549,8 @@ async function refreshGoogle(f, loud = false) {
     patchFile({ ...m, kind: f.kind });
     await reopen({ ...f, ...m });
     notifyChanged(f.id, "pages");
-    if (loud) toast(`"${f.name}" is as it is now in Google.`, "ok");
-  } catch (e) { if (loud) toast("Google: " + e.message, "bad"); }
+    if (loud) toast(_t("\"{0}\" is as it is now in Google.", f.name), "ok");
+  } catch (e) { if (loud) toast(_t("Google: ") + e.message, "bad"); }
 }
 
 function GoogleJobs({ book }) {
@@ -561,10 +562,10 @@ function GoogleJobs({ book }) {
   return (
     <div class="gjob">
       <Icon n={{ doc: "word", sheet: "excel", slides: "slides" }[j.kind]} size={18} />
-      <span class="small"><b>{j.name}</b> is open in {app}. When it is ready:</span>
-      <button class="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await addGooglePages(j); } catch (e) { toast("Google: " + e.message, "bad"); } setBusy(false); }}><Icon n="addpage" size={15} />{j.replace ? "Put the page back" : "Add these pages"}</button>
-      <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>Open it</button>
-      <button class="ib" title="Not now (it stays in Add pages)" onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).map(x => x === j ? { ...x, hide: true } : x))}><Icon n="close" size={15} /></button>
+      <span class="small"><b>{j.name}</b> {_t("is open in")} {app}{_t(". When it is ready:")}</span>
+      <button class="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await addGooglePages(j); } catch (e) { toast(_t("Google: ") + e.message, "bad"); } setBusy(false); }}><Icon n="addpage" size={15} />{j.replace ? _t("Put the page back") : _t("Add these pages")}</button>
+      <button class="btn plain small" onClick={() => openBeside(store.value.editLink(j.kind, j.id))}>{_t("Open it")}</button>
+      <button class="ib" title={_t("Not now (it stays in Add pages)")} onClick={() => setSetting("googleJobs", (settings.value.googleJobs || []).map(x => x === j ? { ...x, hide: true } : x))}><Icon n="close" size={15} /></button>
     </div>
   );
 }

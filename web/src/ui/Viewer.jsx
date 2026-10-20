@@ -10,6 +10,7 @@ import { confirm, openMenuAt, openMenu } from "./dialogs.jsx";
 import { stampSpec, HL_COLORS } from "./marks.js";
 import { openPanel } from "../actions.js";
 import { pip } from "./Gallery.jsx";
+import { _t, _tv } from "../i18n.js";
 
 export const docState = signal({});        // fileId -> {status, pages, readOnly, error, v}
 export const searchHits = signal(null);    // {query, list:[{fileId, page, quads}], cur}
@@ -179,10 +180,10 @@ function PageCanvas({ file, page, w, h, k, v }) {
   return (
     <div ref={wrap} style={{ position: "absolute", inset: 0 }}>
       <canvas ref={ref} />
-      {!drawn && !failed && <div class="loading">Page {page + 1}</div>}
-      {failed && <div class="pagefail"><Icon n="info" size={22} /><b>Page {page + 1} could not be drawn</b><span class="tiny muted">{failed.slice(0, 120)}</span>
-        <span class="row" style={{ gap: 6 }}><button class="btn small" onClick={() => { setFailed(""); want.current = null; draw(); }}>Try again</button>
-          {store.value.webLink && <button class="btn ghost small" onClick={() => window.open(store.value.webLink(file), "_blank")}>Open it in {store.value.cloud || "Drive"}</button>}</span></div>}
+      {!drawn && !failed && <div class="loading">{_t("Page")} {page + 1}</div>}
+      {failed && <div class="pagefail"><Icon n="info" size={22} /><b>{_t("Page {0} could not be drawn", page + 1)}</b><span class="tiny muted">{failed.slice(0, 120)}</span>
+        <span class="row" style={{ gap: 6 }}><button class="btn small" onClick={() => { setFailed(""); want.current = null; draw(); }}>{_t("Try again")}</button>
+          {store.value.webLink && <button class="btn ghost small" onClick={() => window.open(store.value.webLink(file), "_blank")}>{_t("Open it in")} {store.value.cloud || _t("Drive")}</button>}</span></div>}
     </div>
   );
 }
@@ -212,7 +213,7 @@ async function ensureWritable(file) {
   const d = docState.value[file.id];
   if (d && !d.readOnly) return file;
   const b = books.value.find(x => x.id === file.book) || books.value.find(x => x.files.some(f => f.id === file.id));
-  const ok = await confirm("Mark a copy?", `"${file.name}" is not a PDF. BindLens can make a PDF copy of it in this book, and your marks go on the copy.`, { ok: "Make a PDF copy" });
+  const ok = await confirm(_t("Mark a copy?"), _t("\"{0}\" is not a PDF. BindLens can make a PDF copy of it in this book, and your marks go on the copy.", file.name), { ok: _t("Make a PDF copy") });
   if (!ok) return null;
   const f = await pdfCopyOf(file, b);
   scrollTo.value = { fileId: f.id, page: 0 };
@@ -239,17 +240,17 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
     const white = (m.type === "Square" && m.subject === "White box") || (m.type === "Ink" && m.subject === "White brush");
     openMenuAt(e.clientX, e.clientY, [
       { title: m.subject || m.type },
-      m.type === "Text" && m.num > 0 && { label: "Open the comment", icon: "comment", run: () => { commentsOpen.value = { focus: m.num, fileId: file.id }; } },
-      (m.type === "FreeText" || m.type === "Text") && { label: "Change the words...", icon: "rename", run: () => setEdit({ x: m.rect[0], y: m.rect[1], w: m.rect[2] - m.rect[0], h: m.rect[3] - m.rect[1], kind: "change", value: m.contents, size: 12, m }) },
-      !FLAT.has(m.type) && !white && { label: "A copy of it", icon: "copy", run: () => copySelected() },
-      handlesOf(m).rotate && { label: "Turn it a quarter", icon: "rotate", run: async () => { await editMark(file, page, m.i, { rotateBy: 90 }); await reselect(file, page, m.i); } },
-      m.rot && { label: "Put it straight again", icon: "undo", run: async () => { await editMark(file, page, m.i, { rotateBy: -m.rot }); await reselect(file, page, m.i); } },
-      white && { label: "Erase the text under it for good...", icon: "eraser", run: async () => {
-        if (!(await confirm("Erase the text under it for good?", "The words and pictures under it are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true }))) return;
+      m.type === "Text" && m.num > 0 && { label: _t("Open the comment"), icon: "comment", run: () => { commentsOpen.value = { focus: m.num, fileId: file.id }; } },
+      (m.type === "FreeText" || m.type === "Text") && { label: _t("Change the words..."), icon: "rename", run: () => setEdit({ x: m.rect[0], y: m.rect[1], w: m.rect[2] - m.rect[0], h: m.rect[3] - m.rect[1], kind: "change", value: m.contents, size: 12, m }) },
+      !FLAT.has(m.type) && !white && { label: _t("A copy of it"), icon: "copy", run: () => copySelected() },
+      handlesOf(m).rotate && { label: _t("Turn it a quarter"), icon: "rotate", run: async () => { await editMark(file, page, m.i, { rotateBy: 90 }); await reselect(file, page, m.i); } },
+      m.rot && { label: _t("Put it straight again"), icon: "undo", run: async () => { await editMark(file, page, m.i, { rotateBy: -m.rot }); await reselect(file, page, m.i); } },
+      white && { label: _t("Erase the text under it for good..."), icon: "eraser", run: async () => {
+        if (!(await confirm(_t("Erase the text under it for good?"), _t("The words and pictures under it are taken out of the PDF, so nobody can copy or find them."), { ok: _t("Erase for good"), danger: true }))) return;
         const doc = await getDoc(file); await call("eraseArea", doc.key, page, m.rect, false, m.i); afterEdit(file.id, "pages"); selectedMark.value = null;
       } },
       "-",
-      { label: white ? "Delete (show the text again)" : "Delete", icon: "trash", danger: true, run: async () => { await deleteMark(file, page, m.i); selectedMark.value = null; } },
+      { label: white ? _t("Delete (show the text again)") : _t("Delete"), icon: "trash", danger: true, run: async () => { await deleteMark(file, page, m.i); selectedMark.value = null; } },
     ]);
     return;
   }
@@ -258,26 +259,26 @@ async function pageMenu(e, file, page, p, readOnly, marks, setEdit, k) {
   const spec = stampSpec(o.stamp);
   const { fmtDate } = await import("../util.js");
   openMenuAt(e.clientX, e.clientY, [
-    ts && ts.fileId === file.id && ts.text && { label: "Copy the text", icon: "copy", run: () => navigator.clipboard?.writeText(ts.text).then(() => toast("Copied.")) },
-    { title: "Here" },
-    { label: "Text here...", icon: "text", run: at(() => setEdit({ x: p[0], y: p[1] - 8, w: 220, h: 26, kind: "text", value: "", size: o.textSize || 12 })) },
-    { label: "Sticky note here...", icon: "note", run: at(() => setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12 })) },
-    { label: "A comment here...", icon: "comment", run: () => { if (readOnly) { ensureWritable(file); return; } commentsOpen.value = { draft: { fileId: file.id, page, x: p[0], y: p[1] } }; } },
-    { label: "Tick here", icon: "tick", run: at(() => quickMark(file, page, "tick", p, o)) },
-    { label: "Cross here", icon: "cross", run: at(() => quickMark(file, page, "cross", p, o)) },
-    { label: `Stamp here (${spec.text})`, icon: "stamp", run: at(() => { const w = spec.w || 150, h = spec.h || 46; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" }); }) },
-    { label: "Today's date here", icon: "calendar", run: at(() => { const d = fmtDate(new Date()); const sz = o.textSize || 12; return addMark(file, page, { type: "FreeText", rect: [p[0], p[1] - sz, p[0] + d.length * sz * 0.56 + 8, p[1] + sz * 0.4], text: d, size: sz, color: rgb(o.textColor || "#1E1C2B") }); }) },
-    { label: "Separator line here", icon: "line", run: at(() => { const pg0 = docState.value[file.id]?.pages?.[page]; const W = pg0 ? pg0.w : 595; return addMark(file, page, { type: "Line", a: [W * 0.08, p[1]], b: [W * 0.92, p[1]], color: rgb(o.pen), width: 1, subject: "Separator line" }); }) },
-    (settings.value.signatures || []).length > 0 && { label: "My signature here", icon: "sign", run: at(() => { const sig = settings.value.signatures[0]; const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0)); const w = 160, h = 160 * sig.h / sig.w; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }); }) },
+    ts && ts.fileId === file.id && ts.text && { label: _t("Copy the text"), icon: "copy", run: () => navigator.clipboard?.writeText(ts.text).then(() => toast(_t("Copied."))) },
+    { title: _t("Here") },
+    { label: _t("Text here..."), icon: "text", run: at(() => setEdit({ x: p[0], y: p[1] - 8, w: 220, h: 26, kind: "text", value: "", size: o.textSize || 12 })) },
+    { label: _t("Sticky note here..."), icon: "note", run: at(() => setEdit({ x: p[0], y: p[1], w: 170, h: 110, kind: "note", value: "", size: 12 })) },
+    { label: _t("A comment here..."), icon: "comment", run: () => { if (readOnly) { ensureWritable(file); return; } commentsOpen.value = { draft: { fileId: file.id, page, x: p[0], y: p[1] } }; } },
+    { label: _t("Tick here"), icon: "tick", run: at(() => quickMark(file, page, "tick", p, o)) },
+    { label: _t("Cross here"), icon: "cross", run: at(() => quickMark(file, page, "cross", p, o)) },
+    { label: _t("Stamp here ({0})", spec.text), icon: "stamp", run: at(() => { const w = spec.w || 150, h = spec.h || 46; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], text: spec.text, sub: spec.sub, color: spec.color, subject: "Stamp" }); }) },
+    { label: _t("Today's date here"), icon: "calendar", run: at(() => { const d = fmtDate(new Date()); const sz = o.textSize || 12; return addMark(file, page, { type: "FreeText", rect: [p[0], p[1] - sz, p[0] + d.length * sz * 0.56 + 8, p[1] + sz * 0.4], text: d, size: sz, color: rgb(o.textColor || "#1E1C2B") }); }) },
+    { label: _t("Separator line here"), icon: "line", run: at(() => { const pg0 = docState.value[file.id]?.pages?.[page]; const W = pg0 ? pg0.w : 595; return addMark(file, page, { type: "Line", a: [W * 0.08, p[1]], b: [W * 0.92, p[1]], color: rgb(o.pen), width: 1, subject: "Separator line" }); }) },
+    (settings.value.signatures || []).length > 0 && { label: _t("My signature here"), icon: "sign", run: at(() => { const sig = settings.value.signatures[0]; const bytes = Uint8Array.from(atob(sig.png.split(",")[1]), c => c.charCodeAt(0)); const w = 160, h = 160 * sig.h / sig.w; return addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: bytes, subject: "Signature" }); }) },
     "-",
-    "speechSynthesis" in window && { label: window.speechSynthesis.speaking ? "Stop reading aloud" : "Read aloud from here", icon: window.speechSynthesis.speaking ? "pause" : "speaker", run: () => { if (window.speechSynthesis.speaking) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); else window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page } })); } },
-    "speechSynthesis" in window && ts && ts.fileId === file.id && ts.text && { label: "Read aloud the text you chose", icon: "speaker", run: () => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page, text: ts.text } })) },
-    { label: "Change the text of the PDF here", icon: "edit", run: () => { tool.value = "edit"; toast("Click the line to change."); } },
-    !readOnly && { label: "Take all the marks off this page", icon: "eraser", run: async () => {
-      if (!(await confirm("Take all the marks off this page?", "Highlights, drawings, notes, stamps... Undo (Ctrl+Z) brings them back.", { ok: "Take them off", danger: true }))) return;
+    "speechSynthesis" in window && { label: window.speechSynthesis.speaking ? _t("Stop reading aloud") : _t("Read aloud from here"), icon: window.speechSynthesis.speaking ? "pause" : "speaker", run: () => { if (window.speechSynthesis.speaking) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); else window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page } })); } },
+    "speechSynthesis" in window && ts && ts.fileId === file.id && ts.text && { label: _t("Read aloud the text you chose"), icon: "speaker", run: () => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page, text: ts.text } })) },
+    { label: _t("Change the text of the PDF here"), icon: "edit", run: () => { tool.value = "edit"; toast(_t("Click the line to change.")); } },
+    !readOnly && { label: _t("Take all the marks off this page"), icon: "eraser", run: async () => {
+      if (!(await confirm(_t("Take all the marks off this page?"), _t("Highlights, drawings, notes, stamps... Undo (Ctrl+Z) brings them back."), { ok: _t("Take them off"), danger: true }))) return;
       const doc = await getDoc(file); await call("deleteAllAnnots", doc.key, page); afterEdit(file.id);
     } },
-    { label: "All pages (grid)", icon: "grid", run: () => openPanel("pages", { fileId: file.id }) },
+    { label: _t("All pages (grid)"), icon: "grid", run: () => openPanel("pages", { fileId: file.id }) },
   ]);
   void k;
 }
@@ -383,7 +384,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     }
     if (t === "comment") {
       e.preventDefault();
-      if (readOnly) { toast("Comments go on PDFs. Right-click the page to make a PDF copy."); return; }
+      if (readOnly) { toast(_t("Comments go on PDFs. Right-click the page to make a PDF copy.")); return; }
       commentsOpen.value = { draft: { fileId: file.id, page, x: p[0], y: p[1] } };
       if (!toolLock.value) tool.value = "select";
       return;
@@ -409,7 +410,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
     }
     if (t === "picture") {
       const pic = o.picture;
-      if (!pic) { toast("Choose a picture first (the stamp menu)."); return; }
+      if (!pic) { toast(_t("Choose a picture first (the stamp menu).")); return; }
       const w = 160, h = 160 * pic.h / pic.w;
       await placed(file, page, await addMark(file, page, { type: "Stamp", rect: [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2], image: pic.bytes, subject: "Picture" }));
       return;
@@ -419,16 +420,16 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
       const line = await call("lineAt", doc.key, page, p);
       if (!line) {
         if (!(await call("hasText", doc.key, page))) {
-          const ok = await confirm("This page is a scan", "To change its words, BindLens first reads them (it takes a moment). Read the words of this page?", { ok: "Read the words" });
+          const ok = await confirm(_t("This page is a scan"), _t("To change its words, BindLens first reads them (it takes a moment). Read the words of this page?"), { ok: _t("Read the words") });
           if (ok) {
-            toast("Reading the words of the page...");
+            toast(_t("Reading the words of the page..."));
             const { readScannedPage } = await import("../ocr.js");
             const n = await readScannedPage(file, page);
-            toast(n ? `${n} words read. Click a line to change it.` : "No words were found on this page.", n ? "ok" : "");
+            toast(n ? _t("{0} words read. Click a line to change it.", n) : _t("No words were found on this page."), n ? "ok" : "");
           }
           return;
         }
-        toast("Click on a line of text to change it.");
+        toast(_t("Click on a line of text to change it."));
         return;
       }
       setEdit({ x: line.bbox.x - 2, y: line.bbox.y - 2, w: Math.max(line.bbox.w + 40, 120), h: line.bbox.h + 6, kind: "edit", value: line.text, size: line.size, line });
@@ -492,7 +493,7 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         return;
       }
       if (t === "redact") {
-        const ok = await confirm("Erase it for good?", "The words, lines and pictures under the box are taken out of the PDF, so nobody can copy or find them. It cannot come back once saved (Undo works until then).", { ok: "Erase for good", danger: true });
+        const ok = await confirm(_t("Erase it for good?"), _t("The words, lines and pictures under the box are taken out of the PDF, so nobody can copy or find them. It cannot come back once saved (Undo works until then)."), { ok: _t("Erase for good"), danger: true });
         if (!ok) return;
         const doc = await getDoc(file);
         await call("eraseArea", doc.key, page, r, false, -1);
@@ -504,9 +505,9 @@ function Overlay({ file, page, k, pw, ph, readOnly }) {
         const pageW = pw, pageH = ph;
         const margins = [r[0], r[1], pageW - r[2], pageH - r[3]].map(v => Math.max(0, v));
         openMenuAt(e.clientX, e.clientY + 8, [
-          { label: "Crop this page to the box", icon: "fit", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, page, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
-          { label: "Crop every page the same", icon: "grid", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, -1, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
-          { label: "Cancel", icon: "close", run: () => {} },
+          { label: _t("Crop this page to the box"), icon: "fit", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, page, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
+          { label: _t("Crop every page the same"), icon: "grid", run: async () => { const doc = await getDoc(file); await call("crop", doc.key, -1, margins); afterEdit(file.id, "pages"); tool.value = "select"; } },
+          { label: _t("Cancel"), icon: "close", run: () => {} },
         ]);
         return;
       }
@@ -731,7 +732,7 @@ function SelFrame({ sel, drag, toPx, grab, readOnly }) {
       {!ends && (
         <div class={"selframe" + (busy ? " busy" : "") + (readOnly ? " ro" : "")} style={frame} onPointerDown={(e) => grab(e, "move")}>
           {!readOnly && H.list.map(x => <i key={x} class={"hd " + x} onPointerDown={(e) => grab(e, "resize", x)} />)}
-          {!readOnly && H.rotate && <span class="rk" title="Turn it (Shift: in steps of 15°)" onPointerDown={(e) => grab(e, "rotate")}><Icon n="rotate" size={13} /></span>}
+          {!readOnly && H.rotate && <span class="rk" title={_t("Turn it (Shift: in steps of 15°)")} onPointerDown={(e) => grab(e, "rotate")}><Icon n="rotate" size={13} /></span>}
           {dk === "rotate" && <b class="selbadge">{Math.round(drag.total)}°</b>}
           {dk === "resize" && drag.res && <b class="selbadge">{Math.round(drag.res.s * 100)}%</b>}
         </div>
@@ -782,7 +783,7 @@ function FormLayer({ file, page, k, v }) {
             {!f.options.includes(f.value) && <option value={f.value}>{f.value}</option>}
             {f.options.map(o => <option key={o} value={o}>{o}</option>)}
           </select>);
-        if (f.type === "signature") return <button key={f.i} class="ff fsig" style={st} onPointerDown={(e) => e.stopPropagation()} onClick={() => { tool.value = "sign"; toast("Click inside the box to put your signature there."); }}>Sign here</button>;
+        if (f.type === "signature") return <button key={f.i} class="ff fsig" style={st} onPointerDown={(e) => e.stopPropagation()} onClick={() => { tool.value = "sign"; toast(_t("Click inside the box to put your signature there.")); }}>{_t("Sign here")}</button>;
         return null;
       })}
     </div>
@@ -806,22 +807,22 @@ function InlineEdit({ ed, k, onDone }) {
     <>
     {ed.kind === "edit" && (
       <div class="floatbar editbar" style={{ left: px(ed.x) + "px", top: Math.max(0, px(ed.y) - 46) + "px" }} onPointerDown={(e) => { e.stopPropagation(); keep(e); }}>
-        <b class="fl-name">Change text</b>
-        <span class="rseg">{[["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]].map(([f, n]) => <button key={f} class={fmt.family === f ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, family: f })}>{n}</button>)}</span>
-        <span class="rseg"><button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.max(4, Math.round((fmt.size - 0.5) * 10) / 10) })} title="Smaller">−</button>
+        <b class="fl-name">{_t("Change text")}</b>
+        <span class="rseg">{[["sans", _t("Sans")], ["serif", _t("Serif")], ["mono", _t("Mono")]].map(([f, n]) => <button key={f} class={fmt.family === f ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, family: f })}>{n}</button>)}</span>
+        <span class="rseg"><button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.max(4, Math.round((fmt.size - 0.5) * 10) / 10) })} title={_t("Smaller")}>−</button>
           <button class="on" style={{ minWidth: 40 }} onPointerDown={keep}>{fmt.size}</button>
-          <button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.round((fmt.size + 0.5) * 10) / 10 })} title="Bigger">+</button></span>
-        <span class="rseg"><button class={fmt.bold ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, bold: !fmt.bold })} title="Bold"><b>B</b></button>
-          <button class={fmt.italic ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, italic: !fmt.italic })} title="Italic"><i style={{ fontFamily: "Georgia,serif" }}>I</i></button></span>
-        <span class="rsws">{["#1E1C2B", "#C2337A", "#1C7ED6", "#2B8A3E", "#E03131"].map(c => <button key={c} class={"rsw" + (col.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} onPointerDown={keep} onClick={() => setFmt({ ...fmt, color: hexToRgb(c) })} title="Colour" />)}</span>
-        <span class="tiny muted">Enter to keep · Esc</span>
+          <button onPointerDown={keep} onClick={() => setFmt({ ...fmt, size: Math.round((fmt.size + 0.5) * 10) / 10 })} title={_t("Bigger")}>+</button></span>
+        <span class="rseg"><button class={fmt.bold ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, bold: !fmt.bold })} title={_t("Bold")}><b>B</b></button>
+          <button class={fmt.italic ? "on" : ""} onPointerDown={keep} onClick={() => setFmt({ ...fmt, italic: !fmt.italic })} title={_t("Italic")}><i style={{ fontFamily: "Georgia,serif" }}>I</i></button></span>
+        <span class="rsws">{["#1E1C2B", "#C2337A", "#1C7ED6", "#2B8A3E", "#E03131"].map(c => <button key={c} class={"rsw" + (col.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} onPointerDown={keep} onClick={() => setFmt({ ...fmt, color: hexToRgb(c) })} title={_t("Colour")} />)}</span>
+        <span class="tiny muted">{_t("Enter to keep · Esc")}</span>
       </div>
     )}
     <textarea ref={ref} class="inlineedit" defaultValue={ed.value}
       style={{ left: px(ed.x) + "px", top: px(ed.y) + "px", width: px(ed.w) + "px", minHeight: px(ed.h) + "px",
         fontSize: px(ed.kind === "edit" ? fmt.size : ed.size) + "px", background: note ? (ed.paper || "#FFF1A8") : undefined,
         ...(ed.kind === "edit" ? { fontFamily: FAMS[fmt.family], fontWeight: fmt.bold ? 700 : 400, fontStyle: fmt.italic ? "italic" : "normal", color: col } : {}) }}
-      placeholder={ed.kind === "note" ? "Write a note..." : ed.kind === "text" ? "Type here..." : ""}
+      placeholder={ed.kind === "note" ? _t("Write a note...") : ed.kind === "text" ? _t("Type here...") : ""}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
         if (e.key === "Escape") { done.current = true; onDone(ed.value); }
@@ -836,7 +837,7 @@ function InlineEdit({ ed, k, onDone }) {
 function Opening({ file }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSlow(true), 5000); return () => clearTimeout(t); }, [file.id]);
-  return <div class="loading">{slow ? <>Still opening {file.name}{file.size ? ` (${fmtSize(file.size)})` : ""} - {["word", "excel", "powerpoint"].includes(file.kind) ? "BindLens turns it into pages first" : "a big file takes a moment"}...</> : <>Opening {file.name}...</>}</div>;
+  return <div class="loading">{slow ? <>{_t("Still opening")} {file.name}{file.size ? ` (${fmtSize(file.size)})` : ""} - {["word", "excel", "powerpoint"].includes(file.kind) ? _t("BindLens turns it into pages first") : _t("a big file takes a moment")}...</> : <>{_t("Opening")} {file.name}...</>}</div>;
 }
 
 function DocBlock({ book, file, k, maxW, grid }) {
@@ -858,9 +859,9 @@ function DocBlock({ book, file, k, maxW, grid }) {
           style={{ width: p.w * k * PT + "px", height: p.h * k * PT + "px" }}>
           {st.status === "ready" && <PageCanvas file={file} page={i} w={p.w} h={p.h} k={k} v={st.v || 0} />}
           {st.status !== "ready" && i === 0 && <Opening file={file} />}
-          {st.status !== "ready" && i > 0 && <div class="loading">Page {i + 1}</div>}
+          {st.status !== "ready" && i > 0 && <div class="loading">{_t("Page")} {i + 1}</div>}
           {st.status === "ready" && !grid && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
-          {grid && <button class="gridpick" title={`Open page ${i + 1}`} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; fileId.value = file.id; pageNo.value = i; setTimeout(() => { scrollTo.value = { fileId: file.id, page: i }; }, 60); }} />}
+          {grid && <button class="gridpick" title={_t("Open page {0}", i + 1)} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; fileId.value = file.id; pageNo.value = i; setTimeout(() => { scrollTo.value = { fileId: file.id, page: i }; }, 60); }} />}
           {st.status === "ready" && st.form && !st.readOnly && !grid && <FormLayer file={file} page={i} k={k} v={st.v || 0} />}
           <span class="num">{i + 1}</span>
         </div>
@@ -918,15 +919,15 @@ function MediaBlock({ file, maxW }) {
       {kind === "video" ? (src ? <>
         <video src={src} controls playsInline preload="metadata" />
         <div class="row" style={{ padding: "6px 10px" }}><Icon n="video" size={16} /><span class="small grow ellipsis">{file.name}</span>
-          <button class="btn plain small" title="Keep it playing in a corner while you read" onClick={(e) => { const v = e.currentTarget.closest(".mediacard").querySelector("video"); v.pause(); pip.value = { file, src, t: v.currentTime }; }}><Icon n="pip" size={16} />In a corner</button>
-          <button class="btn plain small" onClick={() => openPanel("gallery", { fileId: file.id })}><Icon n="expand" size={16} />Big</button></div>
+          <button class="btn plain small" title={_t("Keep it playing in a corner while you read")} onClick={(e) => { const v = e.currentTarget.closest(".mediacard").querySelector("video"); v.pause(); pip.value = { file, src, t: v.currentTime }; }}><Icon n="pip" size={16} />{_t("In a corner")}</button>
+          <button class="btn plain small" onClick={() => openPanel("gallery", { fileId: file.id })}><Icon n="expand" size={16} />{_t("Big")}</button></div>
       </> : <div class="other"><Icon n="video" size={28} />{file.name}</div>)
         : kind === "audio" ? (<div style={{ padding: 16 }}><div class="row" style={{ marginBottom: 10 }}><Icon n="audio" size={24} /><b>{file.name}</b></div>{src && <audio src={src} controls />}</div>)
           : (
             <div class="other">
               <Icon n={fileIcon(kind)} size={30} />
-              <div class="grow"><b>{file.name}</b><div class="small muted">{fmtSize(file.size)} · BindLens cannot show this kind of file.</div></div>
-              <button class="btn soft small" onClick={async () => { const u = await blobUrl(file); const a = document.createElement("a"); a.href = u; a.download = file.name; a.click(); }}><Icon n="download" />Download</button>
+              <div class="grow"><b>{file.name}</b><div class="small muted">{fmtSize(file.size)} {_t("· BindLens cannot show this kind of file.")}</div></div>
+              <button class="btn soft small" onClick={async () => { const u = await blobUrl(file); const a = document.createElement("a"); a.href = u; a.download = file.name; a.click(); }}><Icon n="download" />{_t("Download")}</button>
             </div>
           )}
     </div>
@@ -1138,16 +1139,16 @@ export function Viewer({ book }) {
         onDrop={async (e) => { e.preventDefault(); setDrop(false); const { uploadFiles } = await import("../actions.js"); uploadFiles(book, [...e.dataTransfer.files]); }}>
         <div class="empty" style={{ minHeight: "100%" }}>
           <div class="box">
-            <h2>"{book.name}" is empty</h2>
-            <p class="muted">Add PDFs, Word and Excel files, photos or videos. They are saved in your Google Drive, in this book's folder.</p>
+            <h2>{_t("\"{0}\" is empty", book.name)}</h2>
+            <p class="muted">{_t("Add PDFs, Word and Excel files, photos or videos. They are saved in your Google Drive, in this book's folder.")}</p>
             <EmptyButtons book={book} />
             {(bookMeta(book.id).checklist || []).length > 0 && <div class="emptycheck">
-              <div class="ap-sec">This book needs</div>
+              <div class="ap-sec">{_t("This book needs")}</div>
               {(bookMeta(book.id).checklist || []).map(it => <div key={it.id} class="small"><Icon n={it.done ? "check" : "circle"} size={14} />{it.text}</div>)}
             </div>}
           </div>
         </div>
-        {drop && <div class="dropzone">Drop to add to "{book.name}"</div>}
+        {drop && <div class="dropzone">{_t("Drop to add to \"{0}\"", book.name)}</div>}
       </div>
     );
   }
@@ -1164,13 +1165,13 @@ export function Viewer({ book }) {
           <div key={f.id} style={{ display: "contents" }}>
             {files.length > 1 && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
               <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
-              {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} page{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
+              {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} {_t("page")}{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
             </div>}
             <DocBlock book={book} file={f} k={k} maxW={maxW} grid={grid} />
           </div>
         ))}
       </div>
-      {drop && <div class="dropzone">Drop to add to "{book.name}"</div>}
+      {drop && <div class="dropzone">{_t("Drop to add to \"{0}\"", book.name)}</div>}
     </div>
     <MarkBar k={k} />
     <TextSelBar />
@@ -1184,16 +1185,16 @@ function EmptyButtons({ book }) {
   if (!mod) return null;
   return (
     <div class="row wrap" style={{ justifyContent: "center", marginTop: 14 }}>
-      <button class="btn" onClick={async () => mod.uploadFiles(book, await mod.pickFiles())}><Icon n="upload" />Add files</button>
-      {store.value.canPick && <button class="btn ghost" onClick={() => mod.addFromDrive(book)}><Icon n="drive" />From my Drive</button>}
-      <button class="btn ghost" onClick={() => openPanel("scan", { book: book.id })}><Icon n="camera" />Scan</button>
-      <button class="btn ghost" onClick={() => openPanel("write", { book: book.id })}><Icon n="edit" />Write</button>
+      <button class="btn" onClick={async () => mod.uploadFiles(book, await mod.pickFiles())}><Icon n="upload" />{_t("Add files")}</button>
+      {store.value.canPick && <button class="btn ghost" onClick={() => mod.addFromDrive(book)}><Icon n="drive" />{_t("From my Drive")}</button>}
+      <button class="btn ghost" onClick={() => openPanel("scan", { book: book.id })}><Icon n="camera" />{_t("Scan")}</button>
+      <button class="btn ghost" onClick={() => openPanel("write", { book: book.id })}><Icon n="edit" />{_t("Write")}</button>
     </div>
   );
 }
 
 // the paper of a sticky note
-const PAPERS = [["#FFED8C", "Yellow"], ["#FFD1E0", "Pink"], ["#CCE8FF", "Blue"], ["#CCF2CC", "Green"], ["#E4D9FF", "Lilac"], ["#FFDDB3", "Orange"]];
+const PAPERS = [["#FFED8C", _t("Yellow")], ["#FFD1E0", _t("Pink")], ["#CCE8FF", _t("Blue")], ["#CCF2CC", _t("Green")], ["#E4D9FF", _t("Lilac")], ["#FFDDB3", _t("Orange")]];
 export { PAPERS };
 function rgbHex(c) { return "#" + c.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join(""); }
 async function copySelected() {
@@ -1203,11 +1204,11 @@ async function copySelected() {
   if (!f) return;
   const n = await copyMark(f, sel.page, sel.i);
   await reselect(f, sel.page, n);
-  toast("A copy - drag it where you want it.");
+  toast(_t("A copy - drag it where you want it."));
 }
 
 // the small bar for the selected mark: colour, style, change the words, take it off
-const TEXT_STYLES = [["plain", "Plain"], ["outline", "Outline"], ["label", "Label"], ["solid", "Solid"], ["dashed", "Dashed"], ["marker", "Marker"]];
+const TEXT_STYLES = [["plain", _t("Plain")], ["outline", _t("Outline")], ["label", _t("Label")], ["solid", _t("Solid")], ["dashed", _t("Dashed")], ["marker", _t("Marker")]];
 // the words you chose with the arrow: a small bar just above them - highlight (in a colour), underline, strike out,
 // comment, copy, read aloud, find everywhere, a task about them
 function TextSelBar() {
@@ -1247,17 +1248,17 @@ function TextSelBar() {
   return (
     <div ref={ref} class="floatbar selbar" style={pos ? { top: pos.top + "px", left: pos.left + "px" } : { visibility: "hidden" }} onPointerDown={(e) => e.stopPropagation()}>
       {!ro && <>
-        <span class="rsws">{HL_COLORS.slice(0, 5).map(c => <button key={c} class={"rsw" + (o.color === c ? " on" : "")} style={{ background: c }} title="Highlight in this colour" onClick={() => { toolOpts.value = { ...toolOpts.value, color: c }; mark("Highlight", rgb(c)); }} />)}</span>
-        <button class="ib" title="Highlight" onClick={() => mark("Highlight", rgb(o.color))}><Icon n="highlighter" size={17} /></button>
-        <button class="ib" title="Underline" onClick={() => mark("Underline", [0.85, 0.2, 0.3])}><Icon n="line" size={17} /></button>
-        <button class="ib" title="Strike out" onClick={() => mark("StrikeOut", [0.85, 0.2, 0.3])}><Icon n="x" size={17} /></button>
-        <button class="ib" title="Comment on these words" onClick={() => { textSel.value = null; commentsOpen.value = { draft: { fileId: file.id, page: s.page, x: Math.max(q[2], q[6]) + 6, y: Math.min(q[1], q[3]) } }; }}><Icon n="comment" size={17} /></button>
+        <span class="rsws">{HL_COLORS.slice(0, 5).map(c => <button key={c} class={"rsw" + (o.color === c ? " on" : "")} style={{ background: c }} title={_t("Highlight in this colour")} onClick={() => { toolOpts.value = { ...toolOpts.value, color: c }; mark("Highlight", rgb(c)); }} />)}</span>
+        <button class="ib" title={_t("Highlight")} onClick={() => mark("Highlight", rgb(o.color))}><Icon n="highlighter" size={17} /></button>
+        <button class="ib" title={_t("Underline")} onClick={() => mark("Underline", [0.85, 0.2, 0.3])}><Icon n="line" size={17} /></button>
+        <button class="ib" title={_t("Strike out")} onClick={() => mark("StrikeOut", [0.85, 0.2, 0.3])}><Icon n="x" size={17} /></button>
+        <button class="ib" title={_t("Comment on these words")} onClick={() => { textSel.value = null; commentsOpen.value = { draft: { fileId: file.id, page: s.page, x: Math.max(q[2], q[6]) + 6, y: Math.min(q[1], q[3]) } }; }}><Icon n="comment" size={17} /></button>
         <span class="fl-sep" />
       </>}
-      <button class="ib" title="Copy (Ctrl+C)" onClick={() => navigator.clipboard?.writeText(s.text).then(() => toast("Copied."))}><Icon n="copy" size={17} /></button>
-      {"speechSynthesis" in window && <button class="ib" title="Read it aloud" onClick={() => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page: s.page, text: s.text } }))}><Icon n="speaker" size={17} /></button>}
-      <button class="ib" title="Find it in all the books" onClick={() => openPanel("find", { q: s.text.trim().slice(0, 80) })}><Icon n="search" size={17} /></button>
-      <button class="ib" title="A task about it" onClick={() => { const t = s.text.trim().slice(0, 120); textSel.value = null; import("../state.js").then(st => { st.setSetting("tasks", [{ id: Math.random().toString(36).slice(2), text: t, who: "", due: "", made: Date.now(), done: 0, bookId: bookId.value, book: books.value.find(b => b.id === bookId.value)?.name || "", fileId: file.id, file: file.name, page: s.page }, ...(st.settings.value.tasks || [])]); openPanel("tasks"); }); }}><Icon n="task" size={17} /></button>
+      <button class="ib" title={_t("Copy (Ctrl+C)")} onClick={() => navigator.clipboard?.writeText(s.text).then(() => toast(_t("Copied.")))}><Icon n="copy" size={17} /></button>
+      {"speechSynthesis" in window && <button class="ib" title={_t("Read it aloud")} onClick={() => window.dispatchEvent(new CustomEvent("bl-read-aloud", { detail: { fileId: file.id, page: s.page, text: s.text } }))}><Icon n="speaker" size={17} /></button>}
+      <button class="ib" title={_t("Find it in all the books")} onClick={() => openPanel("find", { q: s.text.trim().slice(0, 80) })}><Icon n="search" size={17} /></button>
+      <button class="ib" title={_t("A task about it")} onClick={() => { const t = s.text.trim().slice(0, 120); textSel.value = null; import("../state.js").then(st => { st.setSetting("tasks", [{ id: Math.random().toString(36).slice(2), text: t, who: "", due: "", made: Date.now(), done: 0, bookId: bookId.value, book: books.value.find(b => b.id === bookId.value)?.name || "", fileId: file.id, file: file.name, page: s.page }, ...(st.settings.value.tasks || [])]); openPanel("tasks"); }); }}><Icon n="task" size={17} /></button>
     </div>
   );
 }
@@ -1298,9 +1299,9 @@ function MarkBar() {
   const colors = ["#FFD43B", "#69DB7C", "#74C0FC", "#F783AC", "#E03131", "#1C7ED6", "#2B8A3E", "#1E1C2B"];
   const textColors = ["#1E1C2B", "#C2337A", "#1C7ED6", "#2B8A3E", "#E03131", "#E8772E"];
   const white = (sel.type === "Square" && sel.subject === "White box") || (sel.type === "Ink" && sel.subject === "White brush");
-  const names = { Highlight: "Highlight", Underline: "Underline", StrikeOut: "Strike-out", Squiggly: "Wavy line", Ink: sel.subject || "Drawing",
-    FreeText: sel.subject === "Sticky note" ? "Sticky note" : "Text", Text: "Comment", Square: white ? "White box" : "Box", Circle: "Circle", Line: "Line",
-    Stamp: sel.subject || "Stamp" };
+  const names = { Highlight: _t("Highlight"), Underline: _t("Underline"), StrikeOut: _t("Strike-out"), Squiggly: _t("Wavy line"), Ink: _tv(sel.subject) || _t("Drawing"),
+    FreeText: sel.subject === "Sticky note" ? _t("Sticky note") : _t("Text"), Text: _t("Comment"), Square: white ? _t("White box") : _t("Box"), Circle: _t("Circle"), Line: _t("Line"),
+    Stamp: _tv(sel.subject) || _t("Stamp") };
   const words = sel.type === "FreeText";
   const sticky = words && sel.subject === "Sticky note";
   const st = sel.style || {};
@@ -1312,55 +1313,55 @@ function MarkBar() {
   };
   const ed = async (change) => { await editMark(file, sel.page, sel.i, change); refresh(); };
   const styleMenu = (e) => openMenu(e, [
-    { title: "Style of the text box" },
+    { title: _t("Style of the text box") },
     ...TEXT_STYLES.map(([k2, l]) => ({ label: ((st.style || "plain") === k2 ? "✓ " : "") + l, run: () => ed({ style: { style: k2 } }) })),
-    { title: "Colours and effects" },
-    { label: "Fill colour", sub: [{ label: "No fill", run: () => ed({ style: { fill: null } }) },
+    { title: _t("Colours and effects") },
+    { label: _t("Fill colour"), sub: [{ label: _t("No fill"), run: () => ed({ style: { fill: null } }) },
       ...colors.map(c => ({ label: "", swatch: c, run: () => ed({ style: { fill: hexToRgb(mix(c, "#ffffff", 0.55)) } }) }))] },
-    { label: "Line colour", sub: [{ label: "No line", run: () => ed({ style: { line: null } }) },
+    { label: _t("Line colour"), sub: [{ label: _t("No line"), run: () => ed({ style: { line: null } }) },
       ...colors.map(c => ({ label: "", swatch: c, run: () => ed({ style: { line: hexToRgb(c) } }) }))] },
-    { label: (st.opacity ?? 1) < 1 ? "See-through: on" : "See-through: off", run: () => ed({ style: { opacity: (st.opacity ?? 1) < 1 ? 1 : 0.6 } }) },
-    { label: st.round ? "Round corners: on" : "Round corners: off", run: () => ed({ style: { round: !st.round } }) },
+    { label: (st.opacity ?? 1) < 1 ? _t("See-through: on") : _t("See-through: off"), run: () => ed({ style: { opacity: (st.opacity ?? 1) < 1 ? 1 : 0.6 } }) },
+    { label: st.round ? _t("Round corners: on") : _t("Round corners: off"), run: () => ed({ style: { round: !st.round } }) },
   ]);
   const curColor = sel.color ? "#" + sel.color.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("") : "";
   return (
     <div ref={ref} class="floatbar" style={pos ? { top: pos.top + "px", left: pos.left + "px" } : { visibility: "hidden" }} onPointerDown={(e) => e.stopPropagation()}>
       <b class="fl-name">{names[sel.type] || sel.type}</b>
       {words && <>
-        <select class="rsel" value={st.font || "sans"} title="Font" onChange={(e) => ed({ style: { font: e.target.value } })}>
-          <option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option></select>
-        <select class="rsel" value={Math.round(sel.size || 12)} title="Size" onChange={(e) => ed({ size: Number(e.target.value) })}>
+        <select class="rsel" value={st.font || "sans"} title={_t("Font")} onChange={(e) => ed({ style: { font: e.target.value } })}>
+          <option value="sans">{_t("Sans")}</option><option value="serif">{_t("Serif")}</option><option value="mono">{_t("Mono")}</option></select>
+        <select class="rsel" value={Math.round(sel.size || 12)} title={_t("Size")} onChange={(e) => ed({ size: Number(e.target.value) })}>
           {[...new Set([8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 40, Math.round(sel.size || 12)])].sort((x, y) => x - y).map(z => <option key={z} value={z}>{z}</option>)}</select>
         <span class="rseg">
-          <button class={st.bold ? "on" : ""} title="Bold" onClick={() => ed({ style: { bold: !st.bold } })}><b>B</b></button>
-          <button class={st.italic ? "on" : ""} title="Italic" onClick={() => ed({ style: { italic: !st.italic } })}><i style={{ fontFamily: "Georgia,serif" }}>I</i></button>
+          <button class={st.bold ? "on" : ""} title={_t("Bold")} onClick={() => ed({ style: { bold: !st.bold } })}><b>B</b></button>
+          <button class={st.italic ? "on" : ""} title={_t("Italic")} onClick={() => ed({ style: { italic: !st.italic } })}><i style={{ fontFamily: "Georgia,serif" }}>I</i></button>
         </span>
-        <span class="rseg">{[["left", "Left", "alignl"], ["center", "Centre", "alignc"], ["right", "Right", "alignr"]].map(([k2, l, ic]) => <button key={k2} class={(st.align || "left") === k2 ? "on" : ""} title={"Align " + l.toLowerCase()} onClick={() => ed({ style: { align: k2 } })}><Icon n={ic} size={14} /></button>)}</span>
+        <span class="rseg">{[["left", _t("Left"), "alignl"], ["center", _t("Centre"), "alignc"], ["right", _t("Right"), "alignr"]].map(([k2, l, ic]) => <button key={k2} class={(st.align || "left") === k2 ? "on" : ""} title={_t("Align ") + l.toLowerCase()} onClick={() => ed({ style: { align: k2 } })}><Icon n={ic} size={14} /></button>)}</span>
         <span class="fl-sep" />
-        <span class="rsws">{textColors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title="Colour of the words" onClick={() => ed({ color: hexToRgb(c) })} />)}</span>
+        <span class="rsws">{textColors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={_t("Colour of the words")} onClick={() => ed({ color: hexToRgb(c) })} />)}</span>
       </>}
-      {sticky && <><span class="fl-sep" /><span class="rsws" title="The colour of the paper">{PAPERS.map(([c, l]) => (
-        <button key={c} class={"paperdot" + (sel.paper && rgbHex(sel.paper) === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={l + " paper"} onClick={() => ed({ paper: hexToRgb(c) })} />))}</span></>}
-      {words && !sticky && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={15} />Box</button>}
+      {sticky && <><span class="fl-sep" /><span class="rsws" title={_t("The colour of the paper")}>{PAPERS.map(([c, l]) => (
+        <button key={c} class={"paperdot" + (sel.paper && rgbHex(sel.paper) === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={_t("{0} paper", l)} onClick={() => ed({ paper: hexToRgb(c) })} />))}</span></>}
+      {words && !sticky && <button class="btn plain small" onClick={styleMenu}><Icon n="palette" size={15} />{_t("Box")}</button>}
       {white ? <button class="btn soft small" onClick={async () => {
-          const ok = await confirm("Erase the text under it for good?", "The words and pictures under the white box are taken out of the PDF, so nobody can copy or find them.", { ok: "Erase for good", danger: true });
+          const ok = await confirm(_t("Erase the text under it for good?"), _t("The words and pictures under the white box are taken out of the PDF, so nobody can copy or find them."), { ok: _t("Erase for good"), danger: true });
           if (!ok) return;
           const { getDoc: gd } = await import("../docs.js");
           const doc = await gd(file);
           await call("eraseArea", doc.key, sel.page, sel.rect, false, sel.i);
           afterEdit(file.id, "pages");
           selectedMark.value = null;
-        }}><Icon n="eraser" size={15} />Erase the text under it for good</button>
-        : !words && sel.type !== "Stamp" && <span class="rsws">{colors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title="Colour" onClick={() => ed({ color: hexToRgb(c) })} />)}</span>}
-      {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title="Fill it with a light colour, or not"
-        onClick={() => ed({ fill: sel.fill ? null : hexToRgb(mix(curColor || "#E03131", "#ffffff", 0.78)) })}>{sel.fill ? "No fill" : "Fill"}</button>}
+        }}><Icon n="eraser" size={15} />{_t("Erase the text under it for good")}</button>
+        : !words && sel.type !== "Stamp" && <span class="rsws">{colors.map(c => <button key={c} class={"rsw" + (curColor.toLowerCase() === c.toLowerCase() ? " on" : "")} style={{ background: c }} title={_t("Colour")} onClick={() => ed({ color: hexToRgb(c) })} />)}</span>}
+      {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title={_t("Fill it with a light colour, or not")}
+        onClick={() => ed({ fill: sel.fill ? null : hexToRgb(mix(curColor || "#E03131", "#ffffff", 0.78)) })}>{sel.fill ? _t("No fill") : _t("Fill")}</button>}
       <span class="fl-sep" />
-      {words && <button class="ib" title="Change the words (double-click)" onClick={() => window.dispatchEvent(new CustomEvent("bl-edit-mark"))}><Icon n="rename" size={17} /></button>}
-      {turnable && <button class="ib" title="Turn it a quarter (or drag the round knob)" onClick={() => ed({ rotateBy: 90 })}><Icon n="rotate" size={17} /></button>}
-      {turnable && sel.rot ? <button class="btn plain small" title="Put it straight again" onClick={() => ed({ rotateBy: -sel.rot })}>Straight</button> : null}
-      {!white && <button class="ib" title="A copy of it (Ctrl+D)" onClick={() => copySelected()}><Icon n="copy" size={17} /></button>}
-      <button class="ib" title={white ? "Take the white box off (the text shows again)" : "Take it off (Delete)"} onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" size={17} /></button>
-      <button class="ib" title="Done (Esc)" onClick={() => { selectedMark.value = null; }}><Icon n="close" size={17} /></button>
+      {words && <button class="ib" title={_t("Change the words (double-click)")} onClick={() => window.dispatchEvent(new CustomEvent("bl-edit-mark"))}><Icon n="rename" size={17} /></button>}
+      {turnable && <button class="ib" title={_t("Turn it a quarter (or drag the round knob)")} onClick={() => ed({ rotateBy: 90 })}><Icon n="rotate" size={17} /></button>}
+      {turnable && sel.rot ? <button class="btn plain small" title={_t("Put it straight again")} onClick={() => ed({ rotateBy: -sel.rot })}>{_t("Straight")}</button> : null}
+      {!white && <button class="ib" title={_t("A copy of it (Ctrl+D)")} onClick={() => copySelected()}><Icon n="copy" size={17} /></button>}
+      <button class="ib" title={white ? _t("Take the white box off (the text shows again)") : _t("Take it off (Delete)")} onClick={async () => { await deleteMark(file, sel.page, sel.i); selectedMark.value = null; }}><Icon n="trash" size={17} /></button>
+      <button class="ib" title={_t("Done (Esc)")} onClick={() => { selectedMark.value = null; }}><Icon n="close" size={17} /></button>
     </div>
   );
 }
@@ -1385,7 +1386,7 @@ window.addEventListener("keydown", async (e) => {
   }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && textSel.value?.text) {
     navigator.clipboard?.writeText(textSel.value.text);
-    toast("Copied.");
+    toast(_t("Copied."));
   }
 });
 

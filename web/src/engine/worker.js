@@ -2,13 +2,14 @@
 // render, marks are written and files are saved without freezing the page. The page talks to it with messages:
 // {id, fn, args} -> {id, ok, value} (see client.js).
 // (the build puts MuPDF's WebAssembly file next to its script; MuPDF finds it there)
+import { _t } from "../i18n.js";
 const mupdf = await import("mupdf");
 
 const docs = new Map(); // key -> {doc, pdf, mime, name, journal}
 
 function get(key) {
   const d = docs.get(key);
-  if (!d) throw new Error("This document is not open: " + key);
+  if (!d) throw new Error(_t("This document is not open: ") + key);
   return d;
 }
 
@@ -71,7 +72,7 @@ function findByNum(p, num) { return p.getAnnotations().find(a => annotNum(a) ===
 const PINK = [1, 0.52, 0.76], DONE = [0.18, 0.55, 0.34];
 
 function loadPDFPage(d, page) {
-  if (!d.pdf) throw new Error("Marks can only go on PDF pages");
+  if (!d.pdf) throw new Error(_t("Marks can only go on PDF pages"));
   return d.pdf.loadPage(page);
 }
 
@@ -587,7 +588,7 @@ function moveRaw(page, a, dx, dy) {
 function annotAt(d, pageIndex, i) {
   const page = loadPDFPage(d, pageIndex);
   const list = page.getAnnotations();
-  if (i < 0 || i >= list.length) throw new Error("That mark is not there any more");
+  if (i < 0 || i >= list.length) throw new Error(_t("That mark is not there any more"));
   return { page, a: list[i] };
 }
 
@@ -967,7 +968,7 @@ const api = {
     return op(d, "Reply", () => {
       const p = loadPDFPage(d, page);
       const parent = findByNum(p, num);
-      if (!parent) throw new Error("The comment is no longer there");
+      if (!parent) throw new Error(_t("The comment is no longer there"));
       const a = p.createAnnotation("Text");
       a.setRect(parent.getRect());
       a.setContents(text);
@@ -989,7 +990,7 @@ const api = {
     return op(d, on ? "Resolve" : "Open again", () => {
       const p = loadPDFPage(d, page);
       const a = findByNum(p, num);
-      if (!a) throw new Error("The comment is no longer there");
+      if (!a) throw new Error(_t("The comment is no longer there"));
       const o = a.getObject();
       if (on) o.put("BLDone", true); else o.delete("BLDone");
       try { a.setIcon(on ? "Check" : "Comment"); } catch (e) {}
@@ -1240,7 +1241,7 @@ const api = {
 
   save(key) {
     const d = get(key);
-    if (!d.pdf) throw new Error("Only PDFs can be saved");
+    if (!d.pdf) throw new Error(_t("Only PDFs can be saved"));
     let buf;
     try {
       buf = d.pdf.canBeSavedIncrementally() ? d.pdf.saveToBuffer("incremental") : d.pdf.saveToBuffer("compress");
@@ -1541,9 +1542,9 @@ const api = {
       const fy = 24;
       let fx = 38;
       if (logo) { cs += `q 9 0 0 9 ${fx} ${fy - 2} cm /BLRL Do Q\n`; fx += 13; }
-      cs += txt(HR, "BLRR", 7, fx, fy, spec.foot || "Made with BindLens", "#8A8796");
+      cs += txt(HR, "BLRR", 7, fx, fy, spec.foot || _t("Made with BindLens"), "#8A8796");
       if (spec.mid) cs += txt(spec.alert ? HB : HR, spec.alert ? "BLRB" : "BLRR", 7, W / 2, fy, spec.mid, spec.alert ? "#9B1C1C" : "#8A8796", "center");
-      cs += txt(HB, "BLRB", 7, W - 38, fy, `Page ${i + 1} of ${n}`, "#3B3946", "right");
+      cs += txt(HB, "BLRB", 7, W - 38, fy, _t("Page {0} of {1}", i + 1, n), "#3B3946", "right");
       cs += "Q\n";
       const pobj = page.getObject();
       let res = pobj.getInheritable("Resources");
@@ -1570,7 +1571,7 @@ const api = {
       pobj.put("Contents", arr);
     }
     // the title and the maker in the file's own details
-    try { pdf.setMetaData("info:Title", spec.title || "Report"); pdf.setMetaData("info:Creator", "BindLens"); pdf.setMetaData("info:Producer", "BindLens (MuPDF)"); } catch (e) {}
+    try { pdf.setMetaData("info:Title", spec.title || _t("Report")); pdf.setMetaData("info:Creator", "BindLens"); pdf.setMetaData("info:Producer", "BindLens (MuPDF)"); } catch (e) {}
     const u8 = pdf.saveToBuffer("garbage=1,compress").asUint8Array().slice();
     return { __transfer: [u8.buffer], value: u8 };
   },
@@ -1840,7 +1841,7 @@ const api = {
 self.onmessage = async (e) => {
   const { id, fn, args } = e.data;
   try {
-    if (!api[fn]) throw new Error("Unknown call " + fn);
+    if (!api[fn]) throw new Error(_t("Unknown call ") + fn);
     let v = api[fn](...(args || []));
     if (v instanceof Promise) v = await v;
     if (v && v.__transfer) self.postMessage({ id, ok: true, value: v.value }, v.__transfer);

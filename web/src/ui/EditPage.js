@@ -4,22 +4,23 @@
 import { settings, setSetting, store, toast, logChange } from "../state.js";
 import { getDoc, call } from "../docs.js";
 import { escapeHtml } from "../util.js";
+import { _t } from "../i18n.js";
 
 export async function editInGoogle(book, f, page) {
   const s = store.value;
-  toast("Making a Google Doc of the page (Google reads its words)...");
+  toast(_t("Making a Google Doc of the page (Google reads its words)..."));
   try {
     const d = await getDoc(f);
     const u8 = await call("extractPages", d.key, [page]);
-    const name = `${f.name.replace(/\.[^.]+$/, "")} - page ${page + 1}`;
+    const name = _t("{0} - page {1}", f.name.replace(/\.[^.]+$/, ""), page + 1);
     const g = await s.createConverted(null, name, u8, "application/pdf", "doc");
     const job = { id: g.id, kind: "doc", name, fileId: f.id, at: page, book: book.id, made: Date.now(), replace: { start: page, n: 1 } };
     setSetting("googleJobs", [...(settings.value.googleJobs || []), job]);
     const { openBeside } = await import("./AddPages.jsx");
     openBeside(s.editLink("doc", g.id));
-    logChange("Opened a page in Google Docs", f.name, book.name);
-    toast("Change the page in Google Docs, then come back and press Put the page back.", "ok", 7000);
-  } catch (e) { toast("Google: " + e.message, "bad", 6000); }
+    logChange(_t("Opened a page in Google Docs"), f.name, book.name);
+    toast(_t("Change the page in Google Docs, then come back and press Put the page back."), "ok", 7000);
+  } catch (e) { toast(_t("Google: ") + e.message, "bad", 6000); }
 }
 
 // the page's lines -> a simple document: headings (bigger lines), bold lines, paragraphs
@@ -54,8 +55,8 @@ export async function editInWrite(book, f, page) {
   const { panel } = await import("../state.js");
   if (w) { panel.value = { type: "write", edit: { fileId: f.id, start: w.start, n: w.n, html: w.html } }; return; }
   const lines = await call("pageLines", d.key, page);
-  if (!lines.some(l => (l.text || "").trim())) { toast("This page has no words (a scan?). Edit > Read scan (OCR) first."); return; }
+  if (!lines.some(l => (l.text || "").trim())) { toast(_t("This page has no words (a scan?). Edit > Read scan (OCR) first.")); return; }
   panel.value = { type: "write", edit: { fileId: f.id, start: page, n: 1, html: linesToHtml(lines), fromPage: true } };
-  toast("The words of the page, as a document. Pictures and the exact look are not kept - Undo brings the page back.", "", 7000);
+  toast(_t("The words of the page, as a document. Pictures and the exact look are not kept - Undo brings the page back."), "", 7000);
   void book;
 }

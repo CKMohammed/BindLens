@@ -1,4 +1,5 @@
 // Finding data in text: emails, phones, addresses, dates, amounts - the same rules as the Windows app.
+import { _t } from "../i18n.js";
 export const MONTHS = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7,
   july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12,
@@ -21,8 +22,8 @@ export const RE = {
     String.raw`|\b(?:C\/|Calle|Avda\.?|Avenida|Plaza|Pza\.?|Paseo|Camino|Carretera|Ctra\.?)\s+[^\n|,]{2,40}(?:,\s*\d{1,4})?[^\n|]{0,40}` +
     String.raw`|\b[AC-FHKNPRTV-Y]\d{2}\s?[0-9AC-FHKNPRTV-Y]{4}\b` +
     String.raw`|\b[A-Z]{1,2}\d[A-Z\d]?\s\d[A-Z]{2}\b`, "g"),
-  IDs: /\b(?:(?:invoice|inv|order|ref|reference|no|number|quote|receipt|account|acct|policy|case|ticket|id)\.?\s*(?:no\.?|number|#)?\s*[:#]?\s*)([A-Z]{0,4}[-/]?\d[\dA-Z/-]{2,})\b|\b\d{7}[A-W][A-IW]?\b|\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/gi,
-  Companies: /\b(?:[A-Z][\w&'.-]*\s){0,4}(?:Ltd\.?|Limited|LLC|Inc\.?|PLC|plc|GmbH|S\.?L\.?|S\.?A\.?|Teoranta|DAC|CLG|Council|University|College|Institute|Bank|Group|Accountants|Builders|Design|Consulting|Solutions|Services|Insurance|Partners)\b/g,
+  IDs: /\b(?:(?:invoice|inv|order|ref|reference|no|number|quote|receipt|account|acct|policy|case|ticket|id|factura|fra|pedido|albar[aá]n|referencia|expediente|p[oó]liza|presupuesto|recibo|n[uú]m)\.?\s*(?:no\.?|number|#|n\.?º|nº|n[uú]m\.?|n[uú]mero)?\s*[:#]?\s*)([A-Z]{0,4}[-/]?\d[\dA-Z/-]{2,})\b|\b[XYZ]?\d{7,8}[A-Z]\b|\b[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]\b|\b\d{7}[A-W][A-IW]?\b|\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/gi,
+  Companies: /(?<![\wÀ-ÿ])(?:[A-ZÀ-Þ][\wÀ-ÿ&'.-]*\s){0,4}(?:Ltd\.?|Limited|LLC|Inc\.?|PLC|plc|GmbH|S\.?L\.?|S\.?A\.?|Teoranta|DAC|CLG|Council|University|College|Institute|Bank|Group|Accountants|Builders|Design|Consulting|Solutions|Services|Insurance|Partners|S\.?L\.?U\.?|S\.?Coop\.?|Sociedad|Asociaci[oó]n|Fundaci[oó]n|Ayuntamiento|Universidad|Banco|Gestor[ií]a|Asesor[ií]a|Consultores|Abogados|Seguros|Servicios)\b/g,
 };
 
 const UP = "A-ZÀ-ÖØ-ÞĀ-Ž", LO = "a-zß-öø-ÿĀ-ž";
@@ -31,21 +32,25 @@ const PART = `(?:Ó|Ní|Nic|Uí|Ua|Mac|Mc)(?=[ \\t]+[${UP}])`;
 export const NAME_RE = new RegExp(`^(?:(?:Mr|Mrs|Ms|Miss|Dr)\\.?[ \\t]+)?${NW}(?:[ \\t]+(?:${PART}|${NW}|[${UP}]\\.?|de|del|la|van|von)){1,4}$`, "u");
 export const NAME_IN_TEXT = new RegExp(`(?:(?:Mr|Mrs|Ms|Miss|Dr)\\.?[ \\t]+)?${NW}(?:[ \\t]+(?:${PART}|${NW}|[${UP}]\\.?(?=[ \\t]))){1,3}`, "gu");
 
-export const NAME_HDR = /\b(name|full name|contact|staff|student|employee|person|member|client|customer|teacher|worker|owner|tenant|landlord|supplier|nombre|alumno)\b/i;
-export const ORG_HDR = /\b(organi[sz]ation|company|institution|centre|center|service|employer|agency|business|provider|club|department|empresa|centro|university|college)\b/i;
+export const NAME_HDR = /\b(name|full name|contact|staff|student|employee|person|member|client|customer|teacher|worker|owner|tenant|landlord|supplier|nombre|nombre y apellidos|apellidos|alumn[oa]|estudiante|emplead[oa]|trabajador[a]?|titular|cliente|contacto|persona|profesor[a]?|responsable|socio|inquilino|propietari[oa])\b/i;
+export const ORG_HDR = /\b(organi[sz]ation|company|institution|centre|center|service|employer|agency|business|provider|club|department|empresa|centro|university|college|organizaci[oó]n|entidad|instituci[oó]n|universidad|colegio|departamento|proveedor|raz[oó]n social)\b/i;
 export const EMAIL_HDR = /e-?mail|correo/i;
-export const PHONE_HDR = /phone|mobile|tel|cell|móvil|movil|teléfono|telefono/i;
-export const ADDR_HDR = /address|street|eircode|postcode|direcci[oó]n/i;
-export const EXPIRY_COL = /expir|valid|renew|due|review|deadline|until|ends?\b|caduc|vence/i;
-export const NOT_EXPIRY = /\b(issued?|date of issue|issue date|received|d\.?o\.?b\.?|date of birth|birth|born|started?|start date|signed|completed|attended|commenced|joined|from|printed|created|dated)\b/i;
-export const EXPIRY_RE = /\b(expir\w*|valid (?:until|to|till)|renew\w*|due(?: date| by| on)?|deadline|review date|ends? (?:on|date)|end date|closing date|before|no later than|submission|submit\w*|caduc\w*|vence|vencimiento|fecha l[ií]mite|plazo)\b/gi;
+export const PHONE_HDR = /phone|mobile|tel|cell|móvil|movil|teléfono|telefono|tfno|tlf|telf/i;
+export const ADDR_HDR = /address|street|eircode|postcode|direcci[oó]n|domicilio|c[oó]digo postal|\bc\.?p\.?\b|localidad|calle/i;
+export const EXPIRY_COL = /expir|valid|renew|due|review|deadline|until|ends?\b|caduc|vence|vencim|v[aá]lid[oa]|renova|plazo|hasta|fin\b/i;
+export const NOT_EXPIRY = /\b(issued?|date of issue|issue date|received|d\.?o\.?b\.?|date of birth|birth|born|started?|start date|signed|completed|attended|commenced|joined|from|printed|created|dated|expedici[oó]n|expedido|emitid[oa]|fecha de emisi[oó]n|nacimiento|nacid[oa]|alta|inicio|firmad[oa]|recibid[oa]|creado|impreso)\b/i;
+export const EXPIRY_RE = /\b(expir\w*|valid (?:until|to|till)|renew\w*|due(?: date| by| on)?|deadline|review date|ends? (?:on|date)|end date|closing date|before|no later than|submission|submit\w*|caduc\w*|vence|vencimiento|fecha l[ií]mite|plazo|v[aá]lid[oa] hasta|renovaci[oó]n|fecha de fin|antes del?)\b/gi;
 
 const NOT_NAMES = new Set(("Dear Sir Madam Yours Sincerely Kind Regards Best Thank You Monday Tuesday Wednesday Thursday Friday " +
   "Saturday Sunday January February March April May June July August September October November December Total Invoice " +
   "Page Date Client Contact Start Notes Scope Name Email Phone Company Quote Office Street Road Payment Terms Item " +
   "Amount Due Valid Until Offer Design Budget Summary Chapter Lecture Week Abstract Present Decisions Launch Content " +
   "Milestones Team Service Term Renewal Policy Tax Return Receipts Bill Items Paper Printer Toner Folders Research Question " +
-  "Deadline Sources Supply Demand Regression Day Keynote Venue Address Speakers Programme").split(" "));
+  "Deadline Sources Supply Demand Regression Day Keynote Venue Address Speakers Programme " +
+  "Estimado Estimada Atentamente Saludos Cordiales Gracias Lunes Martes Miércoles Jueves Viernes Sábado Domingo Enero Febrero Marzo " +
+  "Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre Factura Página Fecha Cliente Contacto Nombre Correo Teléfono " +
+  "Empresa Presupuesto Importe Base Imponible Dirección Asunto Total Pago Concepto Cantidad Precio Descripción Resumen Notas Acta " +
+  "Orden Día Asistentes Acuerdos Firma Firmado Expediente Referencia Vencimiento Plazo Asignatura Tema Curso").split(" "));
 
 export function allMatches(re, text) {
   const out = [];
@@ -144,14 +149,14 @@ export function deadlineDates(row, { all = false } = {}) {
 
 function whatOf(text, word) {
   const w = word.toLowerCase();
-  if (/renew/.test(w)) return "Renewal";
-  if (/expir|caduc|vence/.test(w)) return "Expires";
-  if (/due/.test(w)) return "Due";
-  if (/valid/.test(w)) return "Valid until";
-  if (/submi/.test(w)) return "Submission";
-  if (/deadline|plazo|l[ií]mite/.test(w)) return "Deadline";
-  if (/before|no later/.test(w)) return "Before";
-  if (/end/.test(w)) return "Ends";
+  if (/renew|renova/.test(w)) return _t("Renewal");
+  if (/expir|caduc|vence/.test(w)) return _t("Expires");
+  if (/due|vencim/.test(w)) return _t("Due");
+  if (/valid|v[aá]lid/.test(w)) return _t("Valid until");
+  if (/submi/.test(w)) return _t("Submission");
+  if (/deadline|plazo|l[ií]mite/.test(w)) return _t("Deadline");
+  if (/before|no later|antes/.test(w)) return _t("Before");
+  if (/end|fin\b/.test(w)) return _t("Ends");
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 

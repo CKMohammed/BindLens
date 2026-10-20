@@ -1,11 +1,12 @@
 // The example library: try BindLens without signing in. The books come with the page (demo/manifest.json);
 // everything you change stays in this browser tab and is gone when you close it.
 import { uid } from "../util.js";
+import { _t } from "../i18n.js";
 
 export class DemoStore {
   constructor() {
     this.kind = "demo";
-    this.user = { name: "Example library", email: "" };
+    this.user = { name: _t("Example library"), email: "" };
     this.books = [];
     this.files = [];
     this.data = new Map();
@@ -30,18 +31,18 @@ export class DemoStore {
     const looks = {};                    // some example books show their own icon (as you can choose in "Icon and colour")
     for (const b of m.books) {
       const id = "b-" + uid();
-      this.books.push({ id, name: b.name, modified: now });
+      this.books.push({ id, name: _t(b.name + "@@book"), modified: now });
       if (b.icon) looks[id] = { icon: b.icon, tstyle: b.tstyle || "3d" };
       const shelf = SHELF_OF[b.name];
-      if (shelf) looks[id] = { ...(looks[id] || {}), shelf };
+      if (shelf) looks[id] = { ...(looks[id] || {}), shelf: _t(shelf) };
       for (const f of b.files) {
         this.files.push({ id: "f-" + uid(), name: f.name, mime: f.mime, size: f.size, modified: now, md5: "", book: id,
           parent: id, path: f.path });
       }
     }
     const soon = new Date(Date.now() + 40 * 86400000).toISOString().slice(0, 10);
-    this.settings = { ...(m.settings || {}), books: looks, shelves: ["Office & administration", "University"],
-      countdowns: [{ id: "cd1", text: "Thesis submission", date: soon }] };
+    this.settings = { ...(m.settings || {}), books: looks, shelves: [_t("Office & administration"), _t("University")],
+      countdowns: [{ id: "cd1", text: _t("Thesis submission"), date: soon }] };
   }
 
   placeOf(id) {
@@ -111,7 +112,7 @@ export class DemoStore {
     if (this.data.has(file.id)) return this.data.get(file.id).slice(0);
     const f = this.files.find(x => x.id === file.id) || file;
     const r = await fetch(this.base + f.path);
-    if (!r.ok) throw new Error("Could not load " + f.name);
+    if (!r.ok) throw new Error(_t("Could not load ") + f.name);
     return r.arrayBuffer();
   }
 
@@ -136,7 +137,7 @@ export class DemoStore {
   async create(bookId, name, bytes, mime, opt = {}) {
     const buf = bytes instanceof ArrayBuffer ? bytes : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     // the example library has no network: it shows the progress all the same, quickly
-    if (opt.onProgress) for (let k = 1; k <= 4; k++) { if (opt.signal?.aborted) throw Object.assign(new Error("Stopped"), { name: "AbortError" }); await new Promise(r => setTimeout(r, Math.min(400, 60 + buf.byteLength / 40000))); opt.onProgress(buf.byteLength * k / 4, buf.byteLength); }
+    if (opt.onProgress) for (let k = 1; k <= 4; k++) { if (opt.signal?.aborted) throw Object.assign(new Error(_t("Stopped")), { name: "AbortError" }); await new Promise(r => setTimeout(r, Math.min(400, 60 + buf.byteLength / 40000))); opt.onProgress(buf.byteLength * k / 4, buf.byteLength); }
     const w = this.placeOf(bookId);
     const f = { id: "f-" + uid(), name, mime, size: buf.byteLength, modified: new Date().toISOString(), md5: uid(), book: w ? w.book : bookId, parent: bookId, sub: w ? w.path : "" };
     this.files.push(f);

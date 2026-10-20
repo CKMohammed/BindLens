@@ -3,13 +3,14 @@ import "./styles.css";
 import { App } from "./ui/App.jsx";
 import { toast } from "./state.js";
 import "./install.js";
+import { _t } from "./i18n.js";
 
 // anything that goes wrong is said in a line at the bottom, not lost
 window.addEventListener("unhandledrejection", (e) => {
   const m = String(e.reason?.message || e.reason || "");
   if (!m || /AbortError|The user aborted/i.test(m)) return;
   console.error(e.reason);
-  toast("Something did not work: " + m, "bad", 6000);
+  toast(_t("Something did not work: ") + m, "bad", 6000);
 });
 
 render(<App />, document.getElementById("app"));

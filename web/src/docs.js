@@ -4,6 +4,7 @@ import { toHtml, OFFICE_CSS } from "./engine/office.js";
 import { idb } from "./idb.js";
 import { store, saving, patchFile, toast, undoStack, redoStack, addFileToBook, books, bookId, logChange, settings } from "./state.js";
 import { baseName, debounce, isPaged, uniqueName } from "./util.js";
+import { _t } from "./i18n.js";
 
 const open = new Map();     // file id -> Promise<{key, pages, isPDF, converted}>
 const lru = [];             // file ids, most recent last
@@ -51,7 +52,7 @@ async function convertedPdf(file, buf) {
       const pdf = await store.value.officePdf(file);
       idb.set("files", gk, pdf.slice(0));
       return pdf;
-    } catch (e) { toast(store.value.cloud + " could not show it as it looks (" + e.message + "): BindLens shows it its own way.", "", 6000); }
+    } catch (e) { toast(_t("{0} could not show it as it looks ({1}): BindLens shows it its own way.", store.value.cloud, e.message), "", 6000); }
   }
   const key = "conv:" + file.id + ":" + (file.md5 || file.modified || "");
   const hit = await idb.get("files", key);
@@ -79,8 +80,8 @@ export async function anyToPdf(name, mime, buf, kind) {
 
 // -> {key, pages:[{w,h}], isPDF, converted, outline}
 export function getDoc(file) {
-  if (!file) return Promise.reject(new Error("No file"));
-  if (!isPaged(file.kind)) return Promise.reject(new Error("Not a paged file"));
+  if (!file) return Promise.reject(new Error(_t("No file")));
+  if (!isPaged(file.kind)) return Promise.reject(new Error(_t("Not a paged file")));
   touch(file.id);
   if (open.has(file.id)) return open.get(file.id);
   const p = openInEngine(file, file.id);
@@ -103,7 +104,7 @@ async function openInEngine(file, key) {
     const mime = file.kind === "pdf" ? "application/pdf" : (file.mime || file.name);
     r = await call("open", key, buf, mime, file.name);
   }
-  if (r.password) { await call("close", key); throw new Error("This PDF has a password. Open it once in another program to take the password off."); }
+  if (r.password) { await call("close", key); throw new Error(_t("This PDF has a password. Open it once in another program to take the password off.")); }
   return { key, ...r, converted, readOnly: converted || !r.isPDF };
 }
 
@@ -150,16 +151,16 @@ export async function saveNow(fileId) {
     pendingSave.delete(fileId);
     patchFile({ ...f, kind: file.kind });
     const last = (settings.value.log || [])[0];
-    if (!last || last.name !== file.name || last.what !== "Saved your marks in" || Date.now() - last.at > 60000) {
+    if (!last || last.name !== file.name || last.what !== _t("Saved your marks in") || Date.now() - last.at > 60000) {
       const b = books.value.find(x => x.files.some(y => y.id === fileId));
-      logChange("Saved your marks in", file.name, b ? b.name : "");
+      logChange(_t("Saved your marks in"), file.name, b ? b.name : "");
     }
     saving.value = { n: pendingSave.size, last: Date.now(), error: "" };
     textCacheDrop(fileId);
   } catch (e) {
     console.error(e);
     saving.value = { ...saving.value, error: String(e.message || e) };
-    toast("Could not save " + file.name + ": " + e.message, "bad", 6000);
+    toast(_t("Could not save ") + file.name + ": " + e.message, "bad", 6000);
   }
 }
 
@@ -261,14 +262,14 @@ export async function pdfCopyOf(file, book) {
   } else {
     pdf = await convertedPdf(file, buf);
   }
-  if (!pdf) throw new Error("This file cannot be turned into a PDF here");
+  if (!pdf) throw new Error(_t("This file cannot be turned into a PDF here"));
   const name = uniqueName(baseName(file.name) + ".pdf", book.files.map(f => f.name));
   const parent = file.parent || book.id;   // next to the original, in its sub-book too
   const f = await store.value.create(parent, name, pdf, "application/pdf");
   f.parent = parent;
   addFileToBook(book.id, f);
-  logChange("Made a PDF copy to mark", name, book.name);
-  toast(`Made "${name}" so you can mark it. The original is unchanged.`, "ok", 5000);
+  logChange(_t("Made a PDF copy to mark"), name, book.name);
+  toast(_t("Made \"{0}\" so you can mark it. The original is unchanged.", name), "ok", 5000);
   return f;
 }
 

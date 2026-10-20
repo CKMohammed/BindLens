@@ -14,6 +14,7 @@ import { call } from "../docs.js";
 import { idb } from "../idb.js";
 import { countOf, summaryOf, chartOf, chartSvg, repTheme, visibleCols, toTsv, toCsv, reportXlsx, reportPdfHtml, reportPdfSpec,
   printsOf, markNew, rowPrint } from "../reports/out.js";
+import { _t, loc, _tv, _n } from "../i18n.js";
 
 // the reports most people need, first; the others under More reports
 export const ESSENTIALS = ["contacts", "deadlines", "money", "tables", "case", "find", "person", "marks"];
@@ -35,14 +36,14 @@ function rowMenu(e, cells, go, onGo) {
   const f = b && b.files.find(x => x.id === go.fileId);
   const remind = (d) => {
     setSetting("reminders", [...(settings.value.reminders || []), { id: uid(), date: isoDate(d), text: line, bookId: b?.id, fileId: f?.id, page: go?.page || 0, file: f?.name || "", book: b?.name || "" }]);
-    toast(`On ${fmtDate(d)}, What needs you shows it.`, "ok");
+    toast(_t("On {0}, What needs you shows it.", fmtDate(d)), "ok");
   };
   openMenu(e, [
-    go && { label: "Open its page", icon: "right", run: () => onGo(go) },
-    date && { label: `Remind me on ${fmtDate(date)}`, icon: "clock", run: () => remind(date) },
-    date && { label: "Remind me 2 weeks before", icon: "bell", run: () => remind(new Date(date.getTime() - 14 * 86400000)) },
-    f && { label: "Status of its file", icon: "check", sub: [...STATUSES.map(([nm, col]) => ({ label: nm, color: col, run: () => { setStatus(f.id, nm); toast(`"${f.name}" is marked ${nm}.`, "ok"); } })), "-", { label: "No status", run: () => setStatus(f.id, "") }] },
-    { label: "Copy this row", icon: "copy", run: () => { navigator.clipboard?.writeText(cells.map(c => String(c ?? "")).join("\t")); toast("Copied."); } },
+    go && { label: _t("Open its page"), icon: "right", run: () => onGo(go) },
+    date && { label: _t("Remind me on {0}", fmtDate(date)), icon: "clock", run: () => remind(date) },
+    date && { label: _t("Remind me 2 weeks before"), icon: "bell", run: () => remind(new Date(date.getTime() - 14 * 86400000)) },
+    f && { label: _t("Status of its file"), icon: "check", sub: [...STATUSES.map(([nm, col]) => ({ label: _tv(nm), color: col, run: () => { setStatus(f.id, nm); toast(_t("\"{0}\" is marked {1}.", f.name, _tv(nm)), "ok"); } })), "-", { label: _t("No status"), run: () => setStatus(f.id, "") }] },
+    { label: _t("Copy this row"), icon: "copy", run: () => { navigator.clipboard?.writeText(cells.map(c => String(c ?? "")).join("\t")); toast(_t("Copied.")); } },
   ]);
 }
 
@@ -59,7 +60,7 @@ function Summary({ rep }) {
   return (
     <div class="repsum">
       {s.map((x, i) => <div key={i} class="rs"><b>{x.v}</b><span>{x.st ? <i class={"rsd " + x.st} /> : null}{x.l}</span></div>)}
-      {rep.newCount > 0 && <div class="rs new"><b>{rep.newCount}</b><span><i class="rsd new" />New since {fmtDate(rep.newSince)}</span></div>}
+      {rep.newCount > 0 && <div class="rs new"><b>{rep.newCount}</b><span><i class="rsd new" />{_t("New since")} {fmtDate(rep.newSince)}</span></div>}
     </div>
   );
 }
@@ -90,10 +91,10 @@ function RowsTable({ rep, onGo }) {
   if (rep.pictures) {
     return rep.pictures.map((sc, i) => (
       <div key={i} style={{ marginBottom: 18 }}>
-        <div class="row" style={{ marginBottom: 6 }}><b class="grow">{sc.title}</b><span class="tiny muted">{sc.items.length} row{sc.items.length === 1 ? "" : "s"}</span></div>
-        {!sc.items.length && <p class="muted small">Not found.</p>}
+        <div class="row" style={{ marginBottom: 6 }}><b class="grow">{sc.title}</b><span class="tiny muted">{sc.items.length} {_t("row")}{sc.items.length === 1 ? "" : "s"}</span></div>
+        {!sc.items.length && <p class="muted small">{_t("Not found.")}</p>}
         {sc.items.map((it, k) => (
-          <div key={k} style={{ marginBottom: 10, cursor: "pointer" }} title="Double-click to open the page" onDblClick={() => onGo(it.go)}>
+          <div key={k} style={{ marginBottom: 10, cursor: "pointer" }} title={_t("Double-click to open the page")} onDblClick={() => onGo(it.go)}>
             <div class="tiny muted" style={{ marginBottom: 3 }}>{it.title}</div>
             {it.png ? <Pic png={it.png} w={it.w} /> : <div class="small">{it.text}</div>}
           </div>
@@ -102,11 +103,11 @@ function RowsTable({ rep, onGo }) {
     ));
   }
   if (rep.tables) {
-    if (!rep.tables.length) return <p class="muted">No tables found here.</p>;
+    if (!rep.tables.length) return <p class="muted">{_t("No tables found here.")}</p>;
     return rep.tables.map((t, i) => (
       <div key={i} style={{ marginBottom: 16 }}>
-        <div class="row" style={{ marginBottom: 6 }}><b class="grow">{t.title}</b><span class="tiny muted">{t.rows.length} rows</span>
-          {t.go && <button class="btn plain small" onClick={() => onGo(t.go)}>Open</button>}</div>
+        <div class="row" style={{ marginBottom: 6 }}><b class="grow">{t.title}</b><span class="tiny muted">{t.rows.length} {_t("rows")}</span>
+          {t.go && <button class="btn plain small" onClick={() => onGo(t.go)}>{_t("Open")}</button>}</div>
         <div class="rep-out" style={{ maxHeight: "40vh" }}>
           <table class="rows">
             {t.header && <thead><tr>{t.header.map((h, j) => <th key={j}>{h}</th>)}</tr></thead>}
@@ -116,22 +117,22 @@ function RowsTable({ rep, onGo }) {
       </div>
     ));
   }
-  if (!rep.rows.length) return <p class="muted">Nothing found here.</p>;
+  if (!rep.rows.length) return <p class="muted">{_t("Nothing found here.")}</p>;
   const cols = visibleCols(rep.columns, rep.rows);
-  const stCol = rep.stCol || "When";
+  const stCol = rep.stCol || _t("When");
   return (
     <div class="rep-out">
       <table class="rows">
         <thead><tr>{cols.map(j => <th key={j}>{rep.columns[j]}</th>)}</tr></thead>
         <tbody>
           {rep.rows.slice(0, 3000).map((r, k) => (
-            <tr key={k} class={"click" + (r.isNew ? " new" : "")} title={(r.isNew ? "New since the last time · " : "") + "Double-click to open the page · right-click for more"} onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
+            <tr key={k} class={"click" + (r.isNew ? " new" : "")} title={(r.isNew ? _t("New since the last time · ") : "") + _t("Double-click to open the page · right-click for more")} onDblClick={() => onGo(r.go)} onContextMenu={(e) => rowMenu(e, cols.map(j => r.cells[j]), r.go, onGo)}>
               {cols.map(j => <td key={j}>{rep.columns[j] === stCol && r.st ? <span class={"chipst " + r.st}>{r.cells[j]}</span> : rep.id === "compare" && j === 0 ? <span class={"chipst " + (r.cells[0] === "Changed" ? "warn" : r.cells[0].includes("first") ? "bad" : "ok")}>{r.cells[j]}</span> : r.cells[j]}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
-      {rep.rows.length > 3000 && <p class="tiny muted" style={{ padding: "6px 10px" }}>The first 3,000 rows are here; Excel, CSV and the PDF have all {rep.rows.length.toLocaleString("en-GB")}.</p>}
+      {rep.rows.length > 3000 && <p class="tiny muted" style={{ padding: "6px 10px" }}>{_t("The first 3,000 rows are here; Excel, CSV and the PDF have all")} {rep.rows.length.toLocaleString(loc)}.</p>}
     </div>
   );
 }
@@ -139,10 +140,10 @@ function RowsTable({ rep, onGo }) {
 function ago(t) {
   if (!t) return "";
   const s = (Date.now() - t) / 1000;
-  if (s < 90) return "just now";
-  if (s < 3600) return Math.round(s / 60) + " min ago";
-  if (s < 86400) return Math.round(s / 3600) + " h ago";
-  if (s < 86400 * 7) return Math.round(s / 86400) + (s < 86400 * 2 ? " day ago" : " days ago");
+  if (s < 90) return _t("just now");
+  if (s < 3600) return _t("{0} min ago", Math.round(s / 60));
+  if (s < 86400) return _t("{0} h ago", Math.round(s / 3600));
+  if (s < 86400 * 7) return _n(Math.round(s / 86400), "{0} day ago", "{0} days ago");
   return fmtDate(new Date(t));
 }
 
@@ -155,10 +156,10 @@ export function ReportsMade({ onOpen, max = 8, compact = false }) {
       {runs.map((r, i) => {
         const def = REPORTS.find(x => x.id === r.id);
         return (
-          <button key={i} class="rm" onClick={() => onOpen(r)} title={"Make it again: " + r.title}>
+          <button key={i} class="rm" onClick={() => onOpen(r)} title={_t("Make it again: ") + r.title}>
             <Icon n={def?.icon || "reports"} size={17} />
-            <span class="grow rm-t"><b class="ellipsis">{r.title}</b><span class="tiny muted ellipsis">{r.where || ""}{r.rows != null ? ` · ${r.rows} row${r.rows === 1 ? "" : "s"}` : ""} · {r.at ? ago(r.at) : r.when}</span></span>
-            <span class="rm-go"><Icon n="refresh" size={14} />{compact ? "" : "Open again"}</span>
+            <span class="grow rm-t"><b class="ellipsis">{r.title}</b><span class="tiny muted ellipsis">{r.where || ""}{r.rows != null ? _t(" · {0} row{1}", r.rows, r.rows === 1 ? "" : "s") : ""} · {r.at ? ago(r.at) : r.when}</span></span>
+            <span class="rm-go"><Icon n="refresh" size={14} />{compact ? "" : _t("Open again")}</span>
           </button>
         );
       })}
@@ -190,9 +191,9 @@ export function Reports({ compare, pickId, rerun }) {
       setBusy({ n: 0, of: 2, name: a.file.name });
       try {
         const r = await compareDocs(a, b2);
-        setRep({ ...r, title: `Compare: ${a.file.name} and ${b2.file.name}`, where: a.book.id === b2.book.id ? `Book: ${a.book.name}` : `${a.book.name} and ${b2.book.name}`, id: "compare" });
-        if (r.same) toast("The two documents have the same lines.", "ok");
-      } catch (e) { toast("Could not compare them: " + e.message, "bad"); }
+        setRep({ ...r, title: _t("Compare: {0} and {1}", a.file.name, b2.file.name), where: a.book.id === b2.book.id ? _t("Book: {0}", a.book.name) : _t("{0} and {1}", a.book.name, b2.book.name), id: "compare" });
+        if (r.same) toast(_t("The two documents have the same lines."), "ok");
+      } catch (e) { toast(_t("Could not compare them: ") + e.message, "bad"); }
       setBusy(null);
     })();
   }, [compare?.a, compare?.b]);
@@ -200,16 +201,16 @@ export function Reports({ compare, pickId, rerun }) {
 
   // where to look: this book, this document, all books, or some books (kept with the run, to make it again later)
   const resolve = (sc, saved) => {
-    if (sc === "some") { const ids = saved?.ids || some; const list = books.value.filter(b => ids.includes(b.id) && !bookHidden(b)); return { list, ids, where: list.length === 1 ? `Book: ${list[0].name}` : `${list.length} books` }; }
+    if (sc === "some") { const ids = saved?.ids || some; const list = books.value.filter(b => ids.includes(b.id) && !bookHidden(b)); return { list, ids, where: list.length === 1 ? _t("Book: {0}", list[0].name) : _t("{0} books", list.length) }; }
     if (sc === "book" || sc === "doc") {
       const b = books.value.find(x => x.id === (saved?.ids?.[0] || book?.id));
-      if (b && sc === "book") return { list: [b], ids: [b.id], where: `Book: ${b.name}` };
+      if (b && sc === "book") return { list: [b], ids: [b.id], where: _t("Book: {0}", b.name) };
       const f = b && b.files.find(x => x.id === (saved?.fid || file?.id));
-      if (b && f) return { list: [{ ...b, files: [f] }], ids: [b.id], fid: f.id, where: `Document: ${f.name}` };
+      if (b && f) return { list: [{ ...b, files: [f] }], ids: [b.id], fid: f.id, where: _t("Document: {0}", f.name) };
     }
     // the books locked with the PIN stay out until they are opened
     const open = books.value.filter(b => !bookHidden(b));
-    return { list: open, ids: [], where: open.length < books.value.length ? `All books (not the ${books.value.length - open.length} locked)` : "All books" };
+    return { list: open, ids: [], where: open.length < books.value.length ? _t("All books (not the {0} locked)", books.value.length - open.length) : _t("All books") };
   };
 
   const run = async (id = pick?.id, sc = scope, qq = q, saved = null) => {
@@ -217,7 +218,7 @@ export function Reports({ compare, pickId, rerun }) {
     if (!def) return;
     if (def.ask && !qq.trim()) { setPick(def); return; }
     const { list, ids, fid, where } = resolve(sc, saved);
-    if (sc === "some" && !list.length) { toast("Choose the books to look in."); return; }
+    if (sc === "some" && !list.length) { toast(_t("Choose the books to look in.")); return; }
     setPick(def);
     setRep(null);
     setBusy({ n: 0, of: list.reduce((a, b) => a + b.files.length, 0), name: "" });
@@ -237,7 +238,7 @@ export function Reports({ compare, pickId, rerun }) {
       const entry = { id, scope: sc, ids, fid, q: qq.trim(), title, where, rows: countOf(full), at: Date.now(), when: fmtDate(new Date()) };
       setSetting("repRuns", [entry, ...(settings.value.repRuns || []).filter(x => !(x.id === id && (x.q || "") === qq.trim() && x.scope === sc && (x.ids || []).join(",") === ids.join(",")))].slice(0, 12));
     } catch (e) {
-      toast("The report did not finish: " + e.message, "bad");
+      toast(_t("The report did not finish: ") + e.message, "bad");
     }
     setBusy(null);
   };
@@ -252,7 +253,7 @@ export function Reports({ compare, pickId, rerun }) {
   };
 
   const fileBase = () => `${rep.title.replace(/[\\/:*?"<>|]/g, " ").trim()} - ${fmtDate(new Date())}`;
-  const busyDo = async (what, fn) => { setMaking(what); try { await fn(); } catch (e) { toast("Could not make it: " + (e.message || e), "bad"); } setMaking(""); };
+  const busyDo = async (what, fn) => { setMaking(what); try { await fn(); } catch (e) { toast(_t("Could not make it: ") + (e.message || e), "bad"); } setMaking(""); };
   const asPdf = () => busyDo("pdf", async () => { const u8 = await reportPdf(rep); window.open(URL.createObjectURL(new Blob([u8], { type: "application/pdf" })), "_blank"); });
   const asXlsx = () => busyDo("xlsx", async () => download(await reportXlsx(rep), fileBase() + ".xlsx"));
   const saveIn = (pdf, b) => busyDo(pdf ? "pdf" : "xlsx", async () => {
@@ -260,15 +261,15 @@ export function Reports({ compare, pickId, rerun }) {
     const name = uniqueName(`${fileBase()}.${pdf ? "pdf" : "xlsx"}`, b.files.map(f => f.name));
     const f = await store.value.create(b.id, name, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     addFileToBook(b.id, f);
-    logChange("Saved the report", name, b.name);
-    toast(`Saved "${name}" in "${b.name}".`, "ok");
+    logChange(_t("Saved the report"), name, b.name);
+    toast(_t("Saved \"{0}\" in \"{1}\".", name, b.name), "ok");
   });
   const saveInBook = (e) => {
     const list = (pdf) => books.value.map(b => ({ label: b.name, swatch: b.color, run: () => saveIn(pdf, b) }));
     openMenu(e, [
-      { title: "Save the report in a book" },
-      { label: "As a PDF", icon: "file", sub: list(true) },
-      !rep.pictures && { label: "As an Excel file", icon: "excel", sub: list(false) },
+      { title: _t("Save the report in a book") },
+      { label: _t("As a PDF"), icon: "file", sub: list(true) },
+      !rep.pictures && { label: _t("As an Excel file"), icon: "excel", sub: list(false) },
     ]);
   };
 
@@ -285,35 +286,35 @@ export function Reports({ compare, pickId, rerun }) {
   const showMore = more || !!filter;
 
   return (
-    <Dialog title={rep ? rep.title : "Reports"} icon="reports" onClose={close} cls="wide"
+    <Dialog title={rep ? rep.title : _t("Reports")} icon="reports" onClose={close} cls="wide"
       foot={rep ? <>
-        <button class="btn plain" onClick={() => setRep(null)}><Icon n="left" size={17} />Other reports</button>
-        <span class="grow small muted">{count.toLocaleString("en-GB")} row{count === 1 ? "" : "s"}{rep.newCount ? <b class="newn"> · {rep.newCount} new</b> : null} · {rep.where}</span>
-        <button class="btn plain" onClick={() => { navigator.clipboard?.writeText(toTsv(rep)); toast("Copied: paste it in Excel or a document."); }}><Icon n="copy" size={17} />Copy</button>
-        {!rep.pictures && <button class="btn plain" disabled={!!making} onClick={asXlsx}><Icon n="excel" size={17} />{making === "xlsx" ? "Making..." : "Excel"}</button>}
-        <button class="btn plain hide-phone" onClick={() => download(toCsv(rep), fileBase() + ".csv", "text/csv")}>CSV</button>
-        <button class="btn plain" disabled={!!making} onClick={asPdf}><Icon n="print" size={17} />{making === "pdf" ? "Making..." : "PDF"}</button>
-        <button class="btn" disabled={!!making} onClick={saveInBook}><Icon n="drive" size={17} />Save in a book</button>
+        <button class="btn plain" onClick={() => setRep(null)}><Icon n="left" size={17} />{_t("Other reports")}</button>
+        <span class="grow small muted">{count.toLocaleString(loc)} {_t("row")}{count === 1 ? "" : "s"}{rep.newCount ? <b class="newn"> · {_n(rep.newCount, "{0} new@@one", "{0} new@@many")}</b> : null} · {rep.where}</span>
+        <button class="btn plain" onClick={() => { navigator.clipboard?.writeText(toTsv(rep)); toast(_t("Copied: paste it in Excel or a document.")); }}><Icon n="copy" size={17} />{_t("Copy")}</button>
+        {!rep.pictures && <button class="btn plain" disabled={!!making} onClick={asXlsx}><Icon n="excel" size={17} />{making === "xlsx" ? _t("Making...") : _t("Excel")}</button>}
+        <button class="btn plain hide-phone" onClick={() => download(toCsv(rep), fileBase() + ".csv", "text/csv")}>{_t("CSV")}</button>
+        <button class="btn plain" disabled={!!making} onClick={asPdf}><Icon n="print" size={17} />{making === "pdf" ? _t("Making...") : _t("PDF")}</button>
+        <button class="btn" disabled={!!making} onClick={saveInBook}><Icon n="drive" size={17} />{_t("Save in a book")}</button>
       </> : null}>
       {busy ? (
         <div style={{ textAlign: "center", padding: 30 }}>
           <div class="spinner" />
-          <p class="muted small">Reading {busy.name || "your documents"}... {busy.n} of {busy.of}</p>
+          <p class="muted small">{_t("Reading {0}... {1} of {2}", busy.name || _t("your documents"), busy.n, busy.of)}</p>
         </div>
       ) : rep ? <>
         <Summary rep={rep} />
-        {rep.id === "case" && rep.facts?.without > 0 && <p class="small muted" style={{ margin: "0 0 10px" }}><Icon n="checklist" size={14} /> {rep.facts.without} book{rep.facts.without === 1 ? " has" : "s have"} no checklist yet: the Checklist tab of a book (or a template) says which documents it needs.</p>}
+        {rep.id === "case" && rep.facts?.without > 0 && <p class="small muted" style={{ margin: "0 0 10px" }}><Icon n="checklist" size={14} /> {_n(rep.facts.without, "{0} book has no checklist yet: the Checklist tab of a book (or a template) says which documents it needs.", "{0} books have no checklist yet: the Checklist tab of a book (or a template) says which documents it needs.")}</p>}
         {ch && <RepChart ch={ch} />}
         <RowsTable rep={rep} onGo={onGo} />
       </> : <>
         <div class="row wrap" style={{ marginBottom: 12 }}>
-          <span class="small muted">Look in</span>
-          {book && <button class={"btn small " + (scope === "book" ? "" : "plain")} onClick={() => setScope("book")}>This book ({book.name})</button>}
-          {file && <button class={"btn small " + (scope === "doc" ? "" : "plain")} onClick={() => setScope("doc")}>This document</button>}
-          <button class={"btn small " + (scope === "all" ? "" : "plain")} onClick={() => setScope("all")}>All books</button>
-          <button class={"btn small " + (scope === "some" ? "" : "plain")} onClick={() => setScope("some")}>Some books...</button>
+          <span class="small muted">{_t("Look in")}</span>
+          {book && <button class={"btn small " + (scope === "book" ? "" : "plain")} onClick={() => setScope("book")}>{_t("This book ({0})", book.name)}</button>}
+          {file && <button class={"btn small " + (scope === "doc" ? "" : "plain")} onClick={() => setScope("doc")}>{_t("This document")}</button>}
+          <button class={"btn small " + (scope === "all" ? "" : "plain")} onClick={() => setScope("all")}>{_t("All books")}</button>
+          <button class={"btn small " + (scope === "some" ? "" : "plain")} onClick={() => setScope("some")}>{_t("Some books...")}</button>
           <span class="grow" />
-          <input class="field" style={{ maxWidth: 220 }} placeholder="Find a report" value={filter} onInput={(e) => setFilter(e.target.value)} />
+          <input class="field" style={{ maxWidth: 220 }} placeholder={_t("Find a report")} value={filter} onInput={(e) => setFilter(e.target.value)} />
         </div>
         {scope === "some" && (
           <div class="row wrap" style={{ marginBottom: 12, gap: 6 }}>
@@ -327,22 +328,22 @@ export function Reports({ compare, pickId, rerun }) {
           <div class="cardopt on" style={{ marginBottom: 12, alignItems: "center" }}>
             <Icon n={pick.icon} /><b style={{ flex: "none" }}>{pick.title}</b>
             <input class="field" autoFocus placeholder={pick.ask} value={q} onInput={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) run(pick.id); }} />
-            <button class="btn" disabled={!q.trim()} onClick={() => run(pick.id)}>Make it</button>
+            <button class="btn" disabled={!q.trim()} onClick={() => run(pick.id)}>{_t("Make it")}</button>
           </div>
         )}
         {!filter && (settings.value.repRuns || []).length > 0 && <>
-          <div class="rep-sec">Reports you made</div>
+          <div class="rep-sec">{_t("Reports you made")}</div>
           <ReportsMade max={4} onOpen={(r) => { setQ(r.q || ""); setScope(r.scope); run(r.id, r.scope, r.q || "", r); }} />
         </>}
-        {ess.length > 0 && <div class="rep-sec">The essentials</div>}
+        {ess.length > 0 && <div class="rep-sec">{_t("The essentials")}</div>}
         <div class="rep-list">{ess.map(card)}</div>
         {rest.length > 0 && <>
           <button class="rep-more" onClick={() => { const v = !more; setMore(v); try { localStorage.setItem("bl-repmore", v ? "1" : "0"); } catch (e) {} }}>
-            <Icon n={showMore ? "down" : "right"} size={14} />More reports <span class="muted">({rest.length})</span>
+            <Icon n={showMore ? "down" : "right"} size={14} />{_t("More reports")} <span class="muted">({rest.length})</span>
           </button>
           {showMore && <div class="rep-list">{rest.map(card)}</div>}
         </>}
-        <p class="tiny muted" style={{ margin: "12px 0 0" }}>Reports show the rows exactly as they are written in your documents - nothing is rewritten or summarised. Double-click a row to open its page; rows new since the last time are in blue.</p>
+        <p class="tiny muted" style={{ margin: "12px 0 0" }}>{_t("Reports show the rows exactly as they are written in your documents - nothing is rewritten or summarised. Double-click a row to open its page; rows new since the last time are in blue.")}</p>
       </>}
     </Dialog>
   );

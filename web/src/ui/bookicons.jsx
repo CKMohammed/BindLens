@@ -1,6 +1,7 @@
 // The icons a book can have (like the Windows app's "Icon and colour"), and the tile a book is drawn on.
 // Line icons, 24 x 24. "tx:AB" = your own letters, "yr:2026" = a year, "mo:OCT" = a month, "letters" = the initials.
 import { initials, mix } from "../util.js";
+import { _t, isEs } from "../i18n.js";
 
 export const BI = {
   // folders and papers
@@ -108,16 +109,16 @@ export const BI = {
 };
 
 export const ICON_GROUPS = [
-  ["Folders", ["folder", "folder_open", "folders", "archive", "drawer", "binder", "clipboard", "todo", "inbox", "outbox",
+  [_t("Folders"), ["folder", "folder_open", "folders", "archive", "drawer", "binder", "clipboard", "todo", "inbox", "outbox",
     "folder_lock", "folder_people", "folder_star", "folder_check", "folder_alert", "book", "doc", "notebook"]],
-  ["Administration", ["building", "shop", "case", "handshake", "invoice", "receipt", "contract", "signature", "stamp", "bank",
+  [_t("Administration"), ["building", "shop", "case", "handshake", "invoice", "receipt", "contract", "signature", "stamp", "bank",
     "euro", "coins", "wallet", "percent", "chart", "pie", "calculator", "cart", "truck", "laptop", "phone", "mail",
     "megaphone", "target", "bulb", "gear", "key", "lock", "hourglass", "scales", "policy"]],
-  ["People & HR", ["person", "people", "id_badge", "cv", "certificate", "shield", "timesheet", "clock", "calendar", "medical", "heart_pulse"]],
-  ["Higher education", ["cap", "university", "lecture", "library", "exam", "thesis", "notebook", "pencil", "backpack",
+  [_t("People & HR"), ["person", "people", "id_badge", "cv", "certificate", "shield", "timesheet", "clock", "calendar", "medical", "heart_pulse"]],
+  [_t("Higher education"), ["cap", "university", "lecture", "library", "exam", "thesis", "notebook", "pencil", "backpack",
     "flask", "microscope", "atom", "globe", "palette", "music", "laptop"]],
-  ["Files & home", ["pdf", "image", "scan", "umbrella", "warning", "home", "car", "plane", "mappin", "camera"]],
-  ["Everyday", ["star", "heart", "flag", "check", "bell", "gift", "sun", "leaf", "tree", "trophy", "tag", "coffee", "wrench"]],
+  [_t("Files & home"), ["pdf", "image", "scan", "umbrella", "warning", "home", "car", "plane", "mappin", "camera"]],
+  [_t("Everyday"), ["star", "heart", "flag", "check", "bell", "gift", "sun", "leaf", "tree", "trophy", "tag", "coffee", "wrench"]],
 ];
 
 export const ICON_WORDS = {
@@ -129,8 +130,26 @@ export const ICON_WORDS = {
   date: "calendar clock hourglass", safety: "warning shield umbrella", photo: "image camera", contract: "contract signature handshake",
   travel: "plane car mappin", home: "home key", admin: "folder archive binder clipboard building stamp invoice contract",
 };
+// the same search in Spanish: a word people type -> the icons it finds
+if (isEs) Object.assign(ICON_WORDS, {
+  dinero: ICON_WORDS.money, impuestos: ICON_WORDS.tax, hacienda: ICON_WORDS.tax, personal: ICON_WORDS.staff, empleados: ICON_WORDS.staff,
+  plantilla: ICON_WORDS.staff, nomina: ICON_WORDS.pay, pago: ICON_WORDS.pay, rrhh: ICON_WORDS.hr, universidad: ICON_WORDS.university,
+  facultad: ICON_WORDS.college, colegio: ICON_WORDS.college, estudio: ICON_WORDS.study, estudiar: ICON_WORDS.study, asignatura: ICON_WORDS.subject,
+  examen: ICON_WORDS.exam, investigacion: ICON_WORDS.research, salud: ICON_WORDS.health, legal: ICON_WORDS.legal, ley: ICON_WORDS.legal,
+  abogado: ICON_WORDS.legal, fecha: ICON_WORDS.date, seguridad: ICON_WORDS.safety, foto: ICON_WORDS.photo, contrato: ICON_WORDS.contract,
+  viaje: ICON_WORDS.travel, casa: ICON_WORDS.home, hogar: ICON_WORDS.home, administracion: ICON_WORDS.admin, gestoria: ICON_WORDS.admin,
+  carpeta: "folder folder_open folders folder_lock folder_people folder_star folder_check folder_alert", factura: "invoice receipt",
+  recibo: "receipt", firma: "signature", sello: "stamp", banco: "bank", cliente: "handshake people", persona: "person", libro: "book",
+  calendario: "calendar", reloj: "clock hourglass", correo: "mail", telefono: "phone", coche: "car", avion: "plane", estrella: "star",
+  corazon: "heart", llave: "key", candado: "lock folder_lock", archivo: "archive drawer binder", tienda: "shop", edificio: "building",
+  documento: "doc pdf scan", apuntes: "notebook pencil", lapiz: "pencil", mochila: "backpack", tesis: "thesis", biblioteca: "library",
+  ciencia: "flask microscope atom", musica: "music", ordenador: "laptop", portatil: "laptop", camion: "truck", grafico: "chart pie",
+  tareas: "todo clipboard", bandeja: "inbox outbox", certificado: "certificate", medico: "medical heart_pulse", aviso: "warning bell",
+  regalo: "gift", premio: "trophy", cafe: "coffee", hoja: "leaf", arbol: "tree", sol: "sun", bandera: "flag", etiqueta: "tag",
+});
 
-export const TILE_STYLES = [["3d", "3D"], ["flat", "Flat"], ["light", "Light"]];
+
+export const TILE_STYLES = [["3d", "3D"], ["flat", _t("Flat")], ["light", _t("Light")]];
 
 function TileGlyph({ icon, name, size, color }) {
   const s = size;

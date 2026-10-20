@@ -1,14 +1,15 @@
 // A name for a scan, from the words on its first page: "Invoice 2026-10-14 - Harbour Cafe".
 import { parseDatesAt } from "./patterns.js";
 import { isoDate } from "../util.js";
+import { _t } from "../i18n.js";
 
 const TYPES = [
-  [/\b(tax\s+)?invoice\b|\bfactura\b/i, "Invoice"], [/\breceipt\b|\brecibo\b|\bticket\b/i, "Receipt"], [/\bquot(e|ation)\b|\bpresupuesto\b/i, "Quote"],
-  [/\bpayslip\b|\bpay\s*slip\b|\bn[oó]mina\b/i, "Payslip"], [/\b(bank\s+)?statement\b|\bextracto\b/i, "Statement"],
-  [/\bcontract\b|\bagreement\b|\bcontrato\b/i, "Contract"], [/\bcertificate\b|\bcertificado\b|\bcertify\b/i, "Certificate"],
-  [/\btranscript\b|\bresults\b|\bgrades\b/i, "Transcript"], [/\bminutes\b|\bacta\b/i, "Minutes"], [/\bapplication\s+form\b|\bform\b|\bsolicitud\b/i, "Form"],
-  [/\bprescription\b|\breceta\b/i, "Prescription"], [/\bpolicy\b|\bp[oó]liza\b/i, "Policy"], [/\breport\b|\binforme\b/i, "Report"],
-  [/\bdelivery\s+note\b|\balbar[aá]n\b/i, "Delivery note"], [/\bdear\b|\bestimad[oa]\b|\byours\s+(sincerely|faithfully)\b/i, "Letter"],
+  [/\b(tax\s+)?invoice\b|\bfactura\b/i, _t("Invoice")], [/\breceipt\b|\brecibo\b|\bticket\b/i, _t("Receipt")], [/\bquot(e|ation)\b|\bpresupuesto\b/i, _t("Quote")],
+  [/\bpayslip\b|\bpay\s*slip\b|\bn[oó]mina\b/i, _t("Payslip")], [/\b(bank\s+)?statement\b|\bextracto\b/i, _t("Statement")],
+  [/\bcontract\b|\bagreement\b|\bcontrato\b/i, _t("Contract")], [/\bcertificate\b|\bcertificado\b|\bcertify\b/i, _t("Certificate")],
+  [/\btranscript\b|\bresults\b|\bgrades\b/i, _t("Transcript")], [/\bminutes\b|\bacta\b/i, _t("Minutes")], [/\bapplication\s+form\b|\bform\b|\bsolicitud\b/i, _t("Form")],
+  [/\bprescription\b|\breceta\b/i, _t("Prescription")], [/\bpolicy\b|\bp[oó]liza\b/i, _t("Policy")], [/\breport\b|\binforme\b/i, _t("Report")],
+  [/\bdelivery\s+note\b|\balbar[aá]n\b/i, _t("Delivery note")], [/\bdear\b|\bestimad[oa]\b|\byours\s+(sincerely|faithfully)\b/i, _t("Letter")],
 ];
 const ORG = /\b(ltd|limited|plc|inc|llc|gmbh|s\.?l\.?|s\.?a\.?|university|college|institute|council|bank|insurance|hospital|clinic|school|department|revenue|services|solutions|group|company|co\.)\b/i;
 
@@ -25,6 +26,6 @@ export function suggestScanName(text) {
   if (!who) who = top.find(l => /^[A-ZÁÉÍÓÚÑ][\p{L}&'. -]{2,40}$/u.test(l) && !TYPES.some(([re]) => re.test(l)) && !/\d/.test(l)) || "";
   who = who.replace(/[^\p{L}\p{N}&'. -]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40);
   if (who && who === who.toUpperCase()) who = who.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (m, a, c) => a + c.toUpperCase());
-  const parts = [type || "Scan", date].filter(Boolean).join(" ");
+  const parts = [type || _t("Scan"), date].filter(Boolean).join(" ");
   return (who && type ? `${parts} - ${who}` : who && !type ? `${who} ${date}`.trim() : parts).trim();
 }

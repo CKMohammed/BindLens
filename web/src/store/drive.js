@@ -4,6 +4,7 @@
 // "drive.file" permission: it sees only the files it made, or the ones the user gives it.
 import { idb } from "../idb.js";
 import { mimeOf } from "../util.js";
+import { _t } from "../i18n.js";
 
 export const CLIENT_ID = "537962235577-p6sgr9cnbqvvv0v75a7jbpla1op629n7.apps.googleusercontent.com";
 export const APP_ID = "537962235577"; // the Google Cloud project number (for the Drive picker)
@@ -24,7 +25,7 @@ export function loadGoogle() {
     s.src = "https://accounts.google.com/gsi/client";
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => { gisLoaded = null; reject(new Error("Could not reach Google. Check the internet connection.")); };
+    s.onerror = () => { gisLoaded = null; reject(new Error(_t("Could not reach Google. Check the internet connection."))); };
     document.head.appendChild(s);
   });
   return gisLoaded;
@@ -56,14 +57,14 @@ export class DriveStore {
         callback: (r) => {
           if (r.error) { reject(new Error(r.error_description || r.error)); return; }
           if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE)) {
-            reject(new Error("BindLens needs to use its own folder in your Google Drive. Sign in again and leave the Drive box ticked."));
+            reject(new Error(_t("BindLens needs to use its own folder in your Google Drive. Sign in again and leave the Drive box ticked.")));
             return;
           }
           this.token = r.access_token;
           this.expires = Date.now() + (Number(r.expires_in || 3600) - 120) * 1000;
           resolve();
         },
-        error_callback: (e) => reject(new Error(e?.message || e?.type || "Sign-in was closed")),
+        error_callback: (e) => reject(new Error(e?.message || e?.type || _t("Sign-in was closed"))),
       });
       this.tokenClient.requestAccessToken({ prompt: silent ? "" : undefined });
     });
@@ -81,7 +82,7 @@ export class DriveStore {
   }
 
   async fetch(url, opts = {}, retry = true) {
-    if (this.offline) throw new Error("You are offline: BindLens does it when the network is back");
+    if (this.offline) throw new Error(_t("You are offline: BindLens does it when the network is back"));
     if (!this.token || Date.now() > this.expires) {
       if (this.onNeedSignIn) await this.onNeedSignIn();
       else await this.signIn(true);
@@ -94,7 +95,7 @@ export class DriveStore {
     if (!r.ok) {
       let msg = r.status + "";
       try { const j = await r.json(); msg = j.error?.message || msg; } catch (e) {}
-      throw new Error("Google Drive: " + msg);
+      throw new Error(_t("Google Drive: ") + msg);
     }
     return r;
   }
@@ -137,7 +138,7 @@ export class DriveStore {
     if (this.offline) {
       const c = await idb.get("kv", ck);
       if (c) return c;
-      throw new Error("You are offline, and this library was not opened on this device before");
+      throw new Error(_t("You are offline, and this library was not opened on this device before"));
     }
     const out = await this.listOnline();
     idb.set("kv", ck, out);
@@ -253,7 +254,7 @@ export class DriveStore {
   async googlePdf(file, kind) {
     const to = { word: "application/vnd.google-apps.document", excel: "application/vnd.google-apps.spreadsheet",
       powerpoint: "application/vnd.google-apps.presentation" }[kind];
-    if (!to) throw new Error("Google cannot show this kind of file");
+    if (!to) throw new Error(_t("Google cannot show this kind of file"));
     const copy = await this.json(`${API}/files/${file.id}/copy?fields=id`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "BindLens (a moment) - " + file.name, mimeType: to, parents: [this.rootId] }),
@@ -304,9 +305,9 @@ export class DriveStore {
       body: JSON.stringify(meta || {}),
     });
     const loc = start.headers.get("Location") || start.headers.get("location");
-    if (!loc) throw new Error("Google Drive did not start the upload");
+    if (!loc) throw new Error(_t("Google Drive did not start the upload"));
     const r = await fetch(loc, { method: "PUT", headers: { "Content-Type": mime }, body: bytes });
-    if (!r.ok) throw new Error("Google Drive: the upload stopped (" + r.status + ")");
+    if (!r.ok) throw new Error(_t("Google Drive: the upload stopped (") + r.status + ")");
     return r.json();
   }
 
@@ -383,16 +384,16 @@ export class DriveStore {
       x.upload.onprogress = (e) => { last = Date.now(); if (onProgress && e.lengthComputable) onProgress(e.loaded, e.total); };
       const end = () => clearInterval(dog);
       x.onload = () => { end(); resolve({ status: x.status, text: x.responseText, header: (n) => x.getResponseHeader(n) }); };
-      x.onerror = () => { end(); reject(new Error("Failed to fetch: the network stopped")); };
-      x.onabort = () => { end(); reject(stalled ? new Error("The upload stopped: nothing moved for a minute (is the network there?)") : Object.assign(new Error("Stopped"), { name: "AbortError" })); };
-      if (signal) { if (signal.aborted) { end(); reject(Object.assign(new Error("Stopped"), { name: "AbortError" })); return; } signal.addEventListener("abort", () => x.abort(), { once: true }); }
+      x.onerror = () => { end(); reject(new Error(_t("Failed to fetch: the network stopped"))); };
+      x.onabort = () => { end(); reject(stalled ? new Error(_t("The upload stopped: nothing moved for a minute (is the network there?)")) : Object.assign(new Error(_t("Stopped")), { name: "AbortError" })); };
+      if (signal) { if (signal.aborted) { end(); reject(Object.assign(new Error(_t("Stopped")), { name: "AbortError" })); return; } signal.addEventListener("abort", () => x.abort(), { once: true }); }
       x.send(body);
     });
   }
-  driveError(r) { let msg = String(r.status); try { msg = JSON.parse(r.text).error.message || msg; } catch (e) {} return new Error("Google Drive: " + msg); }
+  driveError(r) { let msg = String(r.status); try { msg = JSON.parse(r.text).error.message || msg; } catch (e) {} return new Error(_t("Google Drive: ") + msg); }
 
   async create(bookId, name, bytes, mime, opt = {}) {
-    if (this.offline) throw new Error("You are offline: new files can be added when the network is back");
+    if (this.offline) throw new Error(_t("You are offline: new files can be added when the network is back"));
     mime = mime || mimeOf(name);
     const meta = { name, parents: [bookId] };
     const { onProgress = null, signal = null } = opt;
@@ -404,9 +405,9 @@ export class DriveStore {
         body: JSON.stringify(meta),
       });
       const loc = start.headers.get("Location") || start.headers.get("location");
-      if (!loc) throw new Error("Google Drive did not start the upload");
+      if (!loc) throw new Error(_t("Google Drive did not start the upload"));
       const r = await this.xhr("PUT", loc, { headers: { "Content-Type": mime }, body: bytes, onProgress, signal, auth: false });
-      if (r.status >= 300) throw new Error("Google Drive: the upload stopped (" + r.status + ")");
+      if (r.status >= 300) throw new Error(_t("Google Drive: the upload stopped (") + r.status + ")");
       json = JSON.parse(r.text);
     } else {
       const form = () => {
@@ -502,7 +503,7 @@ export class DriveStore {
         .addView(view)
         .setOAuthToken(this.token)
         .setAppId(APP_ID)
-        .setTitle(opts.title || "Add from your Google Drive")
+        .setTitle(opts.title || _t("Add from your Google Drive"))
         .setCallback((data) => {
           if (data.action === google.picker.Action.PICKED) resolve(data.docs.map(d => ({ id: d.id, name: d.name, mime: d.mimeType })));
           else if (data.action === google.picker.Action.CANCEL) resolve([]);

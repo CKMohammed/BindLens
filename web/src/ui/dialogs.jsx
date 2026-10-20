@@ -2,6 +2,7 @@
 import { signal } from "@preact/signals";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "./icons.jsx";
+import { _t } from "../i18n.js";
 
 export const modal = signal(null);   // {kind:"ask"|"confirm", ...resolve}
 export const menu = signal(null);    // {x, y, items:[{label, icon, run, danger}|"-"|{title}]}
@@ -19,7 +20,7 @@ export function Dialog({ title, onClose, children, foot, cls = "", icon }) {
           <div class="dh">
             {icon && <Icon n={icon} size={22} style={{ color: "var(--accent)" }} />}
             <h2 class="grow">{title}</h2>
-            {onClose && <button class="ib" onClick={onClose} title="Close (Esc)"><Icon n="close" /></button>}
+            {onClose && <button class="ib" onClick={onClose} title={_t("Close (Esc)")}><Icon n="close" /></button>}
           </div>
         )}
         <div class="db">{children}</div>
@@ -29,11 +30,11 @@ export function Dialog({ title, onClose, children, foot, cls = "", icon }) {
   );
 }
 
-export function ask(title, { value = "", label = "", placeholder = "", ok = "OK", multiline = false } = {}) {
+export function ask(title, { value = "", label = "", placeholder = "", ok = _t("OK"), multiline = false } = {}) {
   return new Promise((resolve) => { modal.value = { kind: "ask", title, value, label, placeholder, ok, multiline, resolve }; });
 }
 
-export function confirm(title, text = "", { ok = "OK", danger = false } = {}) {
+export function confirm(title, text = "", { ok = _t("OK"), danger = false } = {}) {
   return new Promise((resolve) => { modal.value = { kind: "confirm", title, text, ok, danger, resolve }; });
 }
 
@@ -61,7 +62,7 @@ function Ask({ m }) {
   const done = (val) => { modal.value = null; m.resolve(val); };
   return (
     <Dialog title={m.title} onClose={() => done(null)}
-      foot={<><button class="btn plain" onClick={() => done(null)}>Cancel</button>
+      foot={<><button class="btn plain" onClick={() => done(null)}>{_t("Cancel")}</button>
         <button class="btn" onClick={() => done(v.trim())} disabled={!v.trim()}>{m.ok}</button></>}>
       {m.label && <p class="muted small" style={{ marginTop: 0 }}>{m.label}</p>}
       {m.multiline
@@ -81,7 +82,7 @@ function Confirm({ m }) {
   }, []);
   return (
     <Dialog title={m.title} onClose={() => done(false)}
-      foot={<><button class="btn plain" onClick={() => done(false)}>Cancel</button>
+      foot={<><button class="btn plain" onClick={() => done(false)}>{_t("Cancel")}</button>
         <button class={"btn" + (m.danger ? " danger" : "")} onClick={() => done(true)}>{m.ok}</button></>}>
       {m.text && <p style={{ margin: 0 }}>{m.text}</p>}
     </Dialog>
@@ -92,7 +93,7 @@ function Choose({ m }) {
   const done = (val) => { modal.value = null; m.resolve(val); };
   return (
     <Dialog title={m.title} onClose={() => done(null)}
-      foot={<><button class="btn plain" onClick={() => done(null)}>Cancel</button><span class="grow" />
+      foot={<><button class="btn plain" onClick={() => done(null)}>{_t("Cancel")}</button><span class="grow" />
         {m.options.map((o, i) => <button key={o.key} class={"btn" + (i < m.options.length - 1 ? " soft" : "") + (o.danger ? " danger" : "")} onClick={() => done(o.key)}>{o.icon && <Icon n={o.icon} size={17} />}{o.label}</button>)}</>}>
       {m.text && <p style={{ margin: 0 }}>{m.text}</p>}
     </Dialog>
@@ -137,7 +138,7 @@ export function Menu() {
         return (
           <button key={i} style={it.danger ? { color: "var(--bad)" } : it.color ? { color: it.color } : null} disabled={it.disabled}
             onClick={() => {
-              if (it.sub) { const p = pos || m; menu.value = { x: p.x, y: p.y, items: [{ label: "Back", icon: "left", run: () => { menu.value = m; } }, "-", ...it.sub] }; setPos(null); return; }
+              if (it.sub) { const p = pos || m; menu.value = { x: p.x, y: p.y, items: [{ label: _t("Back"), icon: "left", run: () => { menu.value = m; } }, "-", ...it.sub] }; setPos(null); return; }
               menu.value = null; it.run && it.run();
             }}>
             {it.icon && <Icon n={it.icon} />}{it.swatch && <span class="swatch" style={{ background: it.swatch, width: 16, height: 16 }} />}

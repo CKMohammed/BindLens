@@ -1,6 +1,7 @@
 // Word, Excel, PowerPoint and text files, turned into simple HTML so the engine can lay them out as pages.
 // In the browser there is no Office, so they look close to the original, not exactly the same.
 import { escapeHtml, ext } from "../util.js";
+import { _t } from "../i18n.js";
 
 export const OFFICE_CSS = `
 body{font-family:sans-serif;font-size:11pt;line-height:1.4;color:#1d1d24}
@@ -57,7 +58,7 @@ async function pptxToHtml(buf) {
     const doc = new DOMParser().parseFromString(xml, "application/xml");
     const paras = [...doc.getElementsByTagNameNS("*", "p")].map(p =>
       [...p.getElementsByTagNameNS("*", "t")].map(t => t.textContent).join("")).filter(t => t.trim());
-    html += `<div class="slide"><h2>${escapeHtml(paras[0] || "Slide " + (i + 1))}</h2>`;
+    html += `<div class="slide"><h2>${escapeHtml(paras[0] || _t("Slide ") + (i + 1))}</h2>`;
     for (const t of paras.slice(1)) html += `<p>${escapeHtml(t)}</p>`;
     html += "</div>";
   }
@@ -119,7 +120,7 @@ function emlToHtml(buf) {
   const top = mimePart(raw);
   const out = { plain: null, html: null, att: [] };
   walkMime(top, out);
-  let h = `<h1>${escapeHtml(decodeWords(top.headers.subject || "(no subject)"))}</h1><table style="border:0;width:auto">`;
+  let h = `<h1>${escapeHtml(decodeWords(top.headers.subject || _t("(no subject)")))}</h1><table style="border:0;width:auto">`;
   for (const k of ["from", "to", "cc", "date"]) if (top.headers[k]) h += `<tr><td style="border:0;color:#6B6F80;padding:0 8pt 1pt 0">${k[0].toUpperCase() + k.slice(1)}</td><td style="border:0;padding:0 0 1pt 0">${escapeHtml(decodeWords(top.headers[k]))}</td></tr>`;
   h += "</table>";
   if (out.plain != null) h += `<pre style="font-family:sans-serif;font-size:10.5pt;margin-top:10pt">${escapeHtml(out.plain.trim())}</pre>`;
@@ -204,7 +205,7 @@ export async function toHtml(kind, name, buf) {
   if (kind === "text" && (e === "html" || e === "htm")) return new TextDecoder().decode(buf);
   if (kind === "text") return textToHtml(new TextDecoder().decode(buf), name);
   if (kind === "word" || kind === "powerpoint") {
-    return `<h2>${escapeHtml(name)}</h2><p>This older Office file cannot be shown in the browser by itself. Right-click it in the Library and choose "Show it as it looks (Google converts it)", or save it as .docx / .pptx.</p>`;
+    return `<h2>${escapeHtml(name)}</h2><p>${escapeHtml(_t("This older Office file cannot be shown in the browser by itself. Right-click it in the Library and choose \"Show it as it looks (Google converts it)\", or save it as .docx / .pptx."))}</p>`;
   }
   return null;
 }

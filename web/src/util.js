@@ -1,4 +1,5 @@
 // Small helpers used everywhere.
+import { _t, isEs } from "./i18n.js";
 
 export const BOOK_COLORS = ["#2F4A7A", "#7A2E3E", "#B8862E", "#2D6E6A", "#4A5568", "#5E7D5A", "#5A4A7A", "#9C4F2E", "#3E6B8C", "#8A6D3B"];   // 1.0 calm: deep, matte office colours
 
@@ -98,11 +99,17 @@ export function fmtSize(n) {
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
   "November", "December"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+  "noviembre", "diciembre"];
+const DAYS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
+// "Tuesday 20 October 2026" / "20 Oct 2026"; in Spanish "martes, 20 de octubre de 2026" / "20 oct 2026"
 export function fmtDate(d, long = false) {
   if (!d) return "";
   if (!(d instanceof Date)) d = new Date(d);
   if (isNaN(d)) return "";
+  if (isEs) return long ? `${DAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()]} de ${d.getFullYear()}`
+    : `${d.getDate()} ${MONTHS_ES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
   return long ? `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
     : `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
 }
@@ -123,23 +130,23 @@ export function daysBetween(a, b) {
 }
 
 export function whenText(days) {
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
-  if (days < 0) return `${-days} days ago`;
-  return `In ${days} days`;
+  if (days === 0) return _t("Today");
+  if (days === 1) return _t("Tomorrow");
+  if (days === -1) return _t("Yesterday");
+  if (days < 0) return _t("{0} days ago", -days);
+  return _t("In {0} days", days);
 }
 
 export function greeting() {
   const h = new Date().getHours();
-  if (h < 5) return "Good night";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 5) return _t("Good night");
+  if (h < 12) return _t("Good morning");
+  if (h < 18) return _t("Good afternoon");
+  return _t("Good evening");
 }
 
-export function monthName(i) { return MONTHS[i]; }
-export function dayName(i) { return DAYS[i]; }
+export function monthName(i) { return isEs ? MONTHS_ES[i][0].toUpperCase() + MONTHS_ES[i].slice(1) : MONTHS[i]; }
+export function dayName(i) { return isEs ? DAYS_ES[i][0].toUpperCase() + DAYS_ES[i].slice(1) : DAYS[i]; }
 
 export function download(bytesOrBlob, name, mime) {
   const blob = bytesOrBlob instanceof Blob ? bytesOrBlob : new Blob([bytesOrBlob], { type: mime || mimeOf(name) });

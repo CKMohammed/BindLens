@@ -3,6 +3,7 @@ import { useState } from "preact/hooks";
 import { panel, settings, unlockedBooks, openBook, books } from "../state.js";
 import { Dialog } from "./dialogs.jsx";
 import { pinHash } from "./Lock.jsx";
+import { _t } from "../i18n.js";
 
 export function BookPin({ id, fid, page }) {
   const [pin, setPin] = useState("");
@@ -17,12 +18,12 @@ export function BookPin({ id, fid, page }) {
     } else { setBad(true); setPin(""); }
   };
   return (
-    <Dialog title={`"${book ? book.name : "This book"}" is locked`} icon="lock" onClose={close} cls="">
-      <p class="small muted" style={{ marginTop: 0 }}>Type your PIN to open it.</p>
+    <Dialog title={_t("\"{0}\" is locked", book ? book.name : _t("This book"))} icon="lock" onClose={close} cls="">
+      <p class="small muted" style={{ marginTop: 0 }}>{_t("Type your PIN to open it.")}</p>
       <input class="field" autoFocus type="password" inputMode="numeric" maxLength={4} value={pin}
         style={{ fontSize: 26, letterSpacing: ".5em", textAlign: "center" }}
         onInput={(e) => { const v = e.target.value.replace(/\D/g, ""); setPin(v); setBad(false); if (v.length === 4) go(v); }} />
-      {bad && <p class="small" style={{ color: "var(--bad)" }}>That PIN is not right.</p>}
+      {bad && <p class="small" style={{ color: "var(--bad)" }}>{_t("That PIN is not right.")}</p>}
     </Dialog>
   );
 }

@@ -7,14 +7,15 @@ import { Icon } from "./icons.jsx";
 import { allMarks, call } from "../docs.js";
 import { fmtDate, escapeHtml, download } from "../util.js";
 import { goToWord } from "./Find.jsx";
+import { _t } from "../i18n.js";
 
 // the summary sheet: every highlight and note of the book, in the order of the book, as they are written
 function sheetBlocks(book, list) {
-  const blocks = [{ h: `${book.name} - summary` }, { p: `Your highlights and notes · ${fmtDate(new Date())} · BindLens`, small: true, color: "6E6A82" }];
+  const blocks = [{ h: _t("{0} - summary", book.name) }, { p: _t("Your highlights and notes · {0} · BindLens", fmtDate(new Date())), small: true, color: "6E6A82" }];
   let lastFile = null;
   for (const c of list) {
     if (c.file.id !== lastFile) { blocks.push({ h2: c.file.name.replace(/\.[^.]+$/, "") }); lastFile = c.file.id; }
-    blocks.push({ p: (c.note ? "Note: " : "") + c.front + `   (page ${c.page + 1})`, italic: !!c.note });
+    blocks.push({ p: (c.note ? _t("Note: ") : "") + c.front + _t("   (page {0})", c.page + 1), italic: !!c.note });
   }
   return blocks;
 }
@@ -42,7 +43,7 @@ export function Study() {
           for (const m of await allMarks(f)) {
             const words = (m.text || m.contents || "").trim();
             if (!words || m.type === "Stamp" || m.type === "Ink") continue;
-            out.push({ front: words, note: m.type === "FreeText" || m.type === "Text" ? "Your note" : "", file: f, page: m.page });
+            out.push({ front: words, note: m.type === "FreeText" || m.type === "Text" ? _t("Your note") : "", file: f, page: m.page });
           }
         } catch (e) {}
       }
@@ -75,21 +76,21 @@ export function Study() {
   const card = cards && cards[i];
   const sheetPdf = async () => (await import("../exportMarks.js")).exportMarks(book, "pdf");
   const sheetWord = async () => (await import("../exportMarks.js")).exportMarks(book, "word");
-  const sheetGoogle = async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast("Google: " + e.message, "bad"));
+  const sheetGoogle = async () => (await import("../exportMarks.js")).exportMarks(book, "google").catch(e => toast(_t("Google: ") + e.message, "bad"));
   const tabs = (
     <div class="row" style={{ marginBottom: 12 }}>
-      <button class={"btn small " + (tab === "cards" ? "" : "plain")} onClick={() => setTab("cards")}>Cards</button>
-      <button class={"btn small " + (tab === "sheet" ? "" : "plain")} onClick={() => setTab("sheet")}>Summary sheet</button>
+      <button class={"btn small " + (tab === "cards" ? "" : "plain")} onClick={() => setTab("cards")}>{_t("Cards")}</button>
+      <button class={"btn small " + (tab === "sheet" ? "" : "plain")} onClick={() => setTab("sheet")}>{_t("Summary sheet")}</button>
     </div>
   );
   if (tab === "sheet") return (
-    <Dialog title={`Study · ${book ? book.name : ""}`} icon="star" onClose={close} cls="mid"
-      foot={inOrder.length ? <><span class="grow small muted">{inOrder.length === 1 ? "1 highlight or note" : `${inOrder.length} highlights and notes`}, as you marked them</span>
-        {store.value.createConverted && <button class="btn ghost" onClick={sheetGoogle}><Icon n="word" size={17} />In Google Docs</button>}
-        <button class="btn soft" onClick={sheetWord}><Icon n="word" size={17} />As Word</button>
-        <button class="btn" onClick={sheetPdf}><Icon n="pdf" size={17} />As PDF</button></> : null}>
+    <Dialog title={_t("Study · {0}", book ? book.name : "")} icon="star" onClose={close} cls="mid"
+      foot={inOrder.length ? <><span class="grow small muted">{inOrder.length === 1 ? _t("1 highlight or note") : _t("{0} highlights and notes", inOrder.length)}{_t(", as you marked them")}</span>
+        {store.value.createConverted && <button class="btn ghost" onClick={sheetGoogle}><Icon n="word" size={17} />{_t("In Google Docs")}</button>}
+        <button class="btn soft" onClick={sheetWord}><Icon n="word" size={17} />{_t("As Word")}</button>
+        <button class="btn" onClick={sheetPdf}><Icon n="pdf" size={17} />{_t("As PDF")}</button></> : null}>
       {tabs}
-      {!inOrder.length ? <p class="muted">Nothing to put on the sheet yet. Highlight lines or write notes in the PDFs of this book.</p> : (
+      {!inOrder.length ? <p class="muted">{_t("Nothing to put on the sheet yet. Highlight lines or write notes in the PDFs of this book.")}</p> : (
         <div class="rep-out" style={{ padding: "4px 14px", maxHeight: "52vh" }}>
           {sheetBlocks(book, inOrder).slice(2).map((b, k) => b.h2 ? <h3 key={k} style={{ margin: "12px 0 4px" }}>{b.h2}</h3> : <p key={k} class="small" style={{ margin: "0 0 6px", fontStyle: b.italic ? "italic" : "" }}>{b.p}</p>)}
         </div>
@@ -97,28 +98,28 @@ export function Study() {
     </Dialog>
   );
   return (
-    <Dialog title={`Study cards${book ? " · " + book.name : ""}`} icon="star" onClose={close} cls="mid"
+    <Dialog title={_t("Study cards{0}", book ? " · " + book.name : "")} icon="star" onClose={close} cls="mid"
       foot={card ? <>
-        <span class="grow small muted">{known} known · {cards.length} cards · Space turns the card</span>
-        <button class="btn plain" onClick={() => next(false)}>Again</button>
-        <button class="btn" onClick={() => next(true)}><Icon n="check" size={17} />I knew it</button>
+        <span class="grow small muted">{known} {_t("known ·")} {cards.length} {_t("cards · Space turns the card")}</span>
+        <button class="btn plain" onClick={() => next(false)}>{_t("Again")}</button>
+        <button class="btn" onClick={() => next(true)}><Icon n="check" size={17} />{_t("I knew it")}</button>
       </> : null}>
       {tabs}
       {!cards ? <div class="spinner" /> : !cards.length ? (
-        <p class="muted">No cards yet. Highlight the important lines of your readings (or write notes on them), and they come here as cards to review.</p>
+        <p class="muted">{_t("No cards yet. Highlight the important lines of your readings (or write notes on them), and they come here as cards to review.")}</p>
       ) : (
         <button onClick={() => setBack(!back)} style={{ width: "100%", minHeight: 260, border: 0, borderRadius: 18, cursor: "pointer", padding: 28,
           background: back ? "linear-gradient(135deg,#F3EFFA,#FBF8F1)" : "linear-gradient(135deg,#FFF6CC,#FFE9A8)", boxShadow: "var(--shadow2)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 12 }}>
           {!back ? <>
-            <span class="tiny muted" style={{ textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>{card.note || "Highlight"}</span>
+            <span class="tiny muted" style={{ textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>{card.note || _t("Highlight")}</span>
             <span style={{ font: "600 21px/1.4 Georgia,serif", color: "#1E1C2B" }}>{card.front}</span>
-            <span class="tiny muted">Click or press Space to see where it comes from</span>
+            <span class="tiny muted">{_t("Click or press Space to see where it comes from")}</span>
           </> : <>
-            <span class="tiny muted" style={{ textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>From</span>
+            <span class="tiny muted" style={{ textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>{_t("From")}</span>
             <b style={{ fontSize: 18 }}>{card.file.name.replace(/\.[^.]+$/, "")}</b>
-            <span class="muted">page {card.page + 1}</span>
-            <span class="btn soft small" onClick={(e) => { e.stopPropagation(); close(); goToWord(book, card.file, card.page, card.front.slice(0, 40)); }}>Open the page</span>
+            <span class="muted">{_t("page")} {card.page + 1}</span>
+            <span class="btn soft small" onClick={(e) => { e.stopPropagation(); close(); goToWord(book, card.file, card.page, card.front.slice(0, 40)); }}>{_t("Open the page")}</span>
           </>}
         </button>
       )}

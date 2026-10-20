@@ -7,6 +7,7 @@ import { Icon } from "./icons.jsx";
 import { allDeadlines, needs, status, calendarLink, icsOf, itemKey, myItems } from "../reports/dates.js";
 import { openItem, addCountdown } from "./needs.js";
 import { fmtDate, isoDate, download, daysBetween, monthName, uid } from "../util.js";
+import { _t } from "../i18n.js";
 
 // the dates of a calendar file (.ics): every event's day and title (a repeating one: its next dates, up to a year)
 export function parseIcs(text) {
@@ -18,7 +19,7 @@ export function parseIcs(text) {
     if (l === "BEGIN:VEVENT") ev = {};
     else if (l === "END:VEVENT") {
       if (ev && ev.date) {
-        out.push({ date: ev.date, text: ev.text || "Event" });
+        out.push({ date: ev.date, text: ev.text || _t("Event") });
         const r = /FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/.exec(ev.rrule || "");
         if (r) {
           const cnt = Number((/COUNT=(\d+)/.exec(ev.rrule) || [])[1] || 0);
@@ -30,7 +31,7 @@ export function parseIcs(text) {
             else if (r[1] === "MONTHLY") d.setMonth(d.getMonth() + 1); else d.setFullYear(d.getFullYear() + 1);
             const iso = isoDate(d);
             if ((cnt && i >= cnt) || (until && iso > until) || d.getTime() > end) break;
-            out.push({ date: iso, text: ev.text || "Event" });
+            out.push({ date: iso, text: ev.text || _t("Event") });
           }
         }
       }
@@ -60,12 +61,12 @@ function MonthCal({ items, onDay, day }) {
   return (
     <div style={{ background: "var(--panel2)", borderRadius: 14, padding: 12, border: "1px solid var(--line)" }}>
       <div class="row" style={{ marginBottom: 8 }}>
-        <button class="ib" title="Month before" onClick={() => setM(new Date(m.getFullYear(), m.getMonth() - 1, 1))}><Icon n="left" /></button>
+        <button class="ib" title={_t("Month before")} onClick={() => setM(new Date(m.getFullYear(), m.getMonth() - 1, 1))}><Icon n="left" /></button>
         <b class="grow" style={{ textAlign: "center" }}>{monthName(m.getMonth())} {m.getFullYear()}</b>
-        <button class="ib" title="Next month" onClick={() => setM(new Date(m.getFullYear(), m.getMonth() + 1, 1))}><Icon n="right" /></button>
+        <button class="ib" title={_t("Next month")} onClick={() => setM(new Date(m.getFullYear(), m.getMonth() + 1, 1))}><Icon n="right" /></button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, textAlign: "center" }}>
-        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map(d => <span key={d} class="tiny muted">{d}</span>)}
+        {[_t("Mo"), _t("Tu"), _t("We"), _t("Th"), _t("Fr"), _t("Sa"), _t("Su")].map(d => <span key={d} class="tiny muted">{d}</span>)}
         {cells.map((d, i) => {
           if (!d) return <span key={i} />;
           const k = isoDate(d);
@@ -109,11 +110,11 @@ export function Dates() {
     setSetting("datesDone", [...(settings.value.datesDone || []), itemKey(it)]);
   };
   const addReminder = async () => {
-    const text = await ask("A reminder" + (day ? " for " + fmtDate(new Date(day + "T00:00")) : ""), { label: "What do you want to remember?", placeholder: "e.g. Call the accountant", ok: "Add it" });
+    const text = await ask(_t("A reminder") + (day ? _t(" for ") + fmtDate(new Date(day + "T00:00")) : ""), { label: _t("What do you want to remember?"), placeholder: _t("e.g. Call the accountant"), ok: _t("Add it") });
     if (!text) return;
     let d = day;
     if (!d) {
-      const t = await ask("When?", { label: "The date, e.g. 2026-11-20", value: isoDate(new Date(Date.now() + 7 * 86400000)), ok: "Add it" });
+      const t = await ask(_t("When?"), { label: _t("The date, e.g. 2026-11-20"), value: isoDate(new Date(Date.now() + 7 * 86400000)), ok: _t("Add it") });
       if (!t || isNaN(new Date(t + "T00:00"))) return;
       d = t;
     }
@@ -129,32 +130,32 @@ export function Dates() {
       .map(e => ({ id: uid(), date: e.date, text: e.text, source: f.name.replace(/\.ics$/i, "") }));
     const others = (settings.value.calendar || []).filter(r => r.source !== f.name.replace(/\.ics$/i, ""));
     setSetting("calendar", [...others, ...keep]);
-    toast(keep.length ? `${keep.length} dates from "${f.name}" are in the calendar.` : `"${f.name}" has no dates from the last two months on.`, keep.length ? "ok" : "");
+    toast(keep.length ? _t("{0} dates from \"{1}\" are in the calendar.", keep.length, f.name) : _t("\"{0}\" has no dates from the last two months on.", f.name), keep.length ? "ok" : "");
   };
   const open = (it) => { close(); openItem(it); };
   return (
-    <Dialog title="What needs you" icon="clock" onClose={close} cls="wide"
+    <Dialog title={_t("What needs you")} icon="clock" onClose={close} cls="wide"
       foot={<>
-        <button class="btn plain" onClick={addReminder}><Icon n="plus" size={17} />A reminder of my own</button>
-        <button class="btn plain" onClick={() => addCountdown()}><Icon n="hourglass" size={17} />Count down to a date</button>
-        <button class="btn plain" title="An .ics file from Outlook, Google Calendar or Apple Calendar" onClick={bringCalendar}><Icon n="calendar" size={17} />Bring in a calendar</button>
+        <button class="btn plain" onClick={addReminder}><Icon n="plus" size={17} />{_t("A reminder of my own")}</button>
+        <button class="btn plain" onClick={() => addCountdown()}><Icon n="hourglass" size={17} />{_t("Count down to a date")}</button>
+        <button class="btn plain" title={_t("An .ics file from Outlook, Google Calendar or Apple Calendar")} onClick={bringCalendar}><Icon n="calendar" size={17} />{_t("Bring in a calendar")}</button>
         <span class="grow" />
-        {list.length > 0 && <button class="btn soft" onClick={() => download(icsOf(list.filter(x => x.days >= 0)), "BindLens dates.ics", "text/calendar")}><Icon n="calendar" size={17} />For Outlook / Apple Calendar</button>}
+        {list.length > 0 && <button class="btn soft" onClick={() => download(icsOf(list.filter(x => x.days >= 0)), _t("BindLens dates.ics"), "text/calendar")}><Icon n="calendar" size={17} />{_t("For Outlook / Apple Calendar")}</button>}
       </>}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 280px", gap: 16 }} class="dates-grid">
         <div style={{ minWidth: 0 }}>
           <div class="row wrap" style={{ marginBottom: 10 }}>
-            {[["needs", "Needs you"], ["ahead", "All dates ahead"], ["all", "All"]].map(([k, l]) => (
+            {[["needs", _t("Needs you")], ["ahead", _t("All dates ahead")], ["all", _t("All")]].map(([k, l]) => (
               <button key={k} class={"btn small " + (show === k && !day ? "" : "plain")} onClick={() => { setShow(k); setDay(null); }}>{l}</button>
             ))}
-            {day && <span class="small">· {fmtDate(new Date(day + "T00:00"), true)} <button class="btn plain small" onClick={() => setDay(null)}>Show all</button></span>}
+            {day && <span class="small">· {fmtDate(new Date(day + "T00:00"), true)} <button class="btn plain small" onClick={() => setDay(null)}>{_t("Show all")}</button></span>}
           </div>
-          {!items ? <div style={{ textAlign: "center", padding: 20 }}><div class="spinner" /><p class="small muted">Reading the dates in your documents... {prog[0]} of {prog[1]}</p></div>
-            : !list.length ? <p class="muted">{show === "needs" && !day ? "Nothing needs you now. Dates in the next 30 days, and the ones gone by, come here." : "No dates here."}</p>
+          {!items ? <div style={{ textAlign: "center", padding: 20 }}><div class="spinner" /><p class="small muted">{_t("Reading the dates in your documents...")} {prog[0]} {_t("of")} {prog[1]}</p></div>
+            : !list.length ? <p class="muted">{show === "needs" && !day ? _t("Nothing needs you now. Dates in the next 30 days, and the ones gone by, come here.") : _t("No dates here.")}</p>
               : (
                 <div class="rep-out" style={{ maxHeight: "52vh" }}>
                   <table class="rows">
-                    <thead><tr><th>Date</th><th>What</th><th>Where</th><th></th></tr></thead>
+                    <thead><tr><th>{_t("Date")}</th><th>{_t("What")}</th><th>{_t("Where")}</th><th></th></tr></thead>
                     <tbody>
                       {list.map((it, i) => {
                         const st = status(it.days);
@@ -163,11 +164,11 @@ export function Dates() {
                           <tr key={i} style={isDone ? { opacity: .5 } : null}>
                             <td style={{ whiteSpace: "nowrap" }}><b>{fmtDate(it.date)}</b><div><span class={"chipst " + st.cls}>{st.text}</span></div></td>
                             <td><b>{it.what}</b><div class="small muted">{it.line}</div></td>
-                            <td class="small">{it.cal ? <span class="muted">From {it.book}</span> : it.mine && !it.fileId ? <span class="muted">Your reminder</span> : <a href="#" onClick={(e) => { e.preventDefault(); open(it); }}>{it.file}</a>}{(!it.mine || it.fileId) && <div class="tiny muted">{it.book} · page {(it.page || 0) + 1}</div>}</td>
+                            <td class="small">{it.cal ? <span class="muted">{_t("From")} {it.book}</span> : it.mine && !it.fileId ? <span class="muted">{_t("Your reminder")}</span> : <a href="#" onClick={(e) => { e.preventDefault(); open(it); }}>{it.file}</a>}{(!it.mine || it.fileId) && <div class="tiny muted">{it.book} {_t("· page")} {(it.page || 0) + 1}</div>}</td>
                             <td style={{ whiteSpace: "nowrap" }}>
-                              <a class="ib" title="Add to Google Calendar" href={calendarLink({ ...it, file: it.file || it.line, book: it.book || "" })} target="_blank" rel="noopener"><Icon n="calendar" /></a>
-                              {it.days >= 0 && <button class="ib" title="Count down to it on Home" onClick={() => addCountdown({ text: (it.what === "Date" ? "" : it.what + ": ") + (it.file ? it.file.replace(/\.[^.]+$/, "") : it.line).slice(0, 50), date: isoDate(it.date) })}><Icon n="hourglass" /></button>}
-                              {!isDone && <button class="ib" title={it.cal ? "Take it out of the calendar" : it.mine ? "Delete the reminder" : "Done: it no longer needs me"} onClick={() => markDone(it)}><Icon n={it.mine ? "trash" : "check"} /></button>}
+                              <a class="ib" title={_t("Add to Google Calendar")} href={calendarLink({ ...it, file: it.file || it.line, book: it.book || "" })} target="_blank" rel="noopener"><Icon n="calendar" /></a>
+                              {it.days >= 0 && <button class="ib" title={_t("Count down to it on Home")} onClick={() => addCountdown({ text: (it.what === _t("Date") ? "" : it.what + ": ") + (it.file ? it.file.replace(/\.[^.]+$/, "") : it.line).slice(0, 50), date: isoDate(it.date) })}><Icon n="hourglass" /></button>}
+                              {!isDone && <button class="ib" title={it.cal ? _t("Take it out of the calendar") : it.mine ? _t("Delete the reminder") : _t("Done: it no longer needs me")} onClick={() => markDone(it)}><Icon n={it.mine ? "trash" : "check"} /></button>}
                             </td>
                           </tr>
                         );
@@ -179,7 +180,7 @@ export function Dates() {
         </div>
         <div>
           <MonthCal items={all || []} day={day} onDay={(k) => setDay(day === k ? null : k)} />
-          <p class="tiny muted">Red dots: dates in your documents. Pink: your reminders and tasks. Green: a calendar you brought in. Click a day to see it, or to add a reminder to it.</p>
+          <p class="tiny muted">{_t("Red dots: dates in your documents. Pink: your reminders and tasks. Green: a calendar you brought in. Click a day to see it, or to add a reminder to it.")}</p>
         </div>
       </div>
       <style>{"@media (max-width:760px){.dates-grid{grid-template-columns:1fr!important}}"}</style>

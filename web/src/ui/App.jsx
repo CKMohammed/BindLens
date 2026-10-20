@@ -21,6 +21,7 @@ import { Band } from "./Band.jsx";
 import { UploadPanel } from "./Uploads.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix, brandOf } from "../util.js";
+import { _t, _n, lang, LANGS, setLang } from "../i18n.js";
 
 export const DEFAULT_FRAME = ["#111218", "#FF85C2", "#FFC83D", "#FF85C2", "#111218"];   // 1.0 calm: the logo's colours (ink, pink, gold)
 export const AURORA_FRAME = ["#5B4FD6", "#8E5CC8", "#C2679F", "#D49A4A"];
@@ -82,7 +83,7 @@ async function startWith(s, { tour = true } = {}) {
       s.onNeedSignIn = () => new Promise((resolve) => {
         needsTap.value = async () => {
           try { await s.signIn(true); needsTap.value = null; resolve(); }
-          catch (e) { toast("Sign-in did not finish: " + e.message, "bad"); }
+          catch (e) { toast(_t("Sign-in did not finish: ") + e.message, "bad"); }
         };
       });
     }
@@ -101,12 +102,12 @@ async function backOnline(s) {
       const n = await s.flush();
       offline.value = { on: false, waiting: 0 };
       await reloadLibrary();
-      toast(n ? `Back online: ${n} document${n === 1 ? "" : "s"} saved in your Drive.` : "Back online.", "ok");
-    } catch (e) { toast("Not yet: " + e.message, "bad"); }
+      toast(n ? _t("Back online: {0} document{1} saved in your Drive.", n, n === 1 ? "" : "s") : _t("Back online."), "ok");
+    } catch (e) { toast(_t("Not yet: ") + e.message, "bad"); }
   };
   if (s.token && Date.now() < s.expires && !s.offline) { go(); return; }
-  go.title = "Back online"; go.text = s.waiting().length ? `${s.waiting().length} document${s.waiting().length === 1 ? "" : "s"} changed offline wait${s.waiting().length === 1 ? "s" : ""} to go up to your Drive. Click to sign in again and save.` : "Click to sign in again with Google and go on.";
-  go.ok = "Save to my Drive";
+  go.title = _t("Back online"); go.text = s.waiting().length ? _n(s.waiting().length, "{0} document changed offline waits to go up to your Drive. Click to sign in again and save.", "{0} documents changed offline wait to go up to your Drive. Click to sign in again and save.") : _t("Click to sign in again with Google and go on.");
+  go.ok = _t("Save to my Drive");
   needsTap.value = go;
 }
 if (typeof window !== "undefined") {
@@ -134,17 +135,18 @@ function Start() {
       <div class="card">
         <Logo size={96} />
         <h1>Bind<span>Lens</span> Web</h1>
-        <p>Your documents, bound into books. Read, mark and find anything, from any computer or phone. Everything is saved in your own Google Drive{MS_CLIENT_ID ? " or OneDrive" : ""}.</p>
-        {busy ? <><div class="spinner" /><p class="small">Opening your library...</p></> : <>
+        <p>{_t("Your documents, bound into books. Read, mark and find anything, from any computer or phone. Everything is saved in your own Google Drive")}{MS_CLIENT_ID ? _t(" or OneDrive") : ""}.</p>
+        {busy ? <><div class="spinner" /><p class="small">{_t("Opening your library...")}</p></> : <>
           <button class={"gbtn" + (from === "google" ? " callout" : "")} onClick={() => startWith(backMs ? new OneDriveStore() : new DriveStore())}>
-            {backMs ? <MS /> : <G />}{back ? <span>Continue as {back}</span> : <span>Sign in with Google</span>}
+            {backMs ? <MS /> : <G />}{back ? <span>{_t("Continue as")} {back}</span> : <span>{_t("Sign in with Google")}</span>}
           </button>
-          {MS_CLIENT_ID && !back && <div style={{ marginTop: 10 }}><button class={"gbtn ms" + (from === "microsoft" ? " callout" : "")} onClick={() => startWith(new OneDriveStore())}><MS /><span>Sign in with Microsoft (OneDrive)</span></button></div>}
-          {back && <div style={{ marginTop: 10 }}><button class="btn plain small" onClick={() => { try { localStorage.removeItem("bl_email"); localStorage.removeItem("bl_signed_in"); localStorage.removeItem("bl_cloud"); localStorage.removeItem("bl_ms"); } catch (e) {} location.reload(); }}>Use another account</button></div>}
-          <div class="or">or</div>
-          <button class="btn ghost" onClick={() => startWith(new DemoStore())}>Try it with an example library</button>
+          {MS_CLIENT_ID && !back && <div style={{ marginTop: 10 }}><button class={"gbtn ms" + (from === "microsoft" ? " callout" : "")} onClick={() => startWith(new OneDriveStore())}><MS /><span>{_t("Sign in with Microsoft (OneDrive)")}</span></button></div>}
+          {back && <div style={{ marginTop: 10 }}><button class="btn plain small" onClick={() => { try { localStorage.removeItem("bl_email"); localStorage.removeItem("bl_signed_in"); localStorage.removeItem("bl_cloud"); localStorage.removeItem("bl_ms"); } catch (e) {} location.reload(); }}>{_t("Use another account")}</button></div>}
+          <div class="or">{_t("or")}</div>
+          <button class="btn ghost" onClick={() => startWith(new DemoStore())}>{_t("Try it with an example library")}</button>
           {errorText.value && <p class="small" style={{ color: "var(--bad)", marginTop: 16 }}>{errorText.value}</p>}
-          <p class="fine">BindLens sees only the files it makes or that you give it, in a folder called <b>BindLens</b> in your Drive{MS_CLIENT_ID ? " (in OneDrive: Apps/BindLens)" : ""}. Nothing goes to our servers: we have none. <a href={import.meta.env.BASE_URL + "privacy.html"} target="_blank" rel="noopener">Privacy</a> · <a href={import.meta.env.BASE_URL + "terms.html"} target="_blank" rel="noopener">Terms</a> · <a href="/" target="_blank">bindlens.com</a></p>
+          <p class="fine">{_t("BindLens sees only the files it makes or that you give it, in a folder called")} <b>{_t("BindLens")}</b> {_t("in your Drive")}{MS_CLIENT_ID ? _t(" (in OneDrive: Apps/BindLens)") : ""}{_t(". Nothing goes to our servers: we have none.")} <a href={import.meta.env.BASE_URL + "privacy.html"} target="_blank" rel="noopener">{_t("Privacy")}</a> · <a href={import.meta.env.BASE_URL + "terms.html"} target="_blank" rel="noopener">{_t("Terms")}</a> · <a href="/" target="_blank">{_t("bindlens.com")}</a></p>
+          <div class="langpick" role="group" aria-label="Language / Idioma">{LANGS.map(([k, l]) => <button key={k} class={lang === k ? "on" : ""} onClick={() => setLang(k)}>{l}</button>)}</div>
         </>}
       </div>
     </div>
@@ -161,9 +163,9 @@ function NeedsTap() {
   return (
     <div class="scrim">
       <div class="dialog" style={{ width: "min(420px,100%)" }}>
-        <div class="dh"><Icon n={f.title ? "wifi" : "lock"} size={22} style={{ color: "var(--accent)" }} /><h2>{f.title || "Still there?"}</h2></div>
-        <div class="db"><p style={{ margin: 0 }}>{f.text || "Google asks BindLens to check it is still you every hour. Click to keep working."}</p></div>
-        <div class="df">{f.title && <button class="btn plain" onClick={() => { needsTap.value = null; }}>Later</button>}<button class="btn" onClick={f}>{f.ok || "Keep working"}</button></div>
+        <div class="dh"><Icon n={f.title ? "wifi" : "lock"} size={22} style={{ color: "var(--accent)" }} /><h2>{f.title || _t("Still there?")}</h2></div>
+        <div class="db"><p style={{ margin: 0 }}>{f.text || _t("Google asks BindLens to check it is still you every hour. Click to keep working.")}</p></div>
+        <div class="df">{f.title && <button class="btn plain" onClick={() => { needsTap.value = null; }}>{_t("Later")}</button>}<button class="btn" onClick={f}>{f.ok || _t("Keep working")}</button></div>
       </div>
     </div>
   );
@@ -181,7 +183,7 @@ export function App() {
       if (inField) return;
       if (mod && !e.shiftKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
       else if (mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); }
-      else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); saveAll().then(() => toast("Saved in your Drive.", "ok")); }
+      else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); saveAll().then(() => toast(_t("Saved in your Drive."), "ok")); }
       else if (mod && e.key.toLowerCase() === "r") { e.preventDefault(); openPanel("reports"); }
       else if (mod && e.key.toLowerCase() === "p" && view.value === "book") { e.preventDefault(); openPanel("print"); }
       else if (mod && e.key === ",") { e.preventDefault(); openPanel("settings"); }
@@ -191,7 +193,7 @@ export function App() {
       else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); openPanel("study"); }
       else if (e.key === "F6" && view.value === "book") { e.preventDefault(); readMode.value = !readMode.value; }
       else if (e.key === "Escape" && readMode.value && !panel.value) { readMode.value = false; }
-      else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast("Click the line of text to change."); }
+      else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast(_t("Click the line of text to change.")); }
       else if (e.key === "F2" && view.value === "book" && !panel.value) {
         e.preventDefault();
         import("../docs.js").then(({ fileFor }) => { const f = fileFor(fileId.value); const b = currentBook.value; if (f && b) import("../actions.js").then(a => a.renameFile(b, f)); });
