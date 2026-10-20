@@ -9,7 +9,9 @@ import { _t } from "../i18n.js";
 export const CLIENT_ID = "537962235577-p6sgr9cnbqvvv0v75a7jbpla1op629n7.apps.googleusercontent.com";
 export const APP_ID = "537962235577"; // the Google Cloud project number (for the Drive picker)
 export const PICKER_KEY = "AIzaSyDH4g7NE_v7U8CuQ55bFrWgWx-JjS2gwno"; // browser API key for "Add from Drive" (Picker only; bindlens.com + docs.google.com)
-const SCOPE = "https://www.googleapis.com/auth/drive.file";
+const FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const APPDATA_SCOPE = "https://www.googleapis.com/auth/drive.appdata";   // 1.0: the settings, hidden (not in your Drive)
+const SCOPE = FILE_SCOPE + " " + APPDATA_SCOPE;
 const API = "https://www.googleapis.com/drive/v3";
 const UP = "https://www.googleapis.com/upload/drive/v3";
 const FOLDER = "application/vnd.google-apps.folder";
@@ -57,7 +59,9 @@ export class DriveStore {
         hint,
         callback: (r) => {
           if (r.error) { reject(new Error(r.error_description || r.error)); return; }
-          if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE)) {
+          const has = (sc) => !google.accounts.oauth2.hasGrantedAllScopes || google.accounts.oauth2.hasGrantedAllScopes(r, sc);
+          this.appData = has(APPDATA_SCOPE);
+          if (!has(FILE_SCOPE)) {
             reject(new Error(_t("BindLens needs to use its own folder in your Google Drive. Sign in again and leave the Drive box ticked.")));
             return;
           }
@@ -130,10 +134,25 @@ export class DriveStore {
     if (!this.myRoot) {
       try { const r = await this.json(`${API}/files/root?fields=id`); if (r && r.id) { this.myRoot = r.id; localStorage.setItem("bl_myroot", r.id); } } catch (e) {}
     }
-    // the library's settings file, so they are read before the books are shown
+    // the library's settings file, so they are read before the books are shown. 1.0: it lives in the app's hidden
+    // space of your Drive (you do not see it among your files); a visible one from before moves there once and goes
     const st = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and trashed=false`)}&fields=files(id,name,modifiedTime,parents)&orderBy=modifiedTime desc&spaces=drive`);
     const list = (st.files || []).sort((x, y) => ((y.parents || []).includes(id) ? 1 : 0) - ((x.parents || []).includes(id) ? 1 : 0));
     this.settingsId = list.length ? list[0].id : null;
+    if (this.appData) {
+      try {
+        const hid = await this.json(`${API}/files?q=${this.q(`name='${SETTINGS_NAME}' and trashed=false`)}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&spaces=appDataFolder`);
+        const old = this.settingsId;
+        if (hid.files && hid.files.length) this.settingsId = hid.files[0].id;
+        else if (old) {
+          const body = await (await this.fetch(`${API}/files/${old}?alt=media`)).text();
+          const f = await this.create("appDataFolder", SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json", { keep: false });
+          this.settingsId = f.id;
+        } else this.settingsId = null;
+        if (old && this.settingsId !== old) await this.trash(old);
+        this.settingsHidden = true;
+      } catch (e) { /* the hidden space is not there: the settings stay as they were */ }
+    }
   }
 
   // everything BindLens can see, in one go: the books (folders in BindLens) and their files
@@ -162,9 +181,6 @@ export class DriveStore {
     const own = new Set(this.own || []);
     const books = items.filter(f => f.mimeType === FOLDER && (((this.rootId && (f.parents || []).includes(this.rootId))) || linked.has(f.id)));
     const byId = new Map(items.map(f => [f.id, f]));
-    // 1.0: the files you added from this computer are in My Drive itself: they show there, as one more book
-    if (this.myRoot && !books.some(b => b.id === this.myRoot) && items.some(f => f.mimeType !== FOLDER && f.mimeType !== SHORTCUT && f.name !== SETTINGS_NAME && (f.parents || []).includes(this.myRoot)))
-      books.push({ id: this.myRoot, name: _t("My Drive"), modifiedTime: "", mimeType: FOLDER, root: true });
     const ids = new Set(books.map(b => b.id));
     // folders inside a book are its sub-books (as deep as they go): each one knows its book and its path
     const folders = new Map(items.filter(f => f.mimeType === FOLDER).map(f => [f.id, f]));
@@ -201,7 +217,7 @@ export class DriveStore {
     }
     const settings = items.filter(f => f.name === SETTINGS_NAME && (this.settingsId ? f.id === this.settingsId : true))
       .sort((a, b) => (b.modifiedTime || "").localeCompare(a.modifiedTime || ""))[0];
-    if (settings) this.settingsId = settings.id;
+    if (settings && !this.settingsHidden) this.settingsId = settings.id;
     const top = [this.rootId, this.myRoot].filter(Boolean);
     const loose = items.filter(f => f.mimeType !== FOLDER && f.mimeType !== SHORTCUT && f.name !== SETTINGS_NAME && (f.parents || []).some(x => top.includes(x)))
       .map(f => this.norm(f));
@@ -489,7 +505,7 @@ export class DriveStore {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body,
       });
     } else {
-      const f = await this.create(this.rootId || null, SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
+      const f = await this.create(this.settingsHidden || this.appData ? "appDataFolder" : (this.rootId || null), SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
       this.settingsId = f.id;
     }
   }

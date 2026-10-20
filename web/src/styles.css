@@ -1335,11 +1335,18 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .bottombar .bb.on { color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 760px) { .pages { padding-bottom: 76px; } .markmap { display: none; } }
 /* Read with PIN: the pencil (never saved) */
-.scratch{position:fixed;left:0;right:0;top:var(--fwt,50px);bottom:0;z-index:30;cursor:crosshair;touch-action:none}
-@media (max-width:760px){.scratch{top:52px;bottom:64px}}
+.scratch{position:fixed;left:0;top:var(--fwt,40px);width:100vw;height:calc(100vh - var(--fwt,40px));z-index:30;cursor:crosshair;touch-action:none}
+@media (max-width:760px){.scratch{top:52px;height:calc(100vh - 116px)}}
 .scratchbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
 .scratchbar .sdot{width:20px;height:20px;border-radius:50%;border:0;box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--line2);cursor:pointer}
 .scratchbar .sdot.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
 .readband .bd-btn{background:transparent;box-shadow:none}
 .readband .bd-btn:hover{background:rgba(255,255,255,.16)}
 .readband .bd-btn.main{background:#fff}
+/* 1.0: the pointer always shows on a white page - dark, with a white edge */
+.page .ov.tool-pen,.page .ov.tool-tick,.page .ov.tool-cross,.page .ov.tool-text,.page .ov.tool-note,.page .ov.tool-stamp,.page .ov.tool-shape,.page .ov.tool-sign,
+.page .ov.tool-eraser,.page .ov.tool-whitebox,.page .ov.tool-whitebrush,.page .ov.tool-redact,.page .ov.tool-crop,.page .ov.tool-picture,.page .ov.tool-comment,.page .ov.tool-date,.page .ov.tool-initials,.scratch{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%3E%3Cpath%20d%3D%22M12%202v20M2%2012h20%22%20stroke%3D%22%23fff%22%20stroke-width%3D%224%22/%3E%3Cpath%20d%3D%22M12%203v18M3%2012h18%22%20stroke%3D%22%2316161D%22%20stroke-width%3D%221.6%22/%3E%3C/svg%3E") 12 12, crosshair}
+.page .ov.tool-highlight,.page .ov.tool-edit{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%3E%3Cpath%20d%3D%22M9%203h6M12%203v18M9%2021h6%22%20stroke%3D%22%23fff%22%20stroke-width%3D%224%22%20fill%3D%22none%22/%3E%3Cpath%20d%3D%22M9%203h6M12%203v18M9%2021h6%22%20stroke%3D%22%2316161D%22%20stroke-width%3D%221.6%22%20fill%3D%22none%22/%3E%3C/svg%3E") 12 12, text}
+/* dark: the names on the binders stay dark on their paper label; the list keeps its colours */
+:root[data-theme="dark"] .home.calm .spine .t{color:#16161D}
+:root[data-theme="dark"] .bl-find{background:var(--panel)} :root[data-theme="dark"] .bl-row.head{background:var(--panel2)}

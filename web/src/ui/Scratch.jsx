@@ -1,16 +1,14 @@
-// The pencil of Read with PIN: draw on the screen to point at something - nothing is saved. It goes when the page
-// changes, when you scroll, or with Clear.
-import { useEffect, useRef, useState } from "preact/hooks";
+// The pencil of reading: draw on the screen to point at something - nothing is saved. It goes when the page
+// changes, when you scroll, or when the pencil is put away (its icon again).
+import { useEffect, useRef } from "preact/hooks";
 import { fileId, pageNo } from "../state.js";
 import { scratch } from "../consult.js";
-import { Icon } from "./icons.jsx";
-import { _t } from "../i18n.js";
 
 const INKS = ["#C2337A", "#111218", "#E0A82E"];
 
 export function Scratch() {
   const ref = useRef();
-  const [ink, setInk] = useState(INKS[0]);
+  const ink = INKS[0];
   const last = useRef(null);
   const clear = () => { const c = ref.current; if (c) c.getContext("2d").clearRect(0, 0, c.width, c.height); };
   useEffect(() => {
@@ -35,11 +33,6 @@ export function Scratch() {
   return (
     <>
       <canvas ref={ref} class="scratch" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onWheel={wheel} />
-      <div class="scratchbar" role="toolbar" aria-label={_t("Pencil")}>
-        {INKS.map(c => <button key={c} class={"sdot" + (ink === c ? " on" : "")} style={{ background: c }} aria-label={c} onClick={() => setInk(c)} />)}
-        <button class="btn plain small" onClick={clear}><Icon n="eraser" size={15} />{_t("Clear")}</button>
-        <button class="btn plain small" onClick={() => { scratch.value = false; }}><Icon n="close" size={15} />{_t("Put the pencil away")}</button>
-      </div>
     </>
   );
 }

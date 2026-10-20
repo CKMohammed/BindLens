@@ -32786,10 +32786,9 @@ class App:
     def _set_cursor(self):
         """The page's mouse pointer for the tool in use."""
         st = self.lib.settings
-        self.canvas.config(cursor={"pen": "pencil", "text": "xterm", "edittext": "xterm", "note": "plus", "shapes": "crosshair",
-                                   "stamp": "plus", "eraser": {"whiteout": "crosshair", "cover": "crosshair",
-                                                               "brush": "dotbox"}.get(st.get("erase"), "X_cursor")
-                                   }.get(self.tool, ""))
+        # 1.0: Windows' own pointers (a cross, the text beam), so the pointer always shows on a white page
+        self.canvas.config(cursor={"pen": "crosshair", "text": "xterm", "edittext": "xterm", "note": "crosshair",
+                                   "shapes": "crosshair", "stamp": "crosshair", "eraser": "crosshair"}.get(self.tool, ""))
 
     def _refresh_tool_buttons(self):
         for k, b in getattr(self, "tool_btns", {}).items():
@@ -53578,7 +53577,7 @@ class App:
                 self.canvas.delete("scratch")
             except Exception:
                 pass
-        self.canvas.configure(cursor="pencil" if self._scratch else "")
+        self.canvas.configure(cursor="crosshair" if self._scratch else "")
         self._topband_draw()
 
     def _scratch_ev(self, e, kind):

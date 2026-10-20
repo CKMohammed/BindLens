@@ -5,7 +5,7 @@ import { store, books, settings, setSetting, setBookMeta, toast, openBook, bookI
 import { ask, confirm } from "./ui/dialogs.jsx";
 import { cleanName, uniqueName, mimeOf, kindOf, colorFor } from "./util.js";
 import { saveAll } from "./docs.js";
-import { _t } from "./i18n.js";
+import { _t, loc } from "./i18n.js";
 
 export function pickFiles({ accept = "", multiple = true, capture = null, folder = false } = {}) {
   return new Promise((resolve) => {
@@ -23,8 +23,8 @@ export function pickFiles({ accept = "", multiple = true, capture = null, folder
   });
 }
 
-export async function newBook(name, { quiet = false } = {}) {
-  if (!name) name = await ask(_t("New book"), { label: _t("A book is a folder of your Google Drive, in My Drive."), placeholder: _t("e.g. Clients"), ok: _t("Make the book") });
+export async function newBook(name, { quiet = false, suggest = "" } = {}) {
+  if (!name) name = await ask(_t("New book"), { label: _t("A book is a folder of your Google Drive, in My Drive."), value: suggest, placeholder: _t("e.g. Clients"), ok: _t("Make the book") });
   if (!name) return null;
   name = cleanName(name);
   const taken = books.value.map(b => b.name);
@@ -45,14 +45,12 @@ export async function newBook(name, { quiet = false } = {}) {
 
 export async function uploadFiles(book, files, { open = true, parent = null, quiet = false, root = false } = {}) {
   if (!files || !files.length) return [];
-  if (root && store.value.kind === "drive") {
-    // 1.0: documents from this computer go to My Drive itself, as they are (no folder of BindLens)
-    if (store.value.offline) { toast(_t("You are offline: new files can be added when the network is back."), "bad"); return []; }
-    const { queueUploads } = await import("./uploads.js");
-    files = await import("./heic.js").then(m => m.fixHeic(files)).catch(() => files);
-    const r = await queueUploads(files.filter(f => !f.name.startsWith(".")).map(file => ({ file, bookId: store.value.myRoot || null, where: null })), { open: false });
-    await reloadLibrary();
-    return r;
+  if (root) {
+    // 1.0: documents from this computer go into a folder of your Drive that you name now (you can rename it later)
+    const first = (files[0].name || "").replace(/\.[^.]+$/, "");
+    const b = await newBook(null, { suggest: files.length === 1 ? first : _t("Documents {0}", new Date().toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })) });
+    if (!b) return [];
+    book = b;
   }
   if (!book) {
     book = currentBook.value || books.value[0] || await newBook();
@@ -316,7 +314,7 @@ export async function addFolder(book = null) {
   const files = await pickFiles({ folder: true });
   if (!files.length) return;
   const top = (files[0].webkitRelativePath || "").split("/")[0] || _t("New book");
-  if (!book) book = await newBook(top);
+  if (!book) book = await newBook(null, { suggest: top });      // 1.0: you name the folder from the start
   if (!book) return;
   const subIds = new Map((book.subs || []).map(x => [x.path, x]));
   const jobs = [];

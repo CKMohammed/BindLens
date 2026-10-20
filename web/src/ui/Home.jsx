@@ -42,7 +42,7 @@ export function AccountButton() {
 // 1.0: upload, right on the shelf - from this computer to My Drive as they are, or your originals from Drive (no copies)
 export function uploadItems() {
   return [
-    { label: _t("Documents from this computer (to My Drive)..."), icon: "upload", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs, { root: true }); } },
+    { label: _t("Documents from this computer (into a folder you name)..."), icon: "upload", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs, { root: true }); } },
     { label: _t("A folder from this computer (it becomes a book)..."), icon: "book", run: () => addFolder() },
     store.value.canPick && { label: _t("From my Google Drive (the originals, no copies)..."), icon: "drive", run: () => addFromDrive() },
   ];

@@ -2234,5 +2234,7 @@ export default {
  "read pin lock only reading kiosk reception library consultation public screen": "leer pin bloquear solo lectura quiosco recepción biblioteca consulta pantalla pública read lock",
  "Leave Read with PIN...": "Salir de Leer con PIN...",
  "Put the pencil away": "Guardar el lápiz",
- "Only reading on this computer: other documents and books, reports and printing, a pencil that is not saved. Your PIN starts it and only your PIN leaves it.": "Solo leer en este ordenador: otros documentos y libros, reportes e impresión, y un lápiz que no se guarda. Tu PIN lo activa y solo tu PIN lo quita."
+ "Only reading on this computer: other documents and books, reports and printing, a pencil that is not saved. Your PIN starts it and only your PIN leaves it.": "Solo leer en este ordenador: otros documentos y libros, reportes e impresión, y un lápiz que no se guarda. Tu PIN lo activa y solo tu PIN lo quita.",
+ "Documents {0}": "Documentos {0}",
+ "Documents from this computer (into a folder you name)...": "Documentos de este ordenador (en una carpeta a la que pones nombre)..."
 };

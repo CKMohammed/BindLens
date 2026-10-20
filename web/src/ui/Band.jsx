@@ -77,7 +77,7 @@ export function Band() {
       <button class="bd-brand" onClick={goHome} title={_t("Home")}><Logo size={32} still /><span class="bd-word">Bind<b>Lens</b></span></button>
       {inBook && book && <>
         <button class="bd-ib" title={_t("Home (all your books)")} onClick={goHome}><Icon n="home" size={18} /></button>
-        <button class={"bd-ib" + (leftOpen.value && !readMode.value ? " on" : "")} title={_t("The library: books, files, marks")} onClick={() => { leftOpen.value = !leftOpen.value; }}><Icon n="sidebar" size={18} /></button>
+        <button class={"bd-ib" + (leftOpen.value && !readMode.value ? " on" : "")} title={_t("The library: books, files, marks")} onClick={() => { if (readMode.value && !consult.value) { readMode.value = false; leftOpen.value = true; } else leftOpen.value = !leftOpen.value; }}><Icon n="sidebar" size={18} /></button>
         <span class="bd-sep" />
         <button class="bd-book" title={_t("Another book")} onClick={(e) => openMenu(e, [{ title: _t("Books") }, ...books.value.map(b => ({ label: b.name, swatch: bookMeta(b.id).color || b.color, run: () => import("../state.js").then(s => s.openBook(b.id)) }))])}>
           <BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={22} /><b class="ellipsis">{book.name}</b><Icon n="down" size={11} />
