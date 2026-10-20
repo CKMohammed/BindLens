@@ -3,7 +3,7 @@ import { books, settings, bookHidden } from "../state.js";
 import { wordsOf } from "../docs.js";
 import { deadlineDates } from "./patterns.js";
 import { daysBetween, isoDate, isPaged } from "../util.js";
-import { _t } from "../i18n.js";
+import { _t, _tv } from "../i18n.js";
 
 const perFile = new Map(); // id:md5 -> items
 
@@ -64,6 +64,11 @@ export function myItems(today = new Date()) {
   return [
     ...(st.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? _t("About a page") : _t("Reminder"), line: r.text, file: r.file || "", book: r.book || "" })),
     ...(st.tasks || []).filter(t => t.due && !t.done).map(t => ({ ...t, id: t.id, date: new Date(t.due + "T00:00"), mine: true, task: true, what: _t("Task") + (t.who ? " · " + t.who : ""), line: t.text, file: t.file || "", book: t.book || "" })),
+    // documents with an expiry date in their data
+    ...Object.entries(st.docs || {}).filter(([, d]) => d.expires).map(([id, d]) => {
+      const b = books.value.find(x => x.files.some(f => f.id === id)), f = b && b.files.find(x => x.id === id);
+      return f ? { id: "exp:" + id, date: new Date(d.expires + "T00:00"), mine: true, what: _t("Expires"), line: (d.type ? _tv(d.type) + " · " : "") + f.name, file: f.name, book: b.name, fileId: id, bookId: b.id } : null;
+    }).filter(Boolean),
     ...(st.calendar || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, cal: true, what: _t("Calendar"), line: r.text, file: "", book: r.source || "" })),
   ].map(r => ({ ...r, days: daysBetween(today, r.date) }));
 }

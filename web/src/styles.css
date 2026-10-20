@@ -1212,3 +1212,13 @@ table.rows tr.new:hover td{background:#E5EEFF}
 /* Settings in four groups */
 .seg.setgroups { display: flex; flex-wrap: wrap; margin: 0 0 16px; }
 .seg.setgroups button { gap: 6px; }
+/* documents: data, inbox, several at once */
+.ddgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; }
+.ddf { display: flex; flex-direction: column; gap: 4px; }
+.bulkbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 8px; margin: 0 0 8px; border-radius: 12px; background: var(--accent-soft); position: sticky; top: 0; z-index: 2; }
+.inbox { display: flex; flex-direction: column; gap: 2px; max-height: 56vh; overflow: auto; }
+.ibrow { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 10px; }
+.ibrow.on, .ibrow:hover { background: var(--hover, rgba(127,127,127,.08)); }
+.linkish { background: none; border: 0; padding: 0; text-align: left; color: inherit; cursor: pointer; font: inherit; min-width: 0; }
+.filerow .dline { display: block; font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.filerow .pickbox { margin: 0 2px 0 0; }

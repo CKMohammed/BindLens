@@ -31,11 +31,13 @@ const Share = lazy(() => import("./Share.jsx").then(m => ({ default: m.Share }))
 const Keys = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Keys })));
 const Feedback = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Feedback })));
 const QuickBarChoose = lazy(() => import("./FrameBar.jsx").then(m => ({ default: m.QuickBarChoose })));
+const DocDetails = lazy(() => import("./DocData.jsx").then(m => ({ default: m.DocDetails })));
+const Inbox = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Inbox })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
   versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, firstrun: FirstRun, legal: Legal, bookstyle: BookStyle,
-  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose };
+  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose, docdata: DocDetails, inbox: Inbox };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;

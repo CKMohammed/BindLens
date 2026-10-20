@@ -24,6 +24,7 @@ import { Ribbon } from "./Ribbon.jsx";
 import { AloudPlayer, toggleAloud } from "./Aloud.jsx";
 import { addGooglePages, openBeside } from "./AddPages.jsx";
 import { _t, loc, _tv } from "../i18n.js";
+import { picked, pick, BulkBar, docLine } from "./DocData.jsx";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
   // a tool goes back to the arrow after one use; a double-click keeps it on (lock)
@@ -132,12 +133,19 @@ function Rail({ book }) {
 function FileRow({ book, f, cur, indent }) {
   const st = docState.value[f.id];
   const tag = statusOf(f.id);
+  const picking = picked.value.size > 0, on = picked.value.has(f.id);
+  const line = docLine(f.id);
   return (
-    <button class={"filerow" + (f.id === cur ? " on" : "")} style={indent ? { paddingLeft: 10 + indent * 14 } : null}
-      onClick={() => { fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; if (isPhone()) leftOpen.value = false; }}
+    <button class={"filerow" + (f.id === cur ? " on" : "") + (on ? " picked" : "")} style={indent ? { paddingLeft: 10 + indent * 14 } : null}
+      onClick={(e) => {
+        // Ctrl / Shift + click, or once choosing has started: choose several documents for one action
+        if (e.ctrlKey || e.metaKey || e.shiftKey || picking) { pick(f.id); return; }
+        fileId.value = f.id; pageNo.value = 0; scrollTo.value = { fileId: f.id, page: 0 }; if (isPhone()) leftOpen.value = false;
+      }}
       onContextMenu={(e) => { e.preventDefault(); fileMenu(e, book, f); }}>
-      <span class="ico"><Icon n={/\.eml$/i.test(f.name) ? "mail" : fileIcon(f.kind)} size={18} /></span>
-      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {_tv(tag)}</span>}</span>
+      {picking ? <input type="checkbox" class="pickbox" checked={on} tabIndex={-1} aria-label={f.name} /> :
+      <span class="ico"><Icon n={/\.eml$/i.test(f.name) ? "mail" : fileIcon(f.kind)} size={18} /></span>}
+      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {_tv(tag)}</span>}{line && <span class="dline">{line}</span>}</span>
       <span class="n">{st?.pages ? st.pages.length : ""}</span>
       <span class="ib" style={{ width: 26, height: 26 }} onClick={(e) => { e.stopPropagation(); fileMenu(e, book, f); }}><Icon n="more" size={16} /></span>
     </button>
@@ -187,6 +195,7 @@ function FilesList({ book }) {
     <div class="list">
       {sv && <div class="row small" style={{ padding: "2px 6px 6px" }}><Icon n="book" size={15} /><span class="grow ellipsis">{_t("Only")} <b>{sv}</b></span><button class="btn plain small" onClick={() => { subView.value = null; }}>{_t("Show all the book")}</button></div>}
       {filter && <div class="row small" style={{ padding: "2px 6px 6px" }}><span class="grow">{_t("Only files marked")} <b style={{ color: statusColor(filter) }}>{_tv(filter)}</b></span><button class="btn plain small" onClick={() => setSetting("fileFilter", "")}>{_t("All files")}</button></div>}
+      <BulkBar items={book.files.filter(f => picked.value.has(f.id)).map(f => [book, f])} />
       {!book.files.length && <p class="small muted" style={{ padding: 8 }}>{_t("No files yet.")}</p>}
       {book.files.length > 0 && !files.length && <p class="small muted" style={{ padding: 8 }}>{_t("No files here.")}</p>}
       {out}
@@ -217,6 +226,8 @@ function fileMenu(e, book, f) {
   openMenu(e, [
     { title: f.name },
     { label: _t("Status") + (statusOf(f.id) ? ": " + _tv(statusOf(f.id)) : ""), icon: "check", sub: statusItems(f) },
+    { label: _t("Data (kind, date, reference, owner, expiry)..."), icon: "form", run: () => openPanel("docdata", { ids: [f.id] }) },
+    { label: _t("Choose several (Ctrl+click)"), icon: "tick", run: () => pick(f.id) },
     { label: _t("Rename"), icon: "rename", run: () => renameFile(book, f) },
     { label: _t("Move up"), icon: "up", run: () => moveFileInBook(book, f, -1) },
     { label: _t("Move down"), icon: "down", run: () => moveFileInBook(book, f, 1) },

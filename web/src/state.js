@@ -139,6 +139,21 @@ export function setStatus(fileIdv, tag) {
   setSetting("tags", t);
 }
 
+// the data of each document (its kind, date, reference, whose it is, when it expires) - kept with the settings in
+// your Drive, as the statuses; the files themselves do not change. Kinds are kept in English and shown translated.
+export const DOC_TYPES = ["Invoice", "Receipt", "Contract", "Letter", "Report", "Certificate", "Form", "Identity document", "Payslip",
+  "Minutes", "Notes", "Assignment", "Other"];
+export function docData(id) { return (settings.value.docs || {})[id] || {}; }
+export function setDocData(ids, change) {
+  const all = { ...(settings.value.docs || {}) };
+  for (const id of ids) {
+    const d = { ...(all[id] || {}), ...change };
+    for (const k of Object.keys(d)) if (d[k] === "" || d[k] == null) delete d[k];
+    if (Object.keys(d).length) all[id] = d; else delete all[id];
+  }
+  setSetting("docs", all);
+}
+
 export async function reloadLibrary() {
   const s = store.value;
   s.linked = (settings.value.linkedBooks || []).map(x => x.id);    // books colleagues shared with you

@@ -174,6 +174,7 @@ function NeedsCard() {
       ))}
       <div class="nc-foot">
         <button class="btn plain small" onClick={() => addCountdown()}><Icon n="hourglass" size={15} />{_t("Count down")}</button>
+        <button class="btn plain small" onClick={() => openPanel("inbox")}><Icon n="download" size={15} />{_t("Inbox")}</button>
         <button class="btn plain small" onClick={() => openPanel("tasks")}><Icon n="task" size={15} />{_t("Tasks")}{(st.tasks || []).filter(t => !t.done).length ? ` (${(st.tasks || []).filter(t => !t.done).length})` : ""}</button>
       </div>
     </aside>

@@ -56,6 +56,11 @@ Spain spelling (ordenador, móvil) and «» round names of books and files.
 | institution | institución | |
 | case file | expediente | |
 | tabs: Read, Mark, Edit, Fill & Sign, Pages, Review | Leer, Marcar, Editar, Rellenar y firmar, Páginas, Revisar | |
+| Inbox | Bandeja de entrada | |
+| Filed | Archivado | |
+| Document data | Datos del documento | |
+| Whose it is (owner) | De quién es (titular) | |
+| More | Más | |
 
 How it works in the web app: every text goes through `_t("English")` (`src/i18n.js`); `src/i18n/es.js` has the Spanish.
 Plurals: `_n(n, "{0} file", "{0} files")`. A key with `@@something` only separates two Spanish words that are the same in

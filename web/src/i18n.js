@@ -82,8 +82,8 @@ export function _t(key, ...args) {
 }
 
 // the right word for one or many: _n(n, "{0} file", "{0} files")
-export function _n(n, one, many) {
-  return _t(n === 1 ? one : many, n);
+export function _n(n, one, many, ...more) {
+  return _t(n === 1 ? one : many, n, ...more);
 }
 
 // a value kept in English in the library (a status, a kind) shown in the reader's language; unknown ones stay as they are
