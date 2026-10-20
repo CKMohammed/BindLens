@@ -28,7 +28,8 @@ function Saved() {
 }
 
 // reading mode: where you are, and how it looks (background, two pages side by side, what is beside the page)
-function ReadingChip({ book }) {
+function ReadLook({ book }) { return <ReadingChip book={book} small />; }
+function ReadingChip({ book, small }) {
   const r = settings.value.reading || {};
   const set = (ch) => setSetting("reading", { ...r, ...ch });
   const c = settings.value.clock || {};
@@ -43,27 +44,33 @@ function ReadingChip({ book }) {
       { label: (!c.hidden ? "✓ " : "") + _t("The clock and the calendar"), icon: "clock", run: () => setSetting("clock", { ...c, hidden: !c.hidden }) },
       { label: (r.map !== false ? "✓ " : "") + _t("The map of the book"), icon: "book", run: () => set({ map: r.map === false }) },
       { label: (settings.value.night ? "✓ " : "") + _t("Night pages"), icon: "moon", run: () => setSetting("night", !settings.value.night) },
-    ])}><Icon n="read" size={13} />{_t("Reading")}{total ? _t(" · page {0} of {1}", cur, total) : ""}<Icon n="down" size={10} /></button>
+    ])} {...(small ? { class: "bd-ib", "aria-label": _t("How reading mode looks") } : {})}>{small ? <Icon n="palette" size={17} /> : <><Icon n="read" size={13} />{_t("Reading")}{total ? _t(" · page {0} of {1}", cur, total) : ""}<Icon n="down" size={10} /></>}</button>
   );
 }
 
-// Read with PIN: only what reading needs - the book and the document (to change), reports, print, the pencil, leave
+// Reading: one mode, minimal - the book and the document (to change), then icons: reports, print, the pencil, how it
+// looks, a small lock (optional: only your PIN leaves a locked reading) and leave
 function ReadBand({ book }) {
+  const locked = consult.value;
   const others = (e) => openMenu(e, [{ title: _t("Books") }, ...books.value.filter(b => !bookHidden(b)).map(b => ({
     label: b.name, swatch: bookMeta(b.id).color || b.color, hint: bookMeta(b.id).locked ? "\uD83D\uDD12" : b.id === book.id ? "\u2713" : "", run: () => openBook(b.id) }))]);
+  const ic = (n, title, run, on) => <button class={"bd-ib" + (on ? " on" : "")} title={title} aria-label={title} onClick={run}><Icon n={n} size={17} /></button>;
   return (
     <div class="band readband" role="banner">
-      <span class="bd-brand"><Logo size={28} still /></span>
+      <span class="bd-brand"><Logo size={26} still /></span>
       <button class="bd-book" title={_t("Another book")} onClick={others}>
-        <BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={20} /><b class="ellipsis">{book.name}</b><Icon n="down" size={11} />
+        <BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={18} /><b class="ellipsis">{book.name}</b><Icon n="down" size={11} />
       </button>
       <Icon n="right" size={12} />
       <DocSwitch book={book} />
       <span class="grow" />
-      <button class="bd-btn" onClick={() => openPanel("reports")}><Icon n="reports" size={16} />{_t("Reports")}</button>
-      <button class="bd-btn" onClick={() => openPanel("print")}><Icon n="print" size={16} />{_t("Print")}</button>
-      <button class={"bd-btn" + (scratch.value ? " main" : "")} onClick={() => { scratch.value = !scratch.value; }} title={_t("A pencil to point at things - nothing is saved")}><Icon n="pen" size={16} />{_t("Pencil")}</button>
-      <button class="bd-btn" onClick={() => openPanel("consult")} title={_t("Only your PIN leaves reading")}><Icon n="lock" size={15} />{_t("Leave")}</button>
+      {ic("reports", _t("Reports"), () => openPanel("reports"))}
+      {ic("print", _t("Print"), () => openPanel("print"))}
+      {ic("pen", _t("A pencil to point at things - nothing is saved"), () => { scratch.value = !scratch.value; }, scratch.value)}
+      <ReadLook book={book} />
+      {!locked && ic("lock", _t("Lock reading with your PIN (optional)"), () => openPanel("consult"))}
+      {locked ? <button class="bd-btn" onClick={() => openPanel("consult")} title={_t("Only your PIN unlocks reading")}><Icon n="lock" size={14} />{_t("Unlock")}</button>
+        : ic("close", _t("Leave reading (Esc)"), () => { readMode.value = false; scratch.value = false; })}
     </div>
   );
 }
@@ -71,7 +78,7 @@ function ReadBand({ book }) {
 export function Band() {
   const inBook = view.value === "book";
   const book = currentBook.value;
-  if (consult.value && inBook && book) return <ReadBand book={book} />;
+  if (readMode.value && inBook && book) return <ReadBand book={book} />;
   return (
     <div class="band" role="banner">
       <button class="bd-brand" onClick={goHome} title={_t("Home")}><Logo size={32} still /><span class="bd-word">Bind<b>Lens</b></span></button>

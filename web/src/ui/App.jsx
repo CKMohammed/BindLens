@@ -188,6 +188,10 @@ effect(() => {
   if (!readMode.value) readMode.value = true;
   if (view.value === "home" && books.value.length && !panel.value) backToReading();
 });
+effect(() => {
+  if (!readMode.value || consult.value || view.value !== "book" || settings.value.readPinAsked || !store.value) return;
+  setTimeout(async () => { const st = await import("../state.js"); st.setSetting("readPinAsked", true); if (!panel.value && readMode.value) panel.value = { type: "consult", intro: true }; }, 700);
+});
 effect(() => { if (consult.value && view.value === "book") rememberPlace({ book: bookId.value, file: fileId.value, page: pageNo.value }); });
 
 export function App() {
@@ -240,7 +244,7 @@ export function App() {
       {open && <Pip />}
       {open && <UploadPanel />}
       {open && !shut && !consult.value && <Hints />}
-      {consult.value && scratch.value && <Scratch />}
+      {readMode.value && scratch.value && <Scratch />}
       {shut && <Lock />}
       <Modals />
       <Menu />

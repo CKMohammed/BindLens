@@ -51,20 +51,21 @@ function SaveState() {
 function TopBar({ book }) {
   const t = tool.value, o = toolOpts.value;
   const m = toolMenus(book);
-  if (narrow.value && consult.value) {
+  if (narrow.value && readMode.value) {
     const rb = (n, label, run, on) => <button class={"bb" + (on ? " on" : "")} onClick={run}><Icon n={n} size={20} /><span>{label}</span></button>;
     return (
       <>
       <div class="topbar">
         <span class="crumb grow ellipsis small"><b class="ellipsis">{book.name}</b></span>
         <DocSwitch book={book} />
+        {!consult.value && <button class="ib" title={_t("Lock reading with your PIN (optional)")} onClick={() => openPanel("consult")}><Icon n="lock" size={16} /></button>}
       </div>
-      <nav class="bottombar" aria-label={_t("Read with PIN")}>
+      <nav class="bottombar" aria-label={_t("Reading")}>
         {rb("book", _t("Books"), (e) => openMenu(e, books.value.filter(b => !bookHidden(b)).map(b => ({ label: b.name, swatch: b.color, run: () => openBook(b.id) }))))}
         {rb("reports", _t("Reports"), () => openPanel("reports"))}
         {rb("print", _t("Print"), () => openPanel("print"))}
         {rb("pen", _t("Pencil"), () => { scratch.value = !scratch.value; }, scratch.value)}
-        {rb("lock", _t("Leave"), () => openPanel("consult"))}
+        {consult.value ? rb("lock", _t("Unlock"), () => openPanel("consult")) : rb("close", _t("Leave"), () => { readMode.value = false; scratch.value = false; })}
       </nav>
       </>
     );
@@ -88,7 +89,7 @@ function TopBar({ book }) {
         <T n="addpage" label={_t("Add pages, files, a scan")} onClick={m.addMenu} />
       </div>
       <nav class="bottombar" aria-label={_t("Tools")}>
-        {mk("read", _t("Read"), () => { readMode.value = !readMode.value; }, readMode.value)}
+        <button class={"bb" + (readMode.value ? " on" : "")} onClick={() => { readMode.value = !readMode.value; }}><span class="rbwrap"><Icon n="read" size={20} /><i class="rblock"><Icon n="lock" size={8} /></i></span><span>{_t("Read")}</span></button>
         <button class={"bb" + (marking && t !== "sign" ? " on" : "")} onClick={(e) => openMenu(e, [
           ...TOOLS.map(([k, icon, label]) => ({ label, icon, run: () => setTool(k) })),
           { label: _t("Shapes..."), icon: "shape", run: () => m.shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },

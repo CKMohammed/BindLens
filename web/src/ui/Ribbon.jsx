@@ -82,7 +82,9 @@ export function tabTools(tab, book) {
   const toolBtn = (x) => <RB key={x.t} icon={x.icon} label={x.label} tip={`${x.label} ${x.key ? x.key + " · " : ""}${x.lock ? _t("double-click: it stays on") : ""}`.trim()} on={t === x.t} onClick={tl(x)} lock={x.lock ? x.t : null} />;
   let tools = null;
   if (tab === "read") tools = <>
-    <RB icon="read" label={readMode.value ? _t("Leave reading") : _t("Reading mode")} on={readMode.value} onClick={() => { readMode.value = !readMode.value; }} tip={_t("A calm view: the page, the contents, the clock (F6)")} />
+    <RB icon="read" label={readMode.value ? _t("Leave reading") : _t("Reading mode")} on={readMode.value} onClick={() => { readMode.value = !readMode.value; }} tip={_t("A calm view: the page, the contents, the clock (F6)")}>
+      <Icon n="read" size={20} /><span class="rblock" title={_t("Read, locked with your PIN")} onClick={(e) => { e.stopPropagation(); readMode.value = true; openPanel("consult"); }}><Icon n="lock" size={9} /></span>
+    </RB>
     {canSpeak && <RB icon="speaker" label={aloud.value.on ? _t("Stop reading") : _t("Read aloud")} on={aloud.value.on} onClick={toggleAloud} tip={_t("The computer reads the book to you, from this page (Ctrl+U)")} />}
     <RB icon="list" label={_t("Contents")} on={readMode.value && contentsOpen.value} onClick={() => { if (!readMode.value) { readMode.value = true; contentsOpen.value = true; } else contentsOpen.value = !contentsOpen.value; }} tip={_t("The contents of the book and its parts")} />
     <span class="rsep" />

@@ -2738,6 +2738,13 @@ ES_TEXT = {
     "Put the pencil away": "Guardar el lápiz",
     "Leave (PIN)": "Salir (PIN)",
     "Lock with PIN": "Bloquear con PIN",
+    "Choose": "Elegir",
+    "Lock reading with your PIN? Then only reading is possible, and only your PIN leaves it - to leave the computer to someone else. It is optional: the small lock at the top does it whenever you want.": "¿Bloquear la lectura con tu PIN? Así solo se puede leer y solo tu PIN la desbloquea: para dejar el ordenador a otra persona. Es opcional: el candado pequeño de arriba lo hace cuando quieras.",
+    "Locking reading uses your BindLens PIN. Choose one now?": "Bloquear la lectura usa tu PIN de BindLens. ¿Elegir uno ahora?",
+    "Type your PIN to lock reading (only your PIN leaves it).": "Escribe tu PIN para bloquear la lectura (solo tu PIN la desbloquea).",
+    "Reading is unlocked: everything is back.": "La lectura está desbloqueada: vuelve todo.",
+    "Reading is locked: here you can only read.": "La lectura está bloqueada: aquí solo se puede leer.",
+    "Type your PIN to unlock reading.": "Escribe tu PIN para desbloquear la lectura.",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -18758,7 +18765,7 @@ def pin_save(d):
 # guard is at the bottom, where files are written, so no menu can go round it), the marking tools stay off and the
 # screen does not sleep. Locked books keep asking for the PIN.
 CONSULT = {"on": False, "guarded": False}
-CONSULT_NO = "Read with PIN: here you can only read."
+CONSULT_NO = "Reading is locked: here you can only read."
 
 
 def consult_file():
@@ -20742,7 +20749,6 @@ class App:
         m.add_command(label="Personalise…", command=lambda: self.personalise_dialog())
         m.add_command(label="Settings…", command=self.settings_dialog, accelerator="Ctrl+,")
         m.add_command(label="Lock with a PIN…", command=lambda: self.pin_settings())
-        m.add_command(label="Read with PIN…", command=lambda: self.consult_dialog())
         m.add_command(label="Lock now", command=lambda: self.lock_now(), accelerator="Ctrl+Shift+L")
         m.add_separator()
         m.add_command(label="Quit", command=self.on_close)
@@ -27864,9 +27870,37 @@ class App:
             self.set_status("Clock: " + {"sky": "the sky"}.get(c["read_clock"],
                                                                self.SIDE_RIGHT.get(c["read_clock"], "")))
 
+    def _clock_minimal(self, full=False):
+        """1.0: the reading clock, minimal - the time in thin figures, a pink line for the seconds with a gold dot,
+        the date small (the colours of the logo)."""
+        cv = self._side_r
+        geo = self._sides_geo.get("r")
+        if not geo:
+            return
+        w = geo[2]
+        T = self.T
+        if full:
+            self._clock_card = self._side_bg(cv, "r")
+        cv.delete("hands")
+        now = time.localtime()
+        ink = T["text"]
+        cy = 64
+        big = self._text_img(time.strftime("%H:%M", now), 30, ink, style="sans_l")
+        cv.create_image(w / 2, cy, image=big[0], anchor="center", tags="hands")
+        L = min(120, w * 0.6)
+        x0, yl = (w - L) / 2, cy + big[2] / 2 + 10
+        fr = now.tm_sec / 60.0
+        cv.create_line(x0, yl, x0 + L, yl, fill=mix(T["bg"], ink, 0.12), width=2, tags="hands")
+        cv.create_line(x0, yl, x0 + L * fr, yl, fill=BRAND_PINK, width=2, tags="hands")
+        cv.create_oval(x0 + L * fr - 3, yl - 3, x0 + L * fr + 3, yl + 3, fill=BRAND_GOLD, outline="", tags="hands")
+        cv.create_text(w / 2, yl + 18, text=f"{now.tm_mday:02d} · {now.tm_mon:02d} · {now.tm_year}", font=self.F(9),
+                       fill=T["muted"], tags="hands")
+
     def _clock_draw(self, full=False):
         import math
-        rc = self._beside_conf().get("read_clock", "sky")
+        rc = self._beside_conf().get("read_clock", "minimal")
+        if getattr(self, "_reading", False) and rc == "minimal":
+            return self._clock_minimal(full)
         if getattr(self, "_reading", False) and rc == "sky":
             return self._desk_draw(full)
         cv = self._side_r
@@ -29250,13 +29284,17 @@ class App:
         if on == cur:
             return
         if not on and CONSULT["on"]:                     # Read with PIN: only your PIN leaves it
-            if not self._consult_pin_ok():
+            if not self._consult_pin_ok("Type your PIN to unlock reading."):
                 return
             self._consult_off()
         if on:
             if not self.lib.folders:
                 self.set_status("Add a folder first - then press Read.")
                 return
+            if not CONSULT["on"] and not self.lib.settings.get("read_pin_asked"):
+                self.lib.settings["read_pin_asked"] = True       # 1.0: the first time - the lock explained, optional
+                self.lib.save_meta()
+                self.root.after(900, self._read_pin_offer)
             self.close_launcher()
             self._sugg_close()
             self._close_float()
@@ -50477,22 +50515,25 @@ class App:
             title = self._read_title()
             draw_icon(tb, "openbook", x + 9, H / 2, ink, s=0.7, w=1.4)
             x += 24
-            keys_ = [("_choose", "Choose what to read"), ("_reports", "Reports"),
-                     ("_pencil", "Put the pencil away" if getattr(self, "_scratch", False) else "Pencil")] + \
-                ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", "Lock with PIN"), ("_exit", "Exit reading  (Esc)")])
+            # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
+            keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
+                ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
             if self._is_picture_book():
                 keys_.insert(1, ("_play", "Pause the slideshow" if getattr(self, "_slide_on", False) else
                                  "Play the slideshow"))
             keys_.insert(1, ("_print", "Print"))                 # 4.3: print while reading - the same Print
             pad_ = max(5, int(H * 0.17))
+            icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock"}
             for key, txt in keys_:
-                ico_ = 18 if key == "_print" else 0
-                w = self._measure(txt, self._sfont(9)) + 22 + ico_
-                round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if hov == key else "",
+                ico_ = 18 if key in icons_ else 0
+                w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else 30
+                lit_ = key == "_pencil" and getattr(self, "_scratch", False)
+                round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
                            outline=ink if (on and hov == key) else (sub if on else self.T["border"]), width=1)
                 if ico_:
-                    draw_icon(tb, "printer", x + 17, H / 2, ink, s=0.55, w=1.5)
-                tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
+                    draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, ink, s=0.55, w=1.5)
+                if txt:
+                    tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
                 hits.append((x, x + w, key))
                 x += w + 6
             room = right - x - 24
@@ -50556,7 +50597,7 @@ class App:
         act = {"_min": self._win_min, "_max": self._win_max, "_close": self.on_close,
                "_choose": lambda: self._read_choose(), "_exit": lambda: self.reading_mode(False),
                "_print": lambda: self.print_dialog(), "_reports": lambda: self.simple_reports(),
-               "_pencil": self._scratch_toggle, "_pinlock": self.consult_dialog,
+               "_pencil": self._scratch_toggle, "_pinlock": self._read_lock,
                "_play": self._slide_toggle}.get(name)
         if act is not None:
             self._tb_hov = None
@@ -53539,6 +53580,30 @@ class App:
             return False
         return True
 
+    def _read_pin_offer(self):
+        if not getattr(self, "_reading", False) or CONSULT["on"]:
+            return
+        if messagebox.askyesno(APP_NAME, _tr("Lock reading with your PIN? Then only reading is possible, and only your "
+                                             "PIN leaves it - to leave the computer to someone else. It is optional: the "
+                                             "small lock at the top does it whenever you want."), parent=self.root):
+            self._read_lock()
+
+    def _read_lock(self):
+        """Lock the reading that is open (your BindLens PIN; only the same PIN leaves it)."""
+        if not pin_load():
+            if messagebox.askyesno(APP_NAME, _tr("Locking reading uses your BindLens PIN. Choose one now?"), parent=self.root):
+                self.pin_settings()
+            return
+        if not self._consult_pin_ok("Type your PIN to lock reading (only your PIN leaves it)."):
+            return
+        p = consult_file()
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"on": True}, fh)
+        self.__dict__["_unlocked"] = {self.folder} if self.folder else set()   # the other locked books ask again
+        self._consult_on(quiet=True)
+        self._topband_draw()
+
     def _consult_off(self):
         CONSULT["on"] = False
         try:
@@ -53547,7 +53612,7 @@ class App:
             pass
         keep_screen_on(False)
         self._scratch = False
-        self._toast(_tr("Read with PIN is off: everything is back."))
+        self._toast(_tr("Reading is unlocked: everything is back."))
 
     def consult_dialog(self):
         """Read with PIN: only reading - other documents and books (a locked book asks for the PIN), reports, print

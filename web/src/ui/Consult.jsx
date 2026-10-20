@@ -7,7 +7,7 @@ import { pinHash } from "./Lock.jsx";
 import { consult, lockReading, unlockReading } from "../consult.js";
 import { _t } from "../i18n.js";
 
-export function Consult() {
+export function Consult({ intro }) {
   const leaving = consult.value;
   const [pin, setPin] = useState(""), [bad, setBad] = useState(false);
   const close = () => { panel.value = null; };
@@ -20,12 +20,13 @@ export function Consult() {
     else await lockReading({ book: bookId.value, file: fileId.value, page: pageNo.value });
   };
   return (
-    <Dialog title={leaving ? _t("Leave Read with PIN") : _t("Read with PIN")} icon="lock" onClose={close} cls="">
+    <Dialog title={leaving ? _t("Unlock reading") : _t("Lock reading?")} icon="lock" onClose={close} cls=""
+      foot={!leaving ? <><span class="grow" /><button class="btn plain" onClick={close}>{_t("Not now")}</button></> : null}>
       {!has && !leaving ? <>
-        <p style={{ marginTop: 0 }}>{_t("Choose your BindLens PIN first: the same PIN starts and leaves Read with PIN, and opens the locked books.")}</p>
+        <p style={{ marginTop: 0 }}>{_t("You can lock reading with your PIN: then only reading is possible and only your PIN unlocks it - to leave the computer to someone else. It is optional. It uses your BindLens PIN, which also opens the locked books.")}</p>
         <button class="btn" onClick={() => { panel.value = { type: "pin" }; }}><Icon n="lock" size={16} />{_t("Choose a PIN")}</button>
       </> : <>
-        <p class="small muted" style={{ marginTop: 0 }}>{leaving ? _t("Type your PIN to go back to everything.") : _t("Only reading: other documents and books, reports and printing, and a pencil that is not saved. Only your PIN leaves it. Type your PIN to start.")}</p>
+        <p class="small muted" style={{ marginTop: 0 }}>{leaving ? _t("Type your PIN to go back to everything.") : _t("Lock reading with your PIN: then only reading is possible (other documents and books, reports, printing, the pencil) and only your PIN unlocks it - to leave the computer to someone else. It is optional: the small lock at the top does it whenever you want.")}</p>
         <input class="field" autoFocus type="password" inputMode="numeric" maxLength={4} value={pin} aria-label={_t("PIN")}
           style={{ fontSize: 26, letterSpacing: ".5em", textAlign: "center" }}
           onInput={(e) => { const v = e.target.value.replace(/\D/g, ""); setPin(v); setBad(false); if (v.length === 4) go(v); }} />

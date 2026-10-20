@@ -1350,3 +1350,8 @@ table.rows tr.new:hover td{background:#E5EEFF}
 /* dark: the names on the binders stay dark on their paper label; the list keeps its colours */
 :root[data-theme="dark"] .home.calm .spine .t{color:#16161D}
 :root[data-theme="dark"] .bl-find{background:var(--panel)} :root[data-theme="dark"] .bl-row.head{background:var(--panel2)}
+/* the Read button: a discreet lock on its icon */
+.rb{position:relative} .rblock{position:absolute;right:3px;bottom:3px;width:13px;height:13px;border-radius:50%;background:var(--panel);color:var(--muted);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--line)}
+.rblock:hover{color:var(--accent)}
+.rbwrap{position:relative;display:inline-flex} .rbwrap .rblock{right:-6px;bottom:-3px;width:12px;height:12px}
+.readband .bd-ib{color:#fff} .readband .bd-ib.on{background:#fff;color:var(--brand-ink)}

@@ -23,7 +23,7 @@ if (consult.value) keepAwake();
 // the store, reading only: every change is refused; the settings stay in this browser
 const WRITES = new Set(["createFolder", "createBook", "rename", "trash", "untrash", "move", "createSub", "write", "resumable", "writeOnline",
   "create", "copy", "createGoogle", "createConverted", "share", "unshare", "release", "createShortcut"]);
-export const refused = () => _t("Read with PIN: here you can only read.");
+export const refused = () => _t("Reading is locked: here you can only read.");
 const RAW = new WeakMap();
 export function readOnlyStore(s) {
   if (RAW.has(s)) return s;

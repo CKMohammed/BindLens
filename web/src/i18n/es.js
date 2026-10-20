@@ -2236,5 +2236,18 @@ export default {
  "Put the pencil away": "Guardar el lápiz",
  "Only reading on this computer: other documents and books, reports and printing, a pencil that is not saved. Your PIN starts it and only your PIN leaves it.": "Solo leer en este ordenador: otros documentos y libros, reportes e impresión, y un lápiz que no se guarda. Tu PIN lo activa y solo tu PIN lo quita.",
  "Documents {0}": "Documentos {0}",
- "Documents from this computer (into a folder you name)...": "Documentos de este ordenador (en una carpeta a la que pones nombre)..."
+ "Documents from this computer (into a folder you name)...": "Documentos de este ordenador (en una carpeta a la que pones nombre)...",
+ "Reading is locked: here you can only read.": "La lectura está bloqueada: aquí solo se puede leer.",
+ "Lock reading with your PIN (optional)": "Bloquear la lectura con tu PIN (opcional)",
+ "Only your PIN unlocks reading": "Solo tu PIN desbloquea la lectura",
+ "Unlock": "Desbloquear",
+ "Leave reading (Esc)": "Salir de la lectura (Esc)",
+ "Unlock reading": "Desbloquear la lectura",
+ "Lock reading?": "¿Bloquear la lectura?",
+ "Not now": "Ahora no",
+ "You can lock reading with your PIN: then only reading is possible and only your PIN unlocks it - to leave the computer to someone else. It is optional. It uses your BindLens PIN, which also opens the locked books.": "Puedes bloquear la lectura con tu PIN: así solo se puede leer y solo tu PIN la desbloquea, para dejar el ordenador a otra persona. Es opcional. Usa tu PIN de BindLens, que también abre los libros bloqueados.",
+ "Lock reading with your PIN: then only reading is possible (other documents and books, reports, printing, the pencil) and only your PIN unlocks it - to leave the computer to someone else. It is optional: the small lock at the top does it whenever you want.": "Bloquea la lectura con tu PIN: así solo se puede leer (otros documentos y libros, informes, imprimir, el lápiz) y solo tu PIN la desbloquea, para dejar el ordenador a otra persona. Es opcional: el candado pequeño de arriba lo hace cuando quieras.",
+ "Reading is locked": "La lectura está bloqueada",
+ "Unlock reading...": "Desbloquear la lectura...",
+ "Read, locked with your PIN": "Leer bloqueado con tu PIN"
 };
