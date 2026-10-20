@@ -1144,6 +1144,66 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .upq.small .upq-bar{margin-bottom:10px}
 @media (max-width:760px){.upq{right:12px;left:12px;width:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 72px)}}
 
+/* =================== 1.0 FINE: minimal and light - big quiet titles, soft surfaces, pills; the lava frame stays ===== */
+:root{--line:#EAE8E3;--line2:#DDDAD3;--r:14px;
+  --shadow:0 18px 50px rgba(22,18,40,.12);--shadow2:0 1px 2px rgba(22,18,40,.04),0 6px 20px rgba(22,18,40,.06)}
+/* the window: a clean sheet inside the lava frame, round corners, the frame a little brighter, the band like glass */
+.window{border-radius:16px;box-shadow:0 0 0 1px rgba(255,255,255,.22),0 20px 60px rgba(0,0,0,.28)}
+.frame::after{background:rgba(14,14,20,.14)}
+.band{background:linear-gradient(180deg,rgba(10,10,16,.30),rgba(10,10,16,.14));-webkit-backdrop-filter:blur(22px) saturate(1.35);backdrop-filter:blur(22px) saturate(1.35)}
+.bd-find{border-radius:999px;padding:0 14px;background:rgba(255,255,255,.12)}
+.bd-btn,.bd-ib,.band .fullbtn,.bd-book,.band .docswitch .ds-cur{border-radius:999px}
+.bd-btn{font-weight:600}
+.fb{border-radius:999px}
+/* type: titles large and light, the rest calm */
+.home.calm .home-top h1{font:500 34px/1.08 var(--f-display);letter-spacing:-.028em}
+.home-top .date{color:var(--muted);margin-top:4px}
+.dialog .dh h2{font:600 22px/1.2 var(--f-display);letter-spacing:-.018em}
+.side h3,.needcard .nc-head{letter-spacing:-.01em}
+/* surfaces: one hairline, a soft shadow, round corners */
+.dialog{border-radius:22px;box-shadow:0 30px 90px rgba(18,12,40,.28),0 0 0 1px rgba(18,12,40,.04)}
+.dialog .dh{padding:20px 22px 8px} .dialog .db{padding:8px 22px 18px}
+.dialog .df{padding:12px 22px;background:transparent}
+.needcard{border-radius:18px;padding:16px;border-color:var(--line);box-shadow:var(--shadow2)}
+.btn{border-radius:10px;font-weight:600} .btn.small{border-radius:9px}
+.field{border-radius:10px} .field:focus{box-shadow:0 0 0 4px var(--accent-soft)}
+.seg{border-radius:999px;padding:3px} .seg button{border-radius:999px;padding:5px 13px} .seg button.on{font-weight:600}
+/* the ribbon: tabs underlined, tools as soft round squares */
+.ribbon{border-bottom-color:var(--line)}
+.rtabs{border-right-color:transparent}
+.rtabs button{font-weight:500;font-size:13.5px}
+.rtabs button.on{font-weight:600}
+.rtabs button.on::after{height:2px;left:12px;right:12px;border-radius:2px}
+.rb{border-radius:10px} .rb:hover{background:var(--bg)}
+/* the side: white, rows as soft pills, statuses as coloured pills */
+.side{border-right-color:var(--line)}
+.bookrow,.filerow{border-radius:10px}
+.bookrow.on{font-weight:600}
+.filerow .tag{display:inline-block;margin-left:7px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;line-height:17px;vertical-align:1px;
+  background:color-mix(in srgb,currentColor 13%,transparent)}
+.sidetabs button,.stabs button{font-weight:500}
+/* lists as clean tables: a hairline between rows */
+.ibrow{border-radius:0;padding:8px 6px;border-bottom:1px solid var(--line)}
+.ibrow:last-child{border-bottom:0}
+.bulkbar{border-radius:999px;padding:6px 8px 6px 16px}
+.firsthint{border-radius:999px}
+.consultpill{font-weight:600}
+
+/* Home: the bookcase, minimal - pale wood, a soft back, thin shelves, the names on small white pills */
+.home.calm .bookcase{filter:drop-shadow(0 24px 36px rgba(40,30,20,.13))}
+.home.calm .bc-body{background:linear-gradient(180deg,#EADFCF,#E1D3BF);border-radius:16px;padding:10px 10px 0}
+.home.calm .bc-back{background:linear-gradient(180deg,#F7F3ED,#EFE8DE);border-radius:9px 9px 0 0;
+  box-shadow:inset 0 12px 20px rgba(90,64,40,.08),inset 0 -2px 6px rgba(90,64,40,.05),inset 6px 0 10px rgba(90,64,40,.04),inset -6px 0 10px rgba(90,64,40,.04)}
+.home.calm .bc-board{background:linear-gradient(180deg,#E6D8C5,#D6C5AE);box-shadow:0 3px 8px rgba(60,40,20,.10);margin-left:-10px;margin-right:-10px}
+.home.calm .bc-shelf:last-child .bc-board{border-radius:0 0 12px 12px}
+.plate{background:#fff;color:var(--muted);border-radius:999px;font-weight:700;letter-spacing:.14em;padding:0 12px;box-shadow:0 1px 3px rgba(60,40,20,.14)}
+.plate::before,.plate::after{display:none}
+:root[data-theme="dark"] .home.calm .bc-body{background:linear-gradient(180deg,#34343F,#2B2B34)}
+:root[data-theme="dark"] .home.calm .bc-back{background:linear-gradient(180deg,#1F1F27,#24242D);box-shadow:inset 0 12px 20px rgba(0,0,0,.35)}
+:root[data-theme="dark"] .home.calm .bc-board{background:linear-gradient(180deg,#3E3E4A,#33333D)}
+:root[data-theme="dark"] .plate{background:#2C2C36;color:var(--muted)}
+.nc-foot{flex-wrap:wrap}
+
 /* ================= 1.0 DARK: the same calm, at night. The pages stay paper (Night pages darkens them too) ================= */
 :root[data-theme="dark"]{
   --bg:#15151B; --bg2:#1C1C24; --panel:#1E1E26; --panel2:#24242E; --ink:#ECEBF2; --muted:#A4A2B4; --faint:#6F6D80;

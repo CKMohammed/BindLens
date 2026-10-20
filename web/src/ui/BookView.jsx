@@ -160,7 +160,7 @@ function FileRow({ book, f, cur, indent }) {
       onContextMenu={(e) => { e.preventDefault(); fileMenu(e, book, f); }}>
       {picking ? <input type="checkbox" class="pickbox" checked={on} tabIndex={-1} aria-label={f.name} /> :
       <span class="ico"><Icon n={/\.eml$/i.test(f.name) ? "mail" : fileIcon(f.kind)} size={18} /></span>}
-      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}> · {_tv(tag)}</span>}{line && <span class="dline">{line}</span>}</span>
+      <span class="grow ellipsis">{f.name}{tag && <span class="tag" style={{ color: statusColor(tag) }}>{_tv(tag)}</span>}{line && <span class="dline">{line}</span>}</span>
       <span class="n">{st?.pages ? st.pages.length : ""}</span>
       <span class="ib" style={{ width: 26, height: 26 }} onClick={(e) => { e.stopPropagation(); fileMenu(e, book, f); }}><Icon n="more" size={16} /></span>
     </button>
