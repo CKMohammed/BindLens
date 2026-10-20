@@ -50,6 +50,7 @@ const ACTIONS = [
   { label: _t("Help"), icon: "help", words: _t("help how to guide"), run: () => openPanel("help") },
   { label: _t("Add pages (blank, lined, from a file, Google Docs)"), icon: "addpage", words: _t("add page pages blank lined squared insert google docs sheets slides word"), run: async () => { const { currentBook } = await import("../state.js"); openPanel("addpages", { book: currentBook.value?.id }); } },
   { label: _t("Write it in Google Docs"), icon: "word", words: _t("google docs sheets slides word excel powerpoint real editor write"), run: async () => { const { currentBook } = await import("../state.js"); openPanel("addpages", { book: currentBook.value?.id, tab: "google" }); } },
+  { label: _t("Consultation mode (only reading and searching)"), icon: "read", words: _t("consultation kiosk reception library read only search public screen"), run: () => openPanel("consult") },
   { label: _t("Inbox (documents to file)"), icon: "download", words: _t("inbox new incoming file unfiled sort documents to do"), run: () => openPanel("inbox") },
   { label: _t("Tasks"), icon: "task", words: _t("tasks to do todo colleague assign"), run: () => openPanel("tasks") },
   { label: _t("Make a book in two steps"), icon: "sparkle", words: _t("first start begin two steps template drive"), run: () => openPanel("firstrun") },

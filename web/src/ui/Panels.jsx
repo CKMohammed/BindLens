@@ -1,3 +1,5 @@
+import { toast as _toast } from "../state.js";
+import { consult, CONSULT_PANELS, refused } from "../consult.js";
 // The panel that is open (Find, Reports, What needs you, Settings...).
 import { lazy, Suspense } from "preact/compat";
 import { panel } from "../state.js";
@@ -32,12 +34,13 @@ const Keys = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Keys })))
 const Feedback = lazy(() => import("./Extras.jsx").then(m => ({ default: m.Feedback })));
 const QuickBarChoose = lazy(() => import("./FrameBar.jsx").then(m => ({ default: m.QuickBarChoose })));
 const DocDetails = lazy(() => import("./DocData.jsx").then(m => ({ default: m.DocDetails })));
+const Consult = lazy(() => import("./Consult.jsx").then(m => ({ default: m.Consult })));
 const Inbox = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Inbox })));
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
   versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, firstrun: FirstRun, legal: Legal, bookstyle: BookStyle,
-  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose, docdata: DocDetails, inbox: Inbox };
+  addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose, docdata: DocDetails, inbox: Inbox, consult: Consult };
 
 function Loading() {
   return <Dialog title={null}><div class="spinner" /></Dialog>;
@@ -46,6 +49,7 @@ function Loading() {
 export function Panels() {
   const p = panel.value;
   if (!p) return null;
+  if (consult.value && !CONSULT_PANELS.has(p.type)) { setTimeout(() => { panel.value = null; _toast(refused()); }, 0); return null; }
   if (p.type === "find") return <Find />;
   const C = MAP[p.type];
   if (!C) return null;

@@ -2717,6 +2717,16 @@ ES_TEXT = {
     "BindLens starts again in the language you chose. Start again now?": "BindLens se reinicia en el idioma que has elegido. ¿Reiniciar ahora?",
     "Español": "Español",
     "English": "English",
+    "Consultation mode…": "Modo consulta…",
+    "Consultation mode: here you can only read and search.": "Modo consulta: aquí solo se puede leer y buscar.",
+    "Consultation mode is on: only reading and searching. File › Consultation mode… leaves it with the code.": "El modo consulta está activado: solo leer y buscar. Archivo › Modo consulta… lo desactiva con el código.",
+    "Type the code that started consultation mode on this computer.": "Escribe el código con el que se activó el modo consulta en este ordenador.",
+    "That is not the code.": "Ese no es el código.",
+    "Consultation mode is off.": "El modo consulta está desactivado.",
+    "Consultation mode: this computer only for reading and searching (a reception desk, a library, a meeting room). Nothing can be changed, the screen does not sleep, and locked books keep asking for the PIN. A code starts it and the same code leaves it. Start it?": "Modo consulta: este ordenador solo para leer y buscar (una recepción, una biblioteca, una sala de reuniones). No se puede cambiar nada, la pantalla no se apaga y los libros bloqueados siguen pidiendo el PIN. Un código lo activa y el mismo código lo desactiva. ¿Activarlo?",
+    "Choose a code of 4 or more digits or letters and keep it.": "Elige un código de 4 o más cifras o letras y guárdalo.",
+    "The code again": "El código otra vez",
+    "The two codes are not the same.": "Los dos códigos no coinciden.",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -18675,6 +18685,93 @@ def pin_save(d):
     os.replace(p + ".tmp", p)
 
 
+# ---- Consultation mode ----------------------------------------------------------------------------------------------
+# A computer for reading and searching only (a reception desk, a library, a meeting room). A code starts it and the
+# same code leaves it. While it is on, nothing outside BindLens's own folder can be written, moved or deleted (the
+# guard is at the bottom, where files are written, so no menu can go round it), the marking tools stay off and the
+# screen does not sleep. Locked books keep asking for the PIN.
+CONSULT = {"on": False, "guarded": False}
+CONSULT_NO = "Consultation mode: here you can only read and search."
+
+
+def consult_file():
+    return os.path.join(data_dir(), "consult.json")
+
+
+def consult_load():
+    try:
+        with open(consult_file(), encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if d.get("hash") and d.get("salt") else None
+    except Exception:
+        return None
+
+
+def consult_guard(fitz=None):
+    if CONSULT["guarded"]:
+        return
+    CONSULT["guarded"] = True
+    import builtins
+    import tempfile
+    own = [os.path.normcase(os.path.abspath(data_dir())), os.path.normcase(os.path.abspath(tempfile.gettempdir()))]
+
+    def mine(p):
+        try:
+            q = os.path.normcase(os.path.abspath(os.fsdecode(os.fspath(p))))
+        except Exception:
+            return True                          # a file handle or a stream: not a path
+        return any(q == o or q.startswith(o + os.sep) for o in own)
+
+    def wrap(fn, *idx):
+        def g(*a, **k):
+            if CONSULT["on"] and any(i < len(a) and isinstance(a[i], (str, bytes, os.PathLike)) and not mine(a[i])
+                                     for i in idx):
+                raise PermissionError(_tr(CONSULT_NO))
+            return fn(*a, **k)
+        return g
+    os.replace, os.rename, os.remove, os.unlink = wrap(os.replace, 0, 1), wrap(os.rename, 0, 1), wrap(os.remove, 0), \
+        wrap(os.unlink, 0)
+    os.rmdir = wrap(os.rmdir, 0)
+    shutil.move, shutil.copy, shutil.copy2, shutil.copyfile, shutil.rmtree = wrap(shutil.move, 0, 1), \
+        wrap(shutil.copy, 1), wrap(shutil.copy2, 1), wrap(shutil.copyfile, 1), wrap(shutil.rmtree, 0)
+    real_open = builtins.open
+
+    def guarded_open(file, mode="r", *a, **k):
+        if CONSULT["on"] and any(c in str(mode) for c in "wax+") and isinstance(file, (str, bytes, os.PathLike)) \
+                and not mine(file):
+            raise PermissionError(_tr(CONSULT_NO))
+        return real_open(file, mode, *a, **k)
+    builtins.open = guarded_open
+    doc_cls = getattr(fitz, "Document", None) if fitz else None
+    if doc_cls is not None:
+        real_save = doc_cls.save
+
+        def save(self, filename, *a, **k):
+            if CONSULT["on"] and isinstance(filename, (str, bytes, os.PathLike)) and not mine(filename):
+                raise PermissionError(_tr(CONSULT_NO))
+            return real_save(self, filename, *a, **k)
+        doc_cls.save = save
+        if hasattr(doc_cls, "saveIncr"):
+            real_incr = doc_cls.saveIncr
+
+            def save_incr(self, *a, **k):
+                if CONSULT["on"]:
+                    raise PermissionError(_tr(CONSULT_NO))
+                return real_incr(self, *a, **k)
+            doc_cls.saveIncr = save_incr
+
+
+def keep_screen_on(on=True):
+    """Windows: the screen and the computer do not go to sleep while consultation mode is on."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | (0x00000002 | 0x00000001 if on else 0))
+    except Exception:
+        pass
+
+
 class OwnBar:
     """4.3 - Windows: BindLens's own title bar, so the frame starts at the very top of the window (the band at the
     top holds the menus, the document and minimise / maximise / close). The way it is done was first tried on the
@@ -19411,6 +19508,8 @@ class App:
         self._build_ui()
         self.apply_theme()
         self._bind_keys()
+        if consult_load():                           # consultation mode: reading and searching only
+            self._consult_on(quiet=True)
         if pin_load():                               # 4.0: the PIN first, before anything can be seen
             self._lock_show()
         if dnd:
@@ -20573,6 +20672,7 @@ class App:
         m.add_command(label="Personalise…", command=lambda: self.personalise_dialog())
         m.add_command(label="Settings…", command=self.settings_dialog, accelerator="Ctrl+,")
         m.add_command(label="Lock with a PIN…", command=lambda: self.pin_settings())
+        m.add_command(label="Consultation mode…", command=lambda: self.consult_dialog())
         m.add_command(label="Lock now", command=lambda: self.lock_now(), accelerator="Ctrl+Shift+L")
         m.add_separator()
         m.add_command(label="Quit", command=self.on_close)
@@ -32564,6 +32664,9 @@ class App:
             self.lib.save_meta()
 
     def set_tool(self, t):
+        if CONSULT["on"] and t not in ("select", None):
+            self._toast(_tr(CONSULT_NO))
+            return
         if t == "line":
             self.lib.settings["shape"] = "separator"
             t = "shapes"
@@ -53312,6 +53415,60 @@ class App:
                 (self._stage if getattr(self, "_stage", None) is not None else self.canvas).focus_set()
             except Exception:
                 pass
+
+    def _consult_on(self, quiet=False):
+        consult_guard(getattr(self, "fitz", None))
+        CONSULT["on"] = True
+        keep_screen_on(True)
+        try:
+            self.set_tool("select")
+        except Exception:
+            pass
+        if not quiet:
+            self._toast(_tr("Consultation mode is on: only reading and searching. File › Consultation mode… leaves it "
+                            "with the code."))
+
+    def consult_dialog(self):
+        """Start consultation mode (a code, twice) or leave it (the same code)."""
+        cur = consult_load()
+        if cur:
+            code = simpledialog.askstring(APP_NAME, _tr("Type the code that started consultation mode on this "
+                                                        "computer."), show="•", parent=self.root)
+            if code is None:
+                return
+            if pin_hash(code.strip(), cur["salt"]) != cur["hash"]:
+                messagebox.showwarning(APP_NAME, _tr("That is not the code."), parent=self.root)
+                return
+            CONSULT["on"] = False
+            try:
+                os.remove(consult_file())
+            except OSError:
+                pass
+            keep_screen_on(False)
+            self._toast(_tr("Consultation mode is off."))
+            return
+        if not messagebox.askyesno(APP_NAME, _tr("Consultation mode: this computer only for reading and searching (a "
+                                                 "reception desk, a library, a meeting room). Nothing can be changed, "
+                                                 "the screen does not sleep, and locked books keep asking for the PIN. "
+                                                 "A code starts it and the same code leaves it. Start it?"),
+                                   parent=self.root):
+            return
+        a = simpledialog.askstring(APP_NAME, _tr("Choose a code of 4 or more digits or letters and keep it."), show="•",
+                                   parent=self.root)
+        if not a or len(a.strip()) < 4:
+            return
+        b = simpledialog.askstring(APP_NAME, _tr("The code again"), show="•", parent=self.root)
+        if b is None:
+            return
+        if a.strip() != b.strip():
+            messagebox.showwarning(APP_NAME, _tr("The two codes are not the same."), parent=self.root)
+            return
+        salt = os.urandom(16).hex()
+        p = consult_file()
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"hash": pin_hash(a.strip(), salt), "salt": salt}, fh)
+        self._consult_on()
 
     def _book_locked(self, f):
         """A book locked with the PIN, not opened yet since BindLens started."""

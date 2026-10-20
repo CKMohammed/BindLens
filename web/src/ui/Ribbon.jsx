@@ -3,6 +3,7 @@
 import { tool, toolOpts, ribbonTab, setTab, readMode, fileId, pageNo, fitWidth, fitPage, zoom, undoStack, redoStack,
   settings, setSetting, toast, store, commentsOpen, leftOpen, sideTab, aloud, currentBook, statusOf, STATUSES, setStatus, statusColor } from "../state.js";
 import { toChildArray } from "preact";
+import { consult } from "../consult.js";
 import { Icon } from "./icons.jsx";
 import { openMenu, ask, confirm } from "./dialogs.jsx";
 import { toolLock, selectedMark, docState, scrollTo, PAPERS } from "./Viewer.jsx";
@@ -172,7 +173,7 @@ export function tabTools(tab, book) {
 // every tool of every tab, for Ctrl+K: choosing one goes to its tab and uses it
 export function ribbonActions(book) {
   const out = [];
-  for (const [k, l] of TABS) for (const c of toChildArray(tabTools(k, book)?.props?.children)) {
+  for (const [k, l] of TABS.filter(([k]) => !consult.value || k === "read")) for (const c of toChildArray(tabTools(k, book)?.props?.children)) {
     if (!c || c.type !== RB || !c.props.label) continue;
     const p = c.props;
     out.push({ label: p.label, icon: p.icon || "check", sub: _t("Tab {0}", l), words: l + " " + (p.tip || ""),
@@ -182,13 +183,13 @@ export function ribbonActions(book) {
 }
 
 export function Ribbon({ book }) {
-  const tab = ribbonTab.value;
+  const tab = consult.value ? "read" : ribbonTab.value;
   const m = toolMenus(book);
   const tools = tabTools(tab, book);
   return (
     <div class="ribbon" role="toolbar" aria-label={_t("Tools")}>
       <div class="rtabs" role="tablist">
-        {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} class={tab === k ? "on" : ""} onClick={() => { setTab(k); if (!TAB_TOOLS[k].includes(tool.value)) { tool.value = "select"; toolLock.value = false; } }}>{l}</button>)}
+        {TABS.filter(([k]) => !consult.value || k === "read").map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} class={tab === k ? "on" : ""} onClick={() => { setTab(k); if (!TAB_TOOLS[k].includes(tool.value)) { tool.value = "select"; toolLock.value = false; } }}>{l}</button>)}
       </div>
       <div class="rtools">{splitMore(tools)}</div>
       <Options book={book} m={m} />

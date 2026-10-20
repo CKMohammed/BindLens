@@ -2150,5 +2150,22 @@ export default {
  "Inbox (documents to file)": "Bandeja de entrada (documentos por archivar)",
  "inbox new incoming file unfiled sort documents to do": "bandeja entrada nuevos recibidos archivar sin archivar ordenar documentos pendientes inbox",
  "Identity document": "Documento de identidad",
- "Assignment": "Trabajo"
+ "Assignment": "Trabajo",
+ "Consultation mode: here you can only read and search.": "Modo consulta: aquí solo se puede leer y buscar.",
+ "Consultation mode": "Modo consulta",
+ "Go to a book": "Ir a un libro",
+ "That is not the code.": "Ese no es el código.",
+ "The two codes are not the same.": "Los dos códigos no coinciden.",
+ "Leave consultation mode": "Salir del modo consulta",
+ "Leave": "Salir",
+ "Start consultation mode": "Activar el modo consulta",
+ "Type the code that started consultation mode on this computer.": "Escribe el código con el que se activó el modo consulta en este ordenador.",
+ "For a computer or tablet where people only read and search: a reception desk, a library, a meeting room. Nothing can be changed, the screen does not sleep, and every book keeps its own PIN.": "Para un ordenador o tableta donde solo se lee y se busca: una recepción, una biblioteca, una sala de reuniones. No se puede cambiar nada, la pantalla no se apaga y cada libro mantiene su propio PIN.",
+ "It is only for this computer. To leave it, the same code is asked. Choose a code of 4 or more digits or letters and keep it.": "Es solo para este ordenador. Para salir se pide el mismo código. Elige un código de 4 o más cifras o letras y guárdalo.",
+ "Code": "Código",
+ "The code again": "El código otra vez",
+ "Consultation mode (only reading and searching)": "Modo consulta (solo leer y buscar)",
+ "consultation kiosk reception library read only search public screen": "consulta quiosco recepción biblioteca solo lectura leer buscar pública pantalla kiosk",
+ "Leave consultation mode...": "Salir del modo consulta...",
+ "This computer only for reading and searching (a reception desk, a library, a meeting room). A code starts it and the same code leaves it.": "Este ordenador solo para leer y buscar (una recepción, una biblioteca, una sala de reuniones). Un código lo activa y el mismo código lo desactiva."
 };

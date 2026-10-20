@@ -1,3 +1,4 @@
+import { consult, refused } from "../consult.js";
 // The tools to mark a page and their menus: on a computer they live on the frame (right), on a phone in the top bar.
 import { tool, toolOpts, settings, toast, store, undoStack, redoStack } from "../state.js";
 import { Icon } from "./icons.jsx";
@@ -9,6 +10,7 @@ import { uploadFiles, pickFiles, openPanel, addFromDrive, addFolderFromDrive, ad
 import { _t } from "../i18n.js";
 
 export function setTool(t) {
+  if (consult.value && t !== "select") { toast(refused()); return; }
   tool.value = tool.value === t && t !== "select" ? "select" : t;
   toolLock.value = false;
   selectedMark.value = null;

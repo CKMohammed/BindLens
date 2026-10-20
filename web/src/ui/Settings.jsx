@@ -194,6 +194,12 @@ export function Settings() {
         {settings.value.pin && <button class="btn plain small" onClick={() => { setSetting("pin", null); toast(_t("The PIN is off.")); }}>{_t("Take the PIN off")}</button>}
       </div>
 
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Consultation mode")}</h3>
+      <div class="row wrap">
+        <span class="grow small muted">{_t("This computer only for reading and searching (a reception desk, a library, a meeting room). A code starts it and the same code leaves it.")}</span>
+        <button class="btn soft small" onClick={() => { panel.value = { type: "consult" }; }}><Icon n="read" size={16} />{_t("Start consultation mode")}</button>
+      </div>
+
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("What BindLens changed")}</h3>
       {!(settings.value.log || []).length ? <p class="small muted" style={{ margin: 0 }}>{_t("Nothing yet. Every change BindLens makes in your Drive (files added, renamed, moved, marks saved) is written down here.")}</p> : (
         <div class="rep-out" style={{ maxHeight: 220 }}>

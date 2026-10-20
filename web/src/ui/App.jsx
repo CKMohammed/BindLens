@@ -1,8 +1,9 @@
+import { consult, readOnlyStore } from "../consult.js";
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
 import "../theme.js";
 import { store, phase, errorText, settings, view, panel, books, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline, narrow, saving, framePulse } from "../state.js";
+  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -66,7 +67,7 @@ async function startWith(s, { tour = true } = {}) {
       await s.init();
     }
     if (s.queue) s.onQueue = (n) => { offline.value = { on: s.offline || navigator.onLine === false, waiting: n }; };
-    store.value = s;
+    store.value = consult.value ? readOnlyStore(s) : s;
     settings.value = (await s.loadSettings()) || {};
     await reloadLibrary();
     batch(() => {
@@ -79,7 +80,8 @@ async function startWith(s, { tour = true } = {}) {
     if (tour) {
       const { shouldWelcome } = await import("./Welcome.jsx");
       // the first time with an empty library: the first book in two steps; otherwise the short tour
-      if (shouldWelcome(settings.value)) panel.value = { type: s.kind !== "demo" && !books.value.length ? "firstrun" : "welcome" };
+      if (consult.value) leftOpen.value = true;
+      else if (shouldWelcome(settings.value)) panel.value = { type: s.kind !== "demo" && !books.value.length ? "firstrun" : "welcome" };
     }
     if (s.cloud) {
       s.onNeedSignIn = () => new Promise((resolve) => {
@@ -222,7 +224,8 @@ export function App() {
       {open && panel.value && <Panels />}
       {open && <Pip />}
       {open && <UploadPanel />}
-      {open && !shut && <Hints />}
+      {open && !shut && !consult.value && <Hints />}
+      {consult.value && <button class="consultpill" onClick={() => { panel.value = { type: "consult" }; }}><Icon n="read" size={15} />{_t("Consultation mode")}</button>}
       {shut && <Lock />}
       <Modals />
       <Menu />

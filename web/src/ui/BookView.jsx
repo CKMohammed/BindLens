@@ -24,6 +24,7 @@ import { Ribbon } from "./Ribbon.jsx";
 import { AloudPlayer, toggleAloud } from "./Aloud.jsx";
 import { addGooglePages, openBeside } from "./AddPages.jsx";
 import { _t, loc, _tv } from "../i18n.js";
+import { bookHidden } from "../state.js";
 import { picked, pick, BulkBar, docLine } from "./DocData.jsx";
 
 function T({ n, label, on, onClick, disabled, children, lock, onContextMenu }) {
@@ -94,7 +95,7 @@ function TopBar({ book }) {
       <button class="brand" onClick={goHome} title={_t("Home")}><Logo size={36} still /></button>
       <T n="home" label={_t("Home")} onClick={goHome} />
       <T n="sidebar" label={_t("Library (show / hide)")} on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
-      <span class="crumb" title={book.name}><BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={22} /><b class="ellipsis">{book.name}</b><Icon n="right" size={13} /></span>
+      <span class="crumb" title={_t("Another book")} role="button" tabIndex={0} style={{ cursor: "pointer" }} onClick={(e) => openMenu(e, [{ title: _t("Go to a book") }, ...books.value.filter(b => !bookHidden(b)).map(b => ({ label: b.name, swatch: b.color, hint: b.id === book.id ? "\u2713" : "", run: () => openBook(b.id) }))])}><BookTile book={book} meta={{ ...bookMeta(book.id), tstyle: "flat" }} size={22} /><b class="ellipsis">{book.name}</b><Icon n="right" size={13} /></span>
       <DocSwitch book={book} />
       {!onFrame && <RowTools book={book} />}
       <span class="grow" />

@@ -1222,3 +1222,5 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .linkish { background: none; border: 0; padding: 0; text-align: left; color: inherit; cursor: pointer; font: inherit; min-width: 0; }
 .filerow .dline { display: block; font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .filerow .pickbox { margin: 0 2px 0 0; }
+.consultpill { position: fixed; left: 14px; bottom: 14px; z-index: 60; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 99px; background: var(--accent); color: #fff; font: 600 12px var(--f-body, inherit); cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.pinfield { letter-spacing: .3em; font-size: 18px; }

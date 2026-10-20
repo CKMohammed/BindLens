@@ -1,3 +1,4 @@
+import { consult } from "../consult.js";
 // Home: a modern library. The books stand on shelves; pull one out to open it.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { books, settings, setSetting, store, openBook, toast, bookMeta, setBookMeta } from "../state.js";
@@ -21,7 +22,11 @@ export function AccountButton() {
   const s = store.value;
   const u = s?.user || {};
   return (
-    <button class="ib" title={u.email || _t("Account")} onClick={(e) => openMenu(e, [
+    <button class="ib" title={u.email || _t("Account")} onClick={(e) => openMenu(e, consult.value ? [
+      { title: _t("Consultation mode") },
+      { label: _t("Help"), icon: "help", run: () => openPanel("help") },
+      { label: _t("Leave consultation mode..."), icon: "lock", run: () => openPanel("consult") },
+    ] : [
       { title: s.kind === "demo" ? _t("Example library (nothing is saved)") : (u.email || "") },
       s.cloud && { label: _t("Open the BindLens folder in ") + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
       { label: _t("Settings"), icon: "settings", run: () => openPanel("settings") },

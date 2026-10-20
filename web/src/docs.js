@@ -1,3 +1,4 @@
+import { consult } from "./consult.js";
 // Documents: opening a file in the engine, saving marks back to the Drive, and reading the words in it.
 import { call } from "./engine/client.js";
 import { toHtml, OFFICE_CSS } from "./engine/office.js";
@@ -105,7 +106,7 @@ async function openInEngine(file, key) {
     r = await call("open", key, buf, mime, file.name);
   }
   if (r.password) { await call("close", key); throw new Error(_t("This PDF has a password. Open it once in another program to take the password off.")); }
-  return { key, ...r, converted, readOnly: converted || !r.isPDF };
+  return { key, ...r, converted, readOnly: converted || !r.isPDF || consult.value };
 }
 
 // read something from a document without keeping it open (Find, Reports, dates): the open one when it is
