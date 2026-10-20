@@ -172,7 +172,6 @@ export function ClockCal({ bounds, compact }) {
     { label: (c.h12 ? "✓ " : "") + _t("12-hour clock (am / pm)"), run: () => set({ h12: !c.h12 }) },
     { label: (c.big ? "✓ " : "") + _t("Bigger"), run: () => set({ big: !c.big }) },
     { label: _t("Put it back in the corner"), icon: "undo", run: () => { setPos(null); set({ pos: null }); } },
-    { label: _t("Open What needs you"), icon: "calendar", run: () => openPanel("dates") },
     "-",
     { label: _t("Hide it"), icon: "close", run: () => set({ hidden: true }) },
   ]);

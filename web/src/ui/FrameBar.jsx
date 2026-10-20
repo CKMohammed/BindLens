@@ -18,7 +18,6 @@ const needBook = (fn) => () => {
 };
 
 export const QB = {
-  needs: { icon: "clock", label: _t("What needs you"), run: () => openPanel("dates") },
   aloud: { icon: "speaker", label: _t("Read aloud (Ctrl+U)"), book: true, on: () => aloud.value.on, run: () => toggleAloud(), ok: () => canSpeak },
   comments: { icon: "comment", label: _t("Comments"), book: true, on: () => !!commentsOpen.value, run: () => { commentsOpen.value = commentsOpen.value ? null : {}; } },
   tasks: { icon: "task", label: _t("Tasks"), run: () => openPanel("tasks") },

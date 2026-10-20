@@ -2249,5 +2249,9 @@ export default {
  "Lock reading with your PIN: then only reading is possible (other documents and books, reports, printing, the pencil) and only your PIN unlocks it - to leave the computer to someone else. It is optional: the small lock at the top does it whenever you want.": "Bloquea la lectura con tu PIN: así solo se puede leer (otros documentos y libros, informes, imprimir, el lápiz) y solo tu PIN la desbloquea, para dejar el ordenador a otra persona. Es opcional: el candado pequeño de arriba lo hace cuando quieras.",
  "Reading is locked": "La lectura está bloqueada",
  "Unlock reading...": "Desbloquear la lectura...",
- "Read, locked with your PIN": "Leer bloqueado con tu PIN"
+ "Read, locked with your PIN": "Leer bloqueado con tu PIN",
+ "Study": "Estudio",
+ "Something to study...": "Algo que estudiar...",
+ "Something to do...": "Algo que hacer...",
+ "A day to remind you": "Un día para recordártelo"
 };

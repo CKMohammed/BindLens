@@ -2,7 +2,7 @@ import { consult } from "../consult.js";
 // Home: a modern library. The books stand on shelves; pull one out to open it.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { books, settings, setSetting, store, openBook, toast, bookMeta, setBookMeta } from "../state.js";
-import { greeting, fmtDate, mix, initials, daysBetween } from "../util.js";
+import { greeting, fmtDate, mix, initials, daysBetween, isoDate, uid } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, openPanel, continueReading,
@@ -14,7 +14,7 @@ import { BookTile } from "./bookicons.jsx";
 import { Logo } from "./Logo.jsx";
 import { FullButton } from "./FrameBar.jsx";
 import { BOOK_COLORS } from "../util.js";
-import { _t, _n } from "../i18n.js";
+import { _t, _n, loc } from "../i18n.js";
 
 function hashOf(s) { let h = 0; for (const c of s) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h; }
 
@@ -149,47 +149,50 @@ function BookList({ all }) {
 }
 
 // What needs you, beside the shelf: the next three things, the countdowns, See all
+// 1.0: notes and reminders for work and study (in the place of What needs you) - a small notebook page: write a
+// line, give it a day if you want (it reminds you), tick it when done. Your page reminders show here too.
 function NeedsCard() {
-  const [items, setItems] = useState(null);
   const st = settings.value;
-  useEffect(() => {
-    let alive = true;
-    const run = () => needsNow(true).then(x => { if (alive) setItems(x); }).catch(() => { if (alive) setItems([]); });
-    run();
-    indexed.listeners.add(run);
-    return () => { alive = false; indexed.listeners.delete(run); };
-  }, [books.value.length, st.reminders, st.datesDone, st.tasks]);
-  const today = new Date();
-  const cds = (st.countdowns || []).map(c => ({ ...c, days: daysBetween(today, new Date(c.date + "T00:00")) })).sort((a, b) => a.days - b.days);
-  const top = (items || []).slice(0, 3);
+  const [text, setText] = useState("");
+  const [tag, setTag] = useState("work");
+  const [day, setDay] = useState("");
+  const today = isoDate(new Date());
+  const notes = st.notes || [];
+  const rems = (st.reminders || []).map(r => ({ ...r, rem: true, tag: "work" }));
+  const all = [...notes, ...rems].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.date || "9").localeCompare(b.date || "9"));
+  const add = () => {
+    const t = text.trim();
+    if (!t) return;
+    setSetting("notes", [{ id: uid(), text: t, tag, date: day || "", done: false, at: Date.now() }, ...notes]);
+    setText(""); setDay("");
+  };
+  const tick = (n) => n.rem ? setSetting("reminders", (st.reminders || []).filter(x => x.id !== n.id))
+    : setSetting("notes", notes.map(x => x.id === n.id ? { ...x, done: !x.done } : x));
+  const drop = (n) => n.rem ? setSetting("reminders", (st.reminders || []).filter(x => x.id !== n.id)) : setSetting("notes", notes.filter(x => x.id !== n.id));
+  const when = (d) => d === today ? _t("today") : new Date(d + "T00:00").toLocaleDateString(loc, { day: "numeric", month: "short" });
+  const cds = (st.countdowns || []).map(c => ({ ...c, days: daysBetween(new Date(), new Date(c.date + "T00:00")) })).filter(c => c.days >= 0).sort((a, b) => a.days - b.days);
   return (
-    <aside class="needcard">
-      <div class="nc-head"><Icon n="clock" size={16} /><b>{_t("What needs you")}</b><span class="grow" />
-        <button class="btn plain small" onClick={() => openPanel("dates")}>{_t("See all")}{items && items.length > 3 ? ` (${items.length})` : ""}<Icon n="right" size={14} /></button></div>
-      {!items ? <div class="nc-empty"><div class="spinner" style={{ width: 22, height: 22, margin: 0 }} /><span class="muted small">{_t("Reading the dates in your documents...")}</span></div>
-        : !top.length ? <div class="nc-empty"><Icon n="check" size={18} /><span class="small">{_t("Nothing needs you in the next 30 days.")}</span></div>
-          : top.map((it, i) => {
-            const sv = status(it.days);
-            return (
-              <button key={i} class="nc-item" onClick={() => openItem(it)} title={it.line}>
-                <span class={"nc-day " + sv.cls}><b>{Math.abs(it.days)}</b><small>{it.days === 0 ? _t("today") : it.days > 0 ? (it.days === 1 ? _t("day") : _t("days")) : _t("ago")}</small></span>
-                <span class="nc-txt"><b class="ellipsis">{it.what}{it.file ? " · " + it.file.replace(/\.[^.]+$/, "") : ""}</b>
-                  <span class="tiny muted ellipsis">{fmtDate(it.date)}{it.book ? " · " + it.book : ""}{it.line && it.mine ? " · " + it.line : ""}</span></span>
-              </button>
-            );
-          })}
-      {cds.length > 0 && <div class="nc-sub">{_t("Counting down")}</div>}
-      {cds.map(c => (
-        <div key={c.id} class={"nc-cd" + (c.days < 0 ? " gone" : "")} onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ label: _t("Stop counting down"), icon: "trash", run: () => setSetting("countdowns", (st.countdowns || []).filter(x => x.id !== c.id)) }]); }}>
-          <span class="nc-big">{c.days < 0 ? "✓" : c.days}</span>
-          <span class="nc-txt"><b class="ellipsis">{c.text}</b><span class="tiny muted">{c.days < 0 ? _t("Gone by · ") : c.days === 0 ? _t("Today · ") : c.days === 1 ? _t("Tomorrow · ") : _n(c.days, "{0} day to go · ", "{0} days to go · ")}{fmtDate(new Date(c.date + "T00:00"))}</span></span>
-          <button class="ib" title={_t("Stop counting down")} onClick={() => setSetting("countdowns", (st.countdowns || []).filter(x => x.id !== c.id))}><Icon n="close" size={15} /></button>
+    <aside class="needcard notecard">
+      <div class="nc-head"><i class="pin" /><b>{_t("Notes")}</b><span class="grow" />
+        <div class="seg tiny">{[["work", _t("Work")], ["study", _t("Study")]].map(([k, l]) => <button key={k} class={tag === k ? "on" : ""} onClick={() => setTag(k)}>{l}</button>)}</div></div>
+      <div class="nt-add">
+        <input class="nt-in" value={text} placeholder={tag === "study" ? _t("Something to study...") : _t("Something to do...")} onInput={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} />
+        <label class={"nt-day" + (day ? " on" : "")} title={_t("A day to remind you")}><Icon n="calendar" size={14} /><input type="date" value={day} onInput={(e) => setDay(e.target.value)} /></label>
+      </div>
+      {all.slice(0, 7).map(n => (
+        <div key={n.id} class={"nt" + (n.done ? " done" : "") + (n.date && n.date < today && !n.done ? " late" : "")}>
+          <button class="nt-box" aria-label={_t("Done")} onClick={() => tick(n)}>{n.done ? <Icon n="check" size={11} /> : null}</button>
+          <i class={"nt-tag " + (n.tag || "work")} />
+          <span class="grow ellipsis" title={n.text} onClick={() => { if (n.rem && n.bookId) openItem({ ...n, mine: true, date: new Date(n.date + "T00:00") }); }}>{n.text}</span>
+          {n.date && <small class="nt-when">{when(n.date)}</small>}
+          <button class="nt-x" aria-label={_t("Delete")} onClick={() => drop(n)}><Icon n="close" size={12} /></button>
         </div>
       ))}
+      {cds.slice(0, 2).map(c => <div key={c.id} class="nt cd"><b class="nt-big">{c.days}</b><span class="grow ellipsis">{c.text}</span><small class="nt-when">{_t("days")}</small></div>)}
       <div class="nc-foot">
         <button class="btn plain small" onClick={() => addCountdown()}><Icon n="hourglass" size={15} />{_t("Count down")}</button>
         <button class="btn plain small" onClick={() => openPanel("inbox")}><Icon n="download" size={15} />{_t("Inbox")}</button>
-        <button class="btn plain small" onClick={() => openPanel("tasks")}><Icon n="task" size={15} />{_t("Tasks")}{(st.tasks || []).filter(t => !t.done).length ? ` (${(st.tasks || []).filter(t => !t.done).length})` : ""}</button>
+        <button class="btn plain small" onClick={() => openPanel("tasks")}><Icon n="task" size={15} />{_t("Tasks")}</button>
       </div>
     </aside>
   );
@@ -343,7 +346,7 @@ export function Home() {
           <Logo size={44} />
           <div class="grow">
             <h1>{greeting()}</h1>
-            <div class="date">{fmtDate(now, true)}{needs > 0 ? <> · <a class="needlink" onClick={() => openPanel("dates")}>{_n(needs, "{0} thing needs you", "{0} things need you")}</a></> : null}</div>
+            <div class="date">{fmtDate(now, true)}</div>
           </div>
           <div class="home-find phone-only" onClick={() => openPanel("find")} role="button" tabIndex={0}
             onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}>

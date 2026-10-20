@@ -64,6 +64,8 @@ export function myItems(today = new Date()) {
   return [
     ...(st.reminders || []).map(r => ({ ...r, date: new Date(r.date + "T00:00"), mine: true, what: r.fileId ? _t("About a page") : _t("Reminder"), line: r.text, file: r.file || "", book: r.book || "" })),
     ...(st.tasks || []).filter(t => t.due && !t.done).map(t => ({ ...t, id: t.id, date: new Date(t.due + "T00:00"), mine: true, task: true, what: _t("Task") + (t.who ? " · " + t.who : ""), line: t.text, file: t.file || "", book: t.book || "" })),
+    // 1.0: notes with a day (Home)
+    ...(st.notes || []).filter(n => n.date && !n.done).map(n => ({ id: n.id, date: new Date(n.date + "T00:00"), mine: true, what: _t("Note"), line: n.text, file: "", book: "" })),
     // documents with an expiry date in their data
     ...Object.entries(st.docs || {}).filter(([, d]) => d.expires).map(([id, d]) => {
       const b = books.value.find(x => x.files.some(f => f.id === id)), f = b && b.files.find(x => x.id === id);

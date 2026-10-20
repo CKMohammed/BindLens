@@ -107,7 +107,6 @@ function TopBar({ book }) {
           { label: readMode.value ? _t("Leave reading mode") : _t("Reading mode"), icon: "read", run: () => { readMode.value = !readMode.value; } },
           { label: _t("Redo"), icon: "redo", run: redo },
           { label: _t("Reports"), icon: "reports", run: () => openPanel("reports") },
-          { label: _t("What needs you"), icon: "clock", run: () => openPanel("dates") },
           { label: _t("Comments"), icon: "comment", run: () => { commentsOpen.value = {}; } },
           { label: _t("Tasks"), icon: "task", run: () => openPanel("tasks") },
           { label: _t("Share this book..."), icon: "share", run: () => openPanel("share", { id: book.id }) },
@@ -568,7 +567,6 @@ function RRail() {
   return (
     <div class="rrail" onContextMenu={(e) => { e.preventDefault(); openMenu(e, [{ label: _t("Hide the quick bar (Settings brings it back)"), icon: "close", run: () => setSetting("hideRail", true) }]); }}>
       <button class="ib" title={_t("Reading mode")} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" /></button>
-      <button class="ib" title={_t("What needs you")} onClick={() => openPanel("dates")}><Icon n="clock" /></button>
       <button class="ib" title={_t("Reports")} onClick={() => openPanel("reports")}><Icon n="table" /></button>
       <button class="ib" title={_t("Photos as a gallery")} onClick={() => openPanel("gallery")}><Icon n="image" /></button>
       <button class="ib" title={_t("Scan")} onClick={() => openPanel("scan")}><Icon n="camera" /></button>

@@ -2745,6 +2745,7 @@ ES_TEXT = {
     "Reading is unlocked: everything is back.": "La lectura está desbloqueada: vuelve todo.",
     "Reading is locked: here you can only read.": "La lectura está bloqueada: aquí solo se puede leer.",
     "Type your PIN to unlock reading.": "Escribe tu PIN para desbloquear la lectura.",
+    "A note for work or study": "Una nota de trabajo o estudio",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -31929,8 +31930,7 @@ class App:
         att = getattr(self, "_attention", None)
         rows = list((att or {}).get("rows") or [])
         right_ = W - M - 100
-        if rows:
-            right_ -= 36 + self._measure("00 dates need you", self._sfont(9, "bold")) + 12
+        right_ -= 300                                    # 1.0: the note (notes and reminders)
         fw = min(400, max(220, W * 0.32), 2 * (right_ - W / 2))
         fx0 = (W - fw) / 2
         if fw >= 200 and fx0 > M + big[1] + 16 and fx0 + fw <= right_:
@@ -31941,19 +31941,26 @@ class App:
                           fill=sub)
             c.create_text(fx0 + fw - 14, M + 12, text="Ctrl+K", anchor="e", font=self.F(8), fill=sub)
             hit(fx0, M - 6, fx0 + fw, M + 30, "find", lambda: (self.close_home(), self.quick_search()))
-        # needs you: one small chip (only when something does)
-        if rows:
-            n_exp = sum(1 for r_ in rows if r_["left"] < 0)
-            colr = "#D93025" if n_exp else "#E8772E"
-            t_ = f"{len(rows)} date{'s' if len(rows) != 1 else ''} need{'s' if len(rows) == 1 else ''} you"
-            tw_ = self._measure(t_, self._sfont(9, "bold")) + 36
-            on = hov == "att"
-            ax1 = W - M - 104
-            round_rect(c, ax1 - tw_, M - 4, ax1, M + 28, 16, fill=soft, outline=colr if on else line)
-            c.create_oval(ax1 - tw_ + 12, M + 8, ax1 - tw_ + 20, M + 16, fill=colr, outline="")
-            c.create_text(ax1 - tw_ + 26, M + 12, text=t_, anchor="w", font=self.F(9, "bold"), fill=ink)
-            hit(ax1 - tw_, M - 4, ax1, M + 28, "att",
-                lambda: (self.close_home(), self.simple_reports(pick="expiry", run=True, scope="library")))
+        # 1.0: notes and reminders for work and study (in the place of "dates need you"): a small paper note - the
+        # next one, and + for a new one (Reminders opens)
+        rem_ = sorted([r_ for r_ in self.lib.meta.get("reminders", []) if not r_.get("done")], key=lambda r_: r_.get("date") or "9")
+        nx1_ = W - M - 104
+        nxt_ = rem_[0] if rem_ else None
+        lab_ = _tr("Notes")
+        txt_ = (f"{nxt_.get('date', '')[8:10]}/{nxt_.get('date', '')[5:7]}  {nxt_.get('text', '')}" if nxt_ else
+                _tr("A note for work or study"))
+        txt_ = self._fit_text(txt_, self._sfont(9), 190)
+        nw_ = self._measure(lab_, self._sfont(9, "bold")) + self._measure(txt_, self._sfont(9)) + 74
+        nx0_ = nx1_ - nw_
+        on = hov == "notes"
+        paper_ = mix(T["bg"], "#FFF6DC", 0.55) if not dark else mix(T["bg"], "#FFFFFF", 0.06)
+        round_rect(c, nx0_, M - 4, nx1_, M + 28, 16, fill=paper_, outline=mix(line, A, 0.6) if on else line)
+        c.create_oval(nx0_ + 12, M + 8, nx0_ + 19, M + 15, fill=BRAND_GOLD, outline="")
+        c.create_text(nx0_ + 26, M + 12, text=lab_, anchor="w", font=self.F(9, "bold"), fill=ink)
+        c.create_text(nx0_ + 34 + self._measure(lab_, self._sfont(9, "bold")), M + 12, text=txt_, anchor="w",
+                      font=self.F(9), fill=sub if not nxt_ else ink)
+        c.create_text(nx1_ - 14, M + 11, text="+", anchor="e", font=self.F(13, "bold"), fill=BRAND_PINK)
+        hit(nx0_, M - 4, nx1_, M + 28, "notes", lambda: (self.close_home(), self.reminders_dialog()))
         # ---- bottom: continue (a pill) and the calm icon row -------------------------------------------------------
         dock_y = H - M - 10
         acts = [("openbook", "Read  (F6)", lambda: (self.close_home(), self.reading_mode(True))),
