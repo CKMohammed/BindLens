@@ -6,7 +6,7 @@ import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, r
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
-import { confirm, openMenuAt, openMenu } from "./dialogs.jsx";
+import { confirm, openMenuAt, openMenu, ask } from "./dialogs.jsx";
 import { stampSpec, HL_COLORS } from "./marks.js";
 import { openPanel } from "../actions.js";
 import { pip } from "./Gallery.jsx";
@@ -1408,6 +1408,10 @@ function MarkBar() {
       {(sel.type === "Square" || sel.type === "Circle") && !white && <button class="btn plain small" title={_t("Fill it with a light colour, or not")}
         onClick={() => ed({ fill: sel.fill ? null : hexToRgb(mix(curColor || "#E03131", "#ffffff", 0.78)) })}>{sel.fill ? _t("No fill") : _t("Fill")}</button>}
       <span class="fl-sep" />
+      {sel.type === "Stamp" && sel.contents && !/^(Signature|Picture|Initials)$/.test(sel.subject || "") && <>
+        <span class="rsws">{["#2B8A3E", "#1C7ED6", "#E03131", "#1E1C2B", "#C2337A"].map(c => <button key={c} class="rsw" style={{ background: c }} title={_t("Colour of the stamp")} onClick={() => ed({ stamp: { text: sel.contents, color: hexToRgb(c) } })} />)}</span>
+        <button class="ib" title={_t("Change the words of the stamp")} onClick={async () => { const t = await ask(_t("The words of the stamp"), { value: sel.contents, ok: _t("Change") }); if (t) ed({ contents: t.toUpperCase(), stamp: { text: t.toUpperCase(), color: Array.isArray(sel.color) ? sel.color : [0.85, 0.15, 0.2] } }); }}><Icon n="rename" size={17} /></button>
+      </>}
       {words && <button class="ib" title={_t("Change the words (double-click)")} onClick={() => window.dispatchEvent(new CustomEvent("bl-edit-mark"))}><Icon n="rename" size={17} /></button>}
       {turnable && <button class="ib" title={_t("Turn it a quarter (or drag the round knob)")} onClick={() => ed({ rotateBy: 90 })}><Icon n="rotate" size={17} /></button>}
       {turnable && sel.rot ? <button class="btn plain small" title={_t("Put it straight again")} onClick={() => ed({ rotateBy: -sel.rot })}>{_t("Straight")}</button> : null}

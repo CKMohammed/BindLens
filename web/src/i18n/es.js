@@ -2255,5 +2255,9 @@ export default {
  "Something to do...": "Algo que hacer...",
  "A day to remind you": "Un día para recordártelo",
  "BindLens sees only the files and folders you give it or make with it, where they are in your Drive": "BindLens solo ve los archivos y carpetas que tú le das o creas con él, donde están en tu Drive",
- "Your institution: name, logo and colours on the reports": "Tu institución: nombre, logo y colores en los informes"
+ "Your institution: name, logo and colours on the reports": "Tu institución: nombre, logo y colores en los informes",
+ "Colour of the stamp": "Color del sello",
+ "Change the words of the stamp": "Cambiar las palabras del sello",
+ "The words of the stamp": "Las palabras del sello",
+ "Change": "Cambiar"
 };
