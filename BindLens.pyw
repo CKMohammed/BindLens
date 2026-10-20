@@ -3642,8 +3642,8 @@ def is_light(c):
 FOLDER_COLORS = ["#E8772E", "#FFB547", "#3DBE6B", "#2EC4B6", "#2F80ED", "#8E5CE6", "#E0457B", "#9AA0A6"]
 
 THEMES = {
-    "Light": dict(bg="#FAFAF9", panel="#F4F4F2", canvas="#EDEDEA", chip="#ECECE8", pill="#FFFFFF", text="#18181B",
-                  muted="#76767F", icon="#3F3F46", border="#E2E2DD", hover="#E6E6E1", header="#52525B",
+    "Light": dict(bg="#FAFAF9", panel="#F5F5F3", canvas="#EFEFEC", chip="#EEEEEA", pill="#FFFFFF", text="#18181B",
+                  muted="#76767F", icon="#3F3F46", border="#E8E7E2", hover="#EAEAE5", header="#52525B",
                   page_shadow="#D6D6D1", shadow2="#DCDCD7", tip_bg="#18181B", tip_fg="#FAFAFA"),
     "Dark": dict(bg="#16171A", panel="#1B1C20", canvas="#0E0F11", chip="#25272C", pill="#222429", text="#ECECEE",
                  muted="#8B8D94", icon="#C9CBD1", border="#2E3036", hover="#2E3036", header="#B4B6BD",
@@ -27985,7 +27985,9 @@ class App:
                    "sans_b": ("segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"),
                    "serif": ("georgia.ttf", "times.ttf", "DejaVuSerif.ttf", "LiberationSerif-Regular.ttf"),
                    "serif_i": ("georgiai.ttf", "timesi.ttf", "DejaVuSerif-Italic.ttf", "LiberationSerif-Italic.ttf"),
-                   "serif_b": ("georgiab.ttf", "timesbd.ttf", "DejaVuSerif-Bold.ttf", "LiberationSerif-Bold.ttf")}
+                   "serif_b": ("georgiab.ttf", "timesbd.ttf", "DejaVuSerif-Bold.ttf", "LiberationSerif-Bold.ttf"),
+                   "sans_l": ("segoeuisl.ttf", "segoeuil.ttf", "arial.ttf", "DejaVuSans-ExtraLight.ttf", "DejaVuSans.ttf",
+                              "LiberationSans-Regular.ttf")}       # 1.0 fine: the big light titles
 
     def _text_img(self, text, px, color, bold=False, style=None):
         """Text as a picture (sharp at any size, the same on every computer): (image, width, height).
@@ -31066,7 +31068,7 @@ class App:
     # -- small drawing helpers
     def _hf_wood(self, c, x0, y0, x1, y1, base, grain=True):
         tg = "books"
-        c.create_rectangle(x0, y0, x1, y1, fill=base, outline=mix(base, "#000000", 0.45), tags=tg)
+        c.create_rectangle(x0, y0, x1, y1, fill=base, outline=mix(base, "#000000", 0.14 if is_light(base) else 0.45), tags=tg)
         if grain and y1 - y0 > 5 and x1 - x0 > 10:
             rnd = random.Random(int(x0) * 31 + int(y0) * 7 + int(x1))
             n = int(max(1, min(36, (y1 - y0) / 6)))
@@ -31078,7 +31080,7 @@ class App:
                               fill=mix(base, "#000000" if rnd.random() < 0.65 else "#FFFFFF", rnd.uniform(0.05, 0.12)))
 
     def _hf_shadow(self, c, x0, y0, x1, y1):
-        c.create_rectangle(x0 + 7, y0 + 9, x1 + 7, y1 + 5, fill=mix(self.T["bg"], "#000000", 0.20), outline="",
+        c.create_rectangle(x0 + 7, y0 + 9, x1 + 7, y1 + 5, fill=mix(self.T["bg"], "#000000", 0.09), outline="",
                            tags="books")
 
     def _hf_text_on(self, col):
@@ -31089,9 +31091,12 @@ class App:
         x0, y0, x1, y1 = box
         W, H = x1 - x0, y1 - y0
         tg = "books"
-        wood = "#5A2417" if law else "#B07A45"
-        wd, wl = mix(wood, "#000000", 0.38), mix(wood, "#FFFFFF", 0.22)
-        back = mix(wood, "#000000", 0.60 if law else 0.46)
+        # 1.0 fine: the bookcase is pale and light (as BindLens Web); the law library stays dark mahogany
+        night = not is_light(self.T["bg"])
+        wood = "#5A2417" if law else ("#3C3C47" if night else "#E2D3BE")
+        wd, wl = mix(wood, "#000000", 0.38 if law else 0.16), mix(wood, "#FFFFFF", 0.22)
+        back = mix(wood, "#000000", 0.60) if law else ("#24242C" if night else "#F5F0E9")
+        shade = 0.55 if law or night else 0.10
         gold = "#D4AF4A"
         rows = 2 if H >= 250 else 1
         side, top, plinth, board = 14 * k, 22 * k, 18 * k, 11 * k
@@ -31118,7 +31123,7 @@ class App:
             c.create_rectangle(cx0 + side, ry0, cx1 - side, ry1, fill=back, outline="", tags=tg)
             for s_ in range(5):                                   # the shadow under the board above
                 c.create_line(cx0 + side, ry0 + s_, cx1 - side, ry0 + s_, tags=tg,
-                              fill=mix(back, "#000000", 0.55 - s_ * 0.1))
+                              fill=mix(back, "#000000", max(0.0, shade - s_ * shade / 5.5)))
             rows_y.append((ry0, ry1))
             if r < rows - 1:
                 self._hf_wood(c, cx0 + side - 1, ry1, cx1 - side + 1, ry1 + board, wood, grain=False)
@@ -31794,8 +31799,8 @@ class App:
         h_ = time.localtime().tm_hour
         hello = ("Good night" if h_ < 5 else "Good morning" if h_ < 12 else "Good afternoon" if h_ < 18 else
                  "Good evening")
-        gsz = 30 if W > 1000 else 24
-        big = self._text_img(hello, gsz, ink, style="serif_i")
+        gsz = 36 if W > 1000 else 27                    # 1.0 fine: a large, light title (as BindLens Web)
+        big = self._text_img(hello, gsz, ink, style="sans_l")
         c.create_image(M, M - 6, image=big[0], anchor="nw")
         today = time.strftime("%A %d %B").replace(" 0", " ")
         c.create_text(M + 2, M + big[2] + 2, text=today, anchor="w", font=self.F(9), fill=sub)
