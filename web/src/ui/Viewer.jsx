@@ -1175,7 +1175,58 @@ export function Viewer({ book }) {
     </div>
     <MarkBar k={k} />
     <TextSelBar />
+    <MarkMap scroller={scroller} files={files} k={k} />
     </>
+  );
+}
+
+// the marks of the book as small ticks on the right edge, at the height where each one is (a click goes there)
+function MarkMap({ scroller, files, k }) {
+  const [marks, setMarks] = useState([]);
+  const [box, setBox] = useState(null);
+  const [, setTick] = useState(0);
+  const vs = files.map(f => docState.value[f.id]?.v || 0).join();
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const out = [];
+      const { allMarks } = await import("../docs.js");
+      for (const f of files) if (f.kind === "pdf") { try { for (const m of await allMarks(f)) out.push({ ...m, fid: f.id }); } catch (e) {} }
+      if (alive) setMarks(out);
+    })();
+    return () => { alive = false; };
+  }, [files.map(f => f.id).join(), vs]);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const fit = () => { const r = el.getBoundingClientRect(); setBox({ top: r.top + 6, left: r.right - 14, height: r.height - 12 }); setTick(x => x + 1); };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    window.addEventListener("resize", fit);
+    return () => { ro.disconnect(); window.removeEventListener("resize", fit); };
+  }, [scroller.current, k, marks.length]);
+  const el = scroller.current;
+  if (!el || !box || !marks.length || box.height < 120) return null;
+  const top0 = el.getBoundingClientRect().top - el.scrollTop, H = el.scrollHeight || 1;
+  const pos = (m) => {
+    const p = el.querySelector(`[data-file="${m.fid}"][data-page="${m.page}"]`);
+    if (!p) return null;
+    const r = p.getBoundingClientRect();
+    const ph = docState.value[m.fid]?.pages?.[m.page]?.h || 842;
+    const y = r.top - top0 + (m.rect ? Math.max(0, Math.min(1, m.rect[1] / ph)) : 0) * r.height;
+    return y;
+  };
+  const NOTE = new Set(["Text", "FreeText"]);
+  return (
+    <div class="markmap" style={{ top: box.top + "px", left: box.left + "px", height: box.height + "px" }} aria-label={_t("The marks of the book")}>
+      {marks.map((m, i) => {
+        const y = pos(m);
+        if (y == null) return null;
+        const col = NOTE.has(m.type) ? "#F5B700" : m.color ? (Array.isArray(m.color) ? `rgb(${m.color.map(c => Math.round(c * 255)).join(",")})` : m.color) : "var(--accent)";
+        return <button key={i} class={"mm" + (NOTE.has(m.type) ? " note" : "")} style={{ top: (y / H * 100) + "%", background: col }}
+          title={(m.text || m.contents || m.type || "").slice(0, 80)} onClick={() => el.scrollTo({ top: Math.max(0, y - el.clientHeight * 0.3), behavior: "smooth" })} />;
+      })}
+    </div>
   );
 }
 

@@ -56,21 +56,34 @@ function TopBar({ book }) {
       ["text", "text", _t("Text")], ["note", "note", _t("Sticky note")], ["tick", "tick", _t("Tick")], ["cross", "cross", _t("Cross")],
       ["edit", "textedit", _t("Change the text")], ["eraser", "eraser", _t("Eraser")]];
     const cur = TOOLS.find(x => x[0] === t) || (t === "shape" ? ["shape", "shape", _t("Shapes")] : t === "stamp" ? ["stamp", "stamp", _t("Stamp")] : t === "sign" ? ["sign", "sign", _t("Signature")] : TOOLS[0]);
+    const mk = (n, label, run, on) => <button class={"bb" + (on ? " on" : "")} onClick={run}><Icon n={n} size={20} /><span>{label}</span></button>;
+    const marking = !["select", null].includes(t);
     return (
+      <>
       <div class="topbar">
         <T n="sidebar" label={_t("Library")} on={leftOpen.value} onClick={() => { leftOpen.value = !leftOpen.value; }} />
         <T n="home" label={_t("Home")} onClick={goHome} />
-        <button class="ib on" title={_t("Tool")} onClick={(e) => openMenu(e, [
+        <span class="crumb grow ellipsis small"><b class="ellipsis">{book.name}</b></span>
+        {marking && <button class="ib" title={_t("Colours")} onClick={m.colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>}
+        <T n="undo" label={_t("Undo")} onClick={undo} disabled={!undoStack.value.length} />
+        <T n="addpage" label={_t("Add pages, files, a scan")} onClick={m.addMenu} />
+      </div>
+      <nav class="bottombar" aria-label={_t("Tools")}>
+        {mk("read", _t("Read"), () => { readMode.value = !readMode.value; }, readMode.value)}
+        <button class={"bb" + (marking && t !== "sign" ? " on" : "")} onClick={(e) => openMenu(e, [
           ...TOOLS.map(([k, icon, label]) => ({ label, icon, run: () => setTool(k) })),
           { label: _t("Shapes..."), icon: "shape", run: () => m.shapeMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
           { label: _t("Stamps and signature..."), icon: "stamp", run: () => m.stampMenu({ currentTarget: e.currentTarget, preventDefault() {}, stopPropagation() {} }) },
-        ])}><Icon n={cur[1]} /></button>
-        <button class="ib" title={_t("Colours")} onClick={m.colorMenu}><span class="swatch" style={{ background: t === "highlight" ? o.color : o.pen }} /></button>
-        <T n="undo" label={_t("Undo")} onClick={undo} disabled={!undoStack.value.length} />
-        <span class="grow" />
-        <T n="search" label={_t("Find")} onClick={() => openPanel("find")} />
-        <T n="addpage" label={_t("Add pages, files, a scan")} onClick={m.addMenu} />
-        <button class="ib" title={_t("More")} onClick={(e) => openMenu(e, [
+        ])}><Icon n={marking && t !== "sign" ? cur[1] : "highlighter"} size={20} /><span>{_t("Mark@@tab")}</span></button>
+        {mk("sign", _t("Sign"), (e) => openMenu(e, [
+          { label: _t("Fill in"), icon: "form", run: () => { setTool("select"); toast(_t("Tap a box of the form and type.")); } },
+          { label: _t("Signature"), icon: "sign", run: () => { setTool("sign"); if (!(settings.value.signatures || []).length) openPanel("signature"); } },
+          { label: _t("New signature"), icon: "rename", run: () => openPanel("signature") },
+          { label: _t("Date"), icon: "calendar", run: () => setTool("date") },
+          { label: _t("Tick"), icon: "tick", run: () => setTool("tick") },
+        ]), t === "sign")}
+        {mk("search", _t("Find"), () => openPanel("find"))}
+        <button class="bb" onClick={(e) => openMenu(e, [
           { label: readMode.value ? _t("Leave reading mode") : _t("Reading mode"), icon: "read", run: () => { readMode.value = !readMode.value; } },
           { label: _t("Redo"), icon: "redo", run: redo },
           { label: _t("Reports"), icon: "reports", run: () => openPanel("reports") },
@@ -84,8 +97,9 @@ function TopBar({ book }) {
           { label: _t("Settings"), icon: "settings", run: () => openPanel("settings") },
           { label: _t("Help"), icon: "help", run: () => openPanel("help") },
           { label: _t("Send feedback..."), icon: "feedback", run: () => openPanel("feedback") },
-        ])}><Icon n="more" /></button>
-      </div>
+        ])}><Icon n="more" size={20} /><span>{_t("More")}</span></button>
+      </nav>
+      </>
     );
   }
   // on a computer: a slim bar - where you are, Find, Add, your account (what you do with the page is in the ribbon)

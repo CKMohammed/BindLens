@@ -2167,5 +2167,8 @@ export default {
  "Consultation mode (only reading and searching)": "Modo consulta (solo leer y buscar)",
  "consultation kiosk reception library read only search public screen": "consulta quiosco recepción biblioteca solo lectura leer buscar pública pantalla kiosk",
  "Leave consultation mode...": "Salir del modo consulta...",
- "This computer only for reading and searching (a reception desk, a library, a meeting room). A code starts it and the same code leaves it.": "Este ordenador solo para leer y buscar (una recepción, una biblioteca, una sala de reuniones). Un código lo activa y el mismo código lo desactiva."
+ "This computer only for reading and searching (a reception desk, a library, a meeting room). A code starts it and the same code leaves it.": "Este ordenador solo para leer y buscar (una recepción, una biblioteca, una sala de reuniones). Un código lo activa y el mismo código lo desactiva.",
+ "Sign": "Firmar",
+ "Tap a box of the form and type.": "Toca una casilla del formulario y escribe.",
+ "The marks of the book": "Las marcas del libro"
 };
