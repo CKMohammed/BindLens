@@ -2098,5 +2098,18 @@ export default {
  "Got it": "Entendido",
  "Make my first book": "Crear mi primer libro",
  "Make a book in two steps": "Crear un libro en dos pasos",
- "first start begin two steps template drive": "primero empezar inicio dos pasos plantilla drive first start two steps template"
+ "first start begin two steps template drive": "primero empezar inicio dos pasos plantilla drive first start two steps template",
+ "Settings: Look": "Ajustes: Aspecto",
+ "look theme dark light frame colours language": "aspecto tema oscuro claro marco colores idioma look theme dark light language",
+ "Settings: Your institution": "Ajustes: Tu institución",
+ "institution logo colours brand company university office": "institución logotipo logo colores marca empresa universidad oficina",
+ "Settings: Privacy and PIN": "Ajustes: Privacidad y PIN",
+ "privacy pin lock notifications offline log changes": "privacidad pin bloquear avisos notificaciones sin conexión registro cambios",
+ "Settings: Account": "Ajustes: Cuenta",
+ "account sign out drive folder about version": "cuenta cerrar sesión salir drive carpeta acerca de versión",
+ "More tools: {0}": "Más herramientas: {0}",
+ "Tab {0}": "Pestaña {0}",
+ "Look": "Aspecto",
+ "Your institution": "Tu institución",
+ "Privacy and PIN": "Privacidad y PIN"
 };

@@ -9,6 +9,8 @@ import { BookTile } from "./bookicons.jsx";
 import { bookMeta, bookHidden } from "../state.js";
 import { escapeHtml, isPaged, initials } from "../util.js";
 import { _t, loc, _tv, isEs, setLang } from "../i18n.js";
+import { ribbonActions } from "./Ribbon.jsx";
+import { currentBook } from "../state.js";
 
 const ACTIONS = [
   { label: _t("New book"), icon: "plus", words: _t("new book folder make create"), run: () => newBook().then(b => b && openBook(b.id)) },
@@ -28,9 +30,13 @@ const ACTIONS = [
   { label: _t("Rows as they look (report)"), icon: "image", words: _t("rows look pictures snapshot report person filas"), run: () => openPanel("reports", { pickId: "snapshot" }) },
   { label: _t("Continue where I was"), icon: "right", words: _t("continue last open resume"), run: () => continueReading() },
   { label: _t("Home"), icon: "home", words: _t("home library shelf bookcase start"), run: () => goHome() },
-  { label: _t("Frame colours"), icon: "palette", words: _t("frame colours colors personalise customize look theme"), run: () => openPanel("settings") },
+  { label: _t("Frame colours"), icon: "palette", words: _t("frame colours colors personalise customize look theme"), run: () => openPanel("settings", { group: "look" }) },
   { label: _t("Lock with a PIN"), icon: "lock", words: _t("lock pin password"), run: () => { if (settings.value.pin) locked.value = true; else openPanel("pin"); } },
   { label: _t("Settings"), icon: "settings", words: _t("settings options"), run: () => openPanel("settings") },
+  { label: _t("Settings: Look"), icon: "palette", words: _t("look theme dark light frame colours language"), run: () => openPanel("settings", { group: "look" }) },
+  { label: _t("Settings: Your institution"), icon: "palette", words: _t("institution logo colours brand company university office"), run: () => openPanel("settings", { group: "inst" }) },
+  { label: _t("Settings: Privacy and PIN"), icon: "lock", words: _t("privacy pin lock notifications offline log changes"), run: () => openPanel("settings", { group: "privacy" }) },
+  { label: _t("Settings: Account"), icon: "settings", words: _t("account sign out drive folder about version"), run: () => openPanel("settings", { group: "account" }) },
   { label: isEs ? "Language: English" : "Idioma: Español", icon: "settings", words: "language idioma english español spanish ingles inglés castellano", run: () => setLang(isEs ? "en" : "es") },
   { label: _t("Next deadline"), icon: "bell", words: _t("next deadline due soon date renewal expiry"), run: async () => {
     const { allDeadlines, needs } = await import("../reports/dates.js");
@@ -132,7 +138,11 @@ export function Find() {
       ];
     }
     const out = [];
-    if (!anyF) for (const a of ACTIONS) if (norm(a.label + " " + a.words).includes(nq)) out.push({ type: "action", a, label: a.label });
+    if (!anyF) {
+      const rib = view.value === "book" && currentBook.value ? ribbonActions(currentBook.value) : [];
+      for (const a of ACTIONS) if (norm(a.label + " " + a.words).includes(nq)) out.push({ type: "action", a, label: a.label });
+      for (const a of rib) if (norm(a.label + " " + a.words).includes(nq) && !out.some(o => o.label === a.label)) out.push({ type: "action", a, label: a.label, sub: a.sub });
+    }
     for (const b of books.value) {
       if (!anyF && norm(b.name).includes(nq)) out.push({ type: "book", b, label: b.name, sub: _t("Book · {0} files", b.files.length) });
       for (const f of b.files) if (norm(f.name).includes(nq) && fileOk(b, f)) out.push({ type: "file", b, f, label: f.name, sub: b.name });

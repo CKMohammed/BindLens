@@ -86,7 +86,7 @@ function TopBar({ book }) {
       </div>
     );
   }
-  // on a computer: a slim bar - where you are, Find, saved; the tools to mark are on the frame at the right
+  // on a computer: a slim bar - where you are, Find, Add, your account (what you do with the page is in the ribbon)
   const onFrame = frameBarOn();
   return (
     <div class={"topbar slim" + (onFrame ? "" : " withtools")}>
@@ -100,8 +100,6 @@ function TopBar({ book }) {
       <div class="findbox" onClick={() => openPanel("find")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openPanel("find"); }}><Icon n="search" size={16} /><span class="ellipsis">{_t("Find anything")}</span><kbd>{_t("Ctrl+K")}</kbd></div>
       <SaveState />
       <button class="btn ghost small" title={_t("Add pages, files, a scan, a written page")} onClick={m.addMenu}><Icon n="plus" size={16} />{_t("Add")}</button>
-      <button class={"btn small " + (readMode.value ? "" : "ghost")} title={_t("Reading mode: the page, the contents, calm")} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" size={16} />{_t("Read")}</button>
-      <T n="print" label={_t("Print (Ctrl+P)")} onClick={() => openPanel("print")} />
       <FullButton small />
       <AccountButton />
     </div>

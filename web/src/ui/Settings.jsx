@@ -106,6 +106,9 @@ function Colours() {
   );
 }
 
+// four groups, one place for each thing
+const GROUPS = [["look", () => _t("Look"), "palette"], ["inst", () => _t("Your institution"), "book"], ["privacy", () => _t("Privacy and PIN"), "lock"], ["account", () => _t("Account"), "settings"]];
+
 export function Settings() {
   const f = settings.value.frame || {};
   const colors = f.colors && f.colors.length ? f.colors : DEFAULT_FRAME;
@@ -113,10 +116,14 @@ export function Settings() {
   // choosing the frame's own colours takes the institution's off the frame (they stay on the buttons and reports)
   const setFrame = (change) => { if (brandFrame && change.colors) setSetting("brand", { ...settings.value.brand, frame: false }); setSetting("frame", { ...f, colors, ...change }); };
   const s = store.value;
+  const [g, setG] = useState(panel.value?.group || "look");
   return (
     <Dialog title={_t("Settings")} icon="settings" onClose={close} cls="mid">
-      <Colours />
-      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("The frame round the window")}</h3>
+      <div class="seg setgroups" role="tablist">
+        {GROUPS.map(([k, l, ic]) => <button key={k} role="tab" aria-selected={g === k} class={g === k ? "on" : ""} onClick={() => setG(k)}><Icon n={ic} size={14} />{l()}</button>)}
+      </div>
+      {g === "look" && <>
+      <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>{_t("The frame round the window")}</h3>
       <p class="small muted" style={{ marginTop: 0 }}>{brandOf(settings.value) && settings.value.brand.frame !== false ? _t("The frame has your institution's colours now (above). Choose other colours for it here, or untick \"The frame\" above.") : _t("The colours that flow round the window.")}</p>
       <div class="grid2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
         {PRESETS.map(p => {
@@ -169,9 +176,10 @@ export function Settings() {
         <label class="chk"><input type="checkbox" checked={!settings.value.hideRail} onChange={(e) => setSetting("hideRail", !e.target.checked)} />{_t("The small icons on the frame (the tools to mark, Reports, Scan...). Off: the tools go back to the top bar")}</label>
         {installPrompt.value && <button class="btn soft small" onClick={installApp}><Icon n="download" size={16} />{_t("Install BindLens as an app")}</button>}
       </div>
-      <Doing />
-
-      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Notifications and offline")}</h3>
+      </>}
+      {g === "inst" && <Colours />}
+      {g === "privacy" && <>
+      <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Notifications and offline")}</h3>
       <label class="chk small"><input type="checkbox" checked={!!settings.value.notify} onChange={async (e) => {
         const n = await import("../notify.js");
         if (e.target.checked) { if (await n.turnOn()) { setSetting("notify", true); setTimeout(() => { n.startNotifications(); n.checkNow(); }, 300); toast(_t("BindLens tells you what needs you today and tomorrow."), "ok"); } }
@@ -186,16 +194,6 @@ export function Settings() {
         {settings.value.pin && <button class="btn plain small" onClick={() => { setSetting("pin", null); toast(_t("The PIN is off.")); }}>{_t("Take the PIN off")}</button>}
       </div>
 
-      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Account")}</h3>
-      {s.cloud ? <>
-        <p class="small" style={{ margin: "0 0 8px" }}>{s.kind === "onedrive" ? _t("Signed in as {0}. Your books are in the {1} folder of your OneDrive.", <b>{s.user?.email}</b>, <b>Apps/BindLens</b>) : _t("Signed in as {0}. Your books are in the {1} folder of your Google Drive.", <b>{s.user?.email}</b>, <b>BindLens</b>)}</p>
-        <div class="row wrap">
-          <a class="btn soft small" href={s.folderLink()} target="_blank" rel="noopener"><Icon n="drive" size={16} />{_t("Open the folder in")} {s.kind === "onedrive" ? _t("OneDrive") : _t("Drive")}</a>
-          <button class="btn plain small" onClick={async () => { await idb.clear("files"); await idb.clear("text"); toast(_t("The copies kept in this browser are gone. Your {0} is unchanged.", s.cloud)); }}>{_t("Clear the copies in this browser")}</button>
-          <button class="btn plain small" onClick={signOut}><Icon n="logout" size={16} />{_t("Sign out")}</button>
-        </div>
-      </> : <p class="small">{_t("This is the example library: what you change here is not saved.")} <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>{_t("Sign in with Google")}</a> {_t("to keep your own books.")}</p>}
-
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("What BindLens changed")}</h3>
       {!(settings.value.log || []).length ? <p class="small muted" style={{ margin: 0 }}>{_t("Nothing yet. Every change BindLens makes in your Drive (files added, renamed, moved, marks saved) is written down here.")}</p> : (
         <div class="rep-out" style={{ maxHeight: 220 }}>
@@ -208,12 +206,27 @@ export function Settings() {
         </div>
       )}
 
+      </>}
+      {g === "account" && <>
+      <h3 style={{ margin: "4px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Account")}</h3>
+      {s.cloud ? <>
+        <p class="small" style={{ margin: "0 0 8px" }}>{s.kind === "onedrive" ? _t("Signed in as {0}. Your books are in the {1} folder of your OneDrive.", <b>{s.user?.email}</b>, <b>Apps/BindLens</b>) : _t("Signed in as {0}. Your books are in the {1} folder of your Google Drive.", <b>{s.user?.email}</b>, <b>BindLens</b>)}</p>
+        <div class="row wrap">
+          <a class="btn soft small" href={s.folderLink()} target="_blank" rel="noopener"><Icon n="drive" size={16} />{_t("Open the folder in")} {s.kind === "onedrive" ? _t("OneDrive") : _t("Drive")}</a>
+          <button class="btn plain small" onClick={async () => { await idb.clear("files"); await idb.clear("text"); toast(_t("The copies kept in this browser are gone. Your {0} is unchanged.", s.cloud)); }}>{_t("Clear the copies in this browser")}</button>
+          <button class="btn plain small" onClick={signOut}><Icon n="logout" size={16} />{_t("Sign out")}</button>
+        </div>
+      </> : <p class="small">{_t("This is the example library: what you change here is not saved.")} <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>{_t("Sign in with Google")}</a> {_t("to keep your own books.")}</p>}
+
+      <Doing />
+
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("About")}</h3>
       <p class="small muted" style={{ margin: 0 }}>{_t("BindLens Web 1.0 · made by Mohammed Chahboune Kadi. Free software under the GNU AGPL 3.0: the source is at")} <a href="https://github.com/CKMohammed/BindLens" target="_blank" rel="noopener">{_t("github.com/CKMohammed/BindLens")}</a>{_t(". Pages are drawn with MuPDF (Artifex, AGPL).")}</p>
       <div class="row wrap" style={{ marginTop: 8 }}>
         <button class="btn plain small" onClick={() => { panel.value = { type: "legal" }; }}><Icon n="info" size={16} />{_t("Licence, privacy and legal")}</button>
         <button class="btn plain small" onClick={() => { panel.value = { type: "welcome" }; }}><Icon n="sparkle" size={16} />{_t("Show the tour again")}</button>
       </div>
+      </>}
     </Dialog>
   );
 }

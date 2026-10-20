@@ -1208,3 +1208,7 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .firsthint > svg{color:var(--accent);flex:none}
 .firsthint span{flex:1}
 @media (max-width:760px){.firsthint{bottom:76px}}
+
+/* Settings in four groups */
+.seg.setgroups { display: flex; flex-wrap: wrap; margin: 0 0 16px; }
+.seg.setgroups button { gap: 6px; }

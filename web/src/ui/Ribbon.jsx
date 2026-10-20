@@ -2,6 +2,7 @@
 // picture over a word; on the right the options of the tool in use (colours, widths, kinds) and Undo / Redo.
 import { tool, toolOpts, ribbonTab, setTab, readMode, fileId, pageNo, fitWidth, fitPage, zoom, undoStack, redoStack,
   settings, setSetting, toast, store, commentsOpen, leftOpen, sideTab, aloud, currentBook, statusOf, STATUSES, setStatus, statusColor } from "../state.js";
+import { toChildArray } from "preact";
 import { Icon } from "./icons.jsx";
 import { openMenu, ask, confirm } from "./dialogs.jsx";
 import { toolLock, selectedMark, docState, scrollTo, PAPERS } from "./Viewer.jsx";
@@ -49,8 +50,31 @@ async function onPdf(fn) {
 }
 const toPage = (f, p) => { fileId.value = f.id; pageNo.value = p; setTimeout(() => { scrollTo.value = { fileId: f.id, page: p }; }, 120); };
 
-export function Ribbon({ book }) {
-  const tab = ribbonTab.value;
+// 5 or 6 tools on each tab; what comes after {MORE} goes under "More" (one menu). A tool on in that menu shows on the button.
+const MORE = <span data-more="1" />;
+function splitMore(tools) {
+  const all = toChildArray(tools && tools.props ? tools.props.children : tools);
+  const at = all.indexOf(MORE);
+  if (at < 0) return tools;
+  const items = [], extra = [];
+  let cur = null;
+  for (const c of all.slice(at + 1)) {
+    if (c && c.type === RB) { items.push(c.props); if (c.props.on) cur = c.props; }
+    else if (c && c.props && c.props.class === "rsep") { if (items.length && items[items.length - 1] !== "-") items.push("-"); }
+    else extra.push(c);
+  }
+  if (items[items.length - 1] === "-") items.pop();
+  const open = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const at = { clientX: r.left, clientY: r.bottom + 4, preventDefault() {}, stopPropagation() {} };
+    openMenu(e, items.map(p => p === "-" ? "-" : { label: p.label, icon: p.icon || "check", disabled: p.disabled, hint: p.on ? "\u2713" : "", run: () => p.onClick(at) }));
+  };
+  return [...all.slice(0, at), <RB key="more" icon={cur ? cur.icon || "more" : "more"} label={cur ? cur.label : _t("More")} on={!!cur} menu onClick={open}
+    tip={_t("More tools: {0}", items.filter(p => p !== "-").map(p => p.label).join(", "))} />, ...extra];
+}
+
+// the tools of one tab (also what Ctrl+K finds: every tool of every tab)
+export function tabTools(tab, book) {
   const t = tool.value;
   const m = toolMenus(book);
   const tl = (x) => () => { setTool(x.t); if (x.t === "edit" && tool.value === "edit") toast(_t("Click the line of text to change.")); };
@@ -62,19 +86,21 @@ export function Ribbon({ book }) {
     <RB icon="list" label={_t("Contents")} on={readMode.value && contentsOpen.value} onClick={() => { if (!readMode.value) { readMode.value = true; contentsOpen.value = true; } else contentsOpen.value = !contentsOpen.value; }} tip={_t("The contents of the book and its parts")} />
     <span class="rsep" />
     <RB icon="fit" label={_t("Fit width")} on={fitWidth.value && zoom.value === 1 && !fitPage.value} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; }} />
+    <RB icon="search" label={_t("Find in book")} onClick={() => { leftOpen.value = true; sideTab.value = "search"; }} />
+    {MORE}
     <RB icon="expand" label={_t("Whole page")} on={fitPage.value} onClick={() => { fitWidth.value = true; fitPage.value = !fitPage.value; zoom.value = 1; }} />
     <RB icon="grid" label={_t("All pages")} onClick={() => openPanel("pages", { fileId: fileId.value })} tip={_t("Every page as a small picture")} />
     <span class="rsep" />
-    <RB icon="search" label={_t("Find in book")} onClick={() => { leftOpen.value = true; sideTab.value = "search"; }} />
     <RB icon="star" label={_t("Study cards")} onClick={() => openPanel("study")} tip={_t("Your highlights as cards to review, and a summary sheet (Ctrl+B)")} />
     <RB icon="moon" label={_t("Night pages")} on={!!settings.value.night} onClick={() => setSetting("night", !settings.value.night)} tip={_t("Dark pages for reading at night")} />
   </>;
   if (tab === "mark") tools = <>
     {[T("select", "select", _t("Select"), "V", false), T("highlight", "highlighter", _t("Highlight"), "H"), T("pen", "pen", _t("Pen"), "P"), T("text", "text", _t("Text box"), "T"), T("note", "note", _t("Sticky note"), "N")].map(toolBtn)}
+    {toolBtn(T("eraser", "eraser", _t("Eraser"), "E", false))}
+    {MORE}
     <RB icon={toolOpts.value.shape === "circle" ? "circle" : toolOpts.value.shape === "line" ? "line" : toolOpts.value.shape === "arrow" ? "arrow" : "shape"} label={_t("Shapes")} on={t === "shape"} onClick={() => { setTool("shape"); }} lock="shape" tip={_t("A box, circle, line or arrow - choose on the right")} />
     {[T("tick", "tick", _t("Tick"), ""), T("cross", "cross", _t("Cross"), "")].map(toolBtn)}
     <RB icon="stamp" label={_t("Stamp")} on={t === "stamp"} onClick={() => setTool("stamp")} lock="stamp" tip={_t("APPROVED, PAID, today's date, your own words - choose on the right")} />
-    {toolBtn(T("eraser", "eraser", _t("Eraser"), "E", false))}
     <span class="rsep" />
     <FavPens />
   </>;
@@ -82,8 +108,7 @@ export function Ribbon({ book }) {
     {toolBtn(T("edit", "textedit", _t("Change text"), "Ctrl+E", false))}
     <RB icon="word" label={_t("Edit like Word")} onClick={(e) => editPageLikeWord(e, book)} tip={_t("Edit this page as a document: in Google Docs, or in BindLens")} menu />
     <span class="rsep" />
-    {[T("whitebox", "rect", _t("White box"), ""), T("whitebrush", "pen", _t("White brush"), ""), T("redact", "eraser", _t("Erase for good"), "")].map(toolBtn)}
-    {toolBtn(T("crop", "fit", _t("Crop page"), "", false))}
+    {[T("whitebox", "rect", _t("White box"), ""), T("redact", "eraser", _t("Erase for good"), "")].map(toolBtn)}
     <RB icon="image" label={_t("Picture")} on={t === "picture"} onClick={async () => {
       const [f] = await pickFiles({ accept: "image/png,image/jpeg", multiple: false });
       if (!f) return;
@@ -93,6 +118,9 @@ export function Ribbon({ book }) {
       tool.value = "picture";
       toast(_t("Click on the page to put the picture there."));
     }} tip={_t("A picture or a logo on the page")} />
+    {MORE}
+    {[T("whitebrush", "pen", _t("White brush"), "")].map(toolBtn)}
+    {toolBtn(T("crop", "fit", _t("Crop page"), "", false))}
     <span class="rsep" />
     <RB icon="edit" label={_t("Write a page")} onClick={() => { const f = curPdf(); openPanel("write", { book: book.id, into: f?.id, at: f ? pageNo.value + 1 : undefined }); }} tip={_t("A new page written in BindLens, after this one")} />
     <RB icon="type" label={_t("Watermark")} onClick={() => onPdf(FT.watermark)} />
@@ -103,17 +131,20 @@ export function Ribbon({ book }) {
     {toolBtn(T("sign", "sign", _t("Signature"), ""))}
     <RB icon="rename" label={_t("New signature")} onClick={() => openPanel("signature")} />
     <span class="rsep" />
-    {[T("text", "text", _t("Text"), "T"), T("tick", "tick", _t("Tick"), ""), T("cross", "cross", _t("Cross"), ""), T("date", "calendar", _t("Date"), ""), T("initials", "at", _t("Initials"), "")].map(toolBtn)}
+    {[T("text", "text", _t("Text"), "T"), T("tick", "tick", _t("Tick"), ""), T("date", "calendar", _t("Date"), "")].map(toolBtn)}
+    {MORE}
+    {[T("cross", "cross", _t("Cross"), ""), T("initials", "at", _t("Initials"), "")].map(toolBtn)}
   </>;
   if (tab === "pages") tools = <>
     <RB icon="addpage" label={_t("Add pages")} onClick={() => openPanel("addpages", { book: book.id })} tip={_t("Blank, lined or squared; from a file; a scan; Google Docs")} />
     <RB icon="rotate" label={_t("Turn right")} onClick={() => onPdf(f => pageOp(f, "rotatePage", pageNo.value, 90))} />
-    <RB icon="undo" label={_t("Turn left")} onClick={() => onPdf(f => pageOp(f, "rotatePage", pageNo.value, -90))} />
     <RB icon="up" label={_t("Move up")} onClick={() => onPdf(async f => { if (pageNo.value === 0) return; await pageOp(f, "movePage", pageNo.value, pageNo.value - 1); toPage(f, pageNo.value - 1); })} />
     <RB icon="down" label={_t("Move down")} onClick={() => onPdf(async f => { const n = docState.value[f.id]?.pages?.length || 1; if (pageNo.value >= n - 1) return; await pageOp(f, "movePage", pageNo.value, pageNo.value + 1); toPage(f, pageNo.value + 1); })} />
     <RB icon="trash" label={_t("Take out")} onClick={() => onPdf(async f => { if ((docState.value[f.id]?.pages?.length || 1) < 2) { toast(_t("It is the only page.")); return; } if (await confirm(_t("Take this page out?"), _t("Undo (Ctrl+Z) puts it back, and so does Deleted pages."), { ok: _t("Take it out"), danger: true })) await FT.takePageOut(f, pageNo.value); })} />
     <span class="rsep" />
     <RB icon="grid" label={_t("All pages")} onClick={() => openPanel("pages", { fileId: fileId.value })} tip={_t("Every page as a small picture: turn, move, take out")} />
+    {MORE}
+    <RB icon="undo" label={_t("Turn left")} onClick={() => onPdf(f => pageOp(f, "rotatePage", pageNo.value, -90))} />
     <RB icon="copy" label={_t("Pages as PDF")} onClick={() => onPdf(f => FT.savePagesAsPdf(f, pageNo.value))} tip={_t("Some pages as a new PDF")} />
     <RB icon="grid" label={_t("Split")} onClick={() => onPdf(FT.splitFile)} tip={_t("One PDF for each page")} />
     <RB icon="download" label={_t("Smaller")} onClick={() => onPdf(FT.makeSmaller)} tip={_t("Make the file smaller (pictures, scans)")} />
@@ -129,17 +160,37 @@ export function Ribbon({ book }) {
     </RB>
     <span class="rsep" />
     <RB icon="share" label={_t("Share")} onClick={() => openPanel("share", { id: book.id })} tip={_t("Share this book with a colleague")} />
+    {MORE}
     <RB icon="mail" label={_t("Email")} onClick={() => { const f = fileFor(fileId.value); if (f) FT.sendFile(f); }} tip={_t("Send this document by email")} />
     <RB icon="copy" label={_t("Compare")} menu onClick={(e) => { const f = fileFor(fileId.value); if (!f) return; openMenu(e, [{ title: _t("Compare {0} with", f.name) }, ...book.files.filter(x => x.id !== f.id && x.kind !== "image").map(x => ({ label: x.name, run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) }))]); }} />
     <RB icon="clock" label={_t("Versions")} onClick={() => { const f = fileFor(fileId.value); if (f) openPanel("versions", { fileId: f.id }); }} tip={_t("Earlier versions of this document")} />
     <RB icon="print" label={_t("Print")} onClick={() => openPanel("print")} tip={_t("Print (Ctrl+P)")} />
   </>;
+  return tools;
+}
+
+// every tool of every tab, for Ctrl+K: choosing one goes to its tab and uses it
+export function ribbonActions(book) {
+  const out = [];
+  for (const [k, l] of TABS) for (const c of toChildArray(tabTools(k, book)?.props?.children)) {
+    if (!c || c.type !== RB || !c.props.label) continue;
+    const p = c.props;
+    out.push({ label: p.label, icon: p.icon || "check", sub: _t("Tab {0}", l), words: l + " " + (p.tip || ""),
+      run: () => { setTab(k); setTimeout(() => p.onClick({ clientX: Math.max(20, innerWidth / 2 - 120), clientY: 140, preventDefault() {}, stopPropagation() {} }), 40); } });
+  }
+  return out;
+}
+
+export function Ribbon({ book }) {
+  const tab = ribbonTab.value;
+  const m = toolMenus(book);
+  const tools = tabTools(tab, book);
   return (
     <div class="ribbon" role="toolbar" aria-label={_t("Tools")}>
       <div class="rtabs" role="tablist">
         {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} class={tab === k ? "on" : ""} onClick={() => { setTab(k); if (!TAB_TOOLS[k].includes(tool.value)) { tool.value = "select"; toolLock.value = false; } }}>{l}</button>)}
       </div>
-      <div class="rtools">{tools}</div>
+      <div class="rtools">{splitMore(tools)}</div>
       <Options book={book} m={m} />
       <div class="rundo">
         <button class="ib" title={_t("Undo (Ctrl+Z)")} aria-label={_t("Undo")} onClick={undo} disabled={!undoStack.value.length}><Icon n="undo" /></button>
