@@ -1036,7 +1036,7 @@ ES_TEXT = {
     "From BindLens": "De BindLens",
     "BindLens calendar notes": "Notas de calendario de BindLens",
     "Add a folder first - then press Read.": "Añade primero una carpeta; después pulsa Leer.",
-    "Choose what to read": "Elige qué leer",
+    "Choose what to read": "Elegir qué leer",
     "What would you like to read?": "¿Qué te gustaría leer?",
     "Click a book to read it from its first page, or one of its documents. Or type a name - it doesn't have to be exact.": "Haz clic en un libro para leerlo desde su primera página, o en uno de sus documentos. O escribe un nombre; no hace falta que sea exacto.",
     "DOCUMENTS OF": "DOCUMENTOS DE",
@@ -2727,6 +2727,17 @@ ES_TEXT = {
     "Choose a code of 4 or more digits or letters and keep it.": "Elige un código de 4 o más cifras o letras y guárdalo.",
     "The code again": "El código otra vez",
     "The two codes are not the same.": "Los dos códigos no coinciden.",
+    "Read with PIN…": "Leer con PIN…",
+    "Read with PIN: here you can only read.": "Leer con PIN: aquí solo se puede leer.",
+    "Type your PIN to leave Read with PIN.": "Escribe tu PIN para salir de Leer con PIN.",
+    "That PIN is not right.": "Ese PIN no es correcto.",
+    "Read with PIN is off: everything is back.": "Leer con PIN está desactivado: vuelve todo.",
+    "Read with PIN uses your BindLens PIN. Choose one now?": "Leer con PIN usa tu PIN de BindLens. ¿Elegir uno ahora?",
+    "Type your PIN to start Read with PIN (only reading; only your PIN leaves it).": "Escribe tu PIN para empezar Leer con PIN (solo leer; solo tu PIN lo quita).",
+    "Pencil": "Lápiz",
+    "Put the pencil away": "Guardar el lápiz",
+    "Leave (PIN)": "Salir (PIN)",
+    "Lock with PIN": "Bloquear con PIN",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -18733,7 +18744,7 @@ def pin_save(d):
 # guard is at the bottom, where files are written, so no menu can go round it), the marking tools stay off and the
 # screen does not sleep. Locked books keep asking for the PIN.
 CONSULT = {"on": False, "guarded": False}
-CONSULT_NO = "Consultation mode: here you can only read and search."
+CONSULT_NO = "Read with PIN: here you can only read."
 
 
 def consult_file():
@@ -18744,7 +18755,7 @@ def consult_load():
     try:
         with open(consult_file(), encoding="utf-8") as fh:
             d = json.load(fh)
-        return d if d.get("hash") and d.get("salt") else None
+        return d if d.get("on") or d.get("hash") else None
     except Exception:
         return None
 
@@ -19550,8 +19561,9 @@ class App:
         self._build_ui()
         self.apply_theme()
         self._bind_keys()
-        if consult_load():                           # consultation mode: reading and searching only
+        if consult_load():                           # Read with PIN: it comes back as it was (only your PIN leaves it)
             self._consult_on(quiet=True)
+            self.root.after(1500, lambda: self.reading_mode(True))
         if pin_load():                               # 4.0: the PIN first, before anything can be seen
             self._lock_show()
         if dnd:
@@ -20714,7 +20726,7 @@ class App:
         m.add_command(label="Personalise…", command=lambda: self.personalise_dialog())
         m.add_command(label="Settings…", command=self.settings_dialog, accelerator="Ctrl+,")
         m.add_command(label="Lock with a PIN…", command=lambda: self.pin_settings())
-        m.add_command(label="Consultation mode…", command=lambda: self.consult_dialog())
+        m.add_command(label="Read with PIN…", command=lambda: self.consult_dialog())
         m.add_command(label="Lock now", command=lambda: self.lock_now(), accelerator="Ctrl+Shift+L")
         m.add_separator()
         m.add_command(label="Quit", command=self.on_close)
@@ -29221,6 +29233,10 @@ class App:
         on = (not cur) if on is None else bool(on)
         if on == cur:
             return
+        if not on and CONSULT["on"]:                     # Read with PIN: only your PIN leaves it
+            if not self._consult_pin_ok():
+                return
+            self._consult_off()
         if on:
             if not self.lib.folders:
                 self.set_status("Add a folder first - then press Read.")
@@ -34648,6 +34664,10 @@ class App:
         return m if abs(x - (a + c2) / 2) <= 10 and abs(y - (b - 26)) <= 10 else None
 
     def _on_press(self, e):
+        if getattr(self, "_scratch", False):
+            return self._scratch_ev(e, "press")
+        if CONSULT["on"]:
+            return "break"
         if self._over_ui(e):
             self.drag = None
             return
@@ -34736,6 +34756,10 @@ class App:
             self.drag = None
 
     def _on_drag(self, e):
+        if getattr(self, "_scratch", False):
+            return self._scratch_ev(e, "drag")
+        if CONSULT["on"]:
+            return "break"
         d = self.drag
         if not d:
             return
@@ -34841,6 +34865,10 @@ class App:
         self.redraw()
 
     def _on_release(self, e):
+        if getattr(self, "_scratch", False):
+            return self._scratch_ev(e, "release")
+        if CONSULT["on"]:
+            return "break"
         d = self.drag
         self.drag = None
         if not d:
@@ -34908,6 +34936,8 @@ class App:
             self.show_float(e.x_root, e.y_root)
 
     def _on_double(self, e):
+        if CONSULT["on"]:                                # Read with PIN: nothing to change on the page
+            return "break"
         m = self._annot_at(e)
         if not m:
             hit = self._event_to_page(e)
@@ -34937,6 +34967,8 @@ class App:
             self.edit_annot_note(m["g"], m["xref"])
 
     def _on_right(self, e):
+        if CONSULT["on"]:                                # Read with PIN: nothing to change on the page
+            return "break"
         if self._over_ui(e):
             return
         self._close_float()
@@ -50430,7 +50462,9 @@ class App:
             title = self._read_title()
             draw_icon(tb, "openbook", x + 9, H / 2, ink, s=0.7, w=1.4)
             x += 24
-            keys_ = [("_choose", "Choose what to read"), ("_exit", "Exit reading  (Esc)")]
+            keys_ = [("_choose", "Choose what to read"), ("_reports", "Reports"),
+                     ("_pencil", "Put the pencil away" if getattr(self, "_scratch", False) else "Pencil")] + \
+                ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", "Lock with PIN"), ("_exit", "Exit reading  (Esc)")])
             if self._is_picture_book():
                 keys_.insert(1, ("_play", "Pause the slideshow" if getattr(self, "_slide_on", False) else
                                  "Play the slideshow"))
@@ -50506,7 +50540,8 @@ class App:
             return                                            # 4.4.1: the PIN first
         act = {"_min": self._win_min, "_max": self._win_max, "_close": self.on_close,
                "_choose": lambda: self._read_choose(), "_exit": lambda: self.reading_mode(False),
-               "_print": lambda: self.print_dialog(),
+               "_print": lambda: self.print_dialog(), "_reports": lambda: self.simple_reports(),
+               "_pencil": self._scratch_toggle, "_pinlock": self.consult_dialog,
                "_play": self._slide_toggle}.get(name)
         if act is not None:
             self._tb_hov = None
@@ -53475,47 +53510,73 @@ class App:
             self._toast(_tr("Consultation mode is on: only reading and searching. File › Consultation mode… leaves it "
                             "with the code."))
 
+    def _consult_pin_ok(self, prompt=None):
+        """Your BindLens PIN, typed again (no PIN: nothing to keep locked)."""
+        cur = pin_load()
+        if not cur:
+            return True
+        code = simpledialog.askstring(APP_NAME, _tr(prompt or "Type your PIN to leave Read with PIN."), show="•",
+                                      parent=self.root)
+        if code is None:
+            return False
+        if pin_hash(code.strip(), cur["salt"]) != cur["hash"]:
+            messagebox.showwarning(APP_NAME, _tr("That PIN is not right."), parent=self.root)
+            return False
+        return True
+
+    def _consult_off(self):
+        CONSULT["on"] = False
+        try:
+            os.remove(consult_file())
+        except OSError:
+            pass
+        keep_screen_on(False)
+        self._scratch = False
+        self._toast(_tr("Read with PIN is off: everything is back."))
+
     def consult_dialog(self):
-        """Start consultation mode (a code, twice) or leave it (the same code)."""
-        cur = consult_load()
-        if cur:
-            code = simpledialog.askstring(APP_NAME, _tr("Type the code that started consultation mode on this "
-                                                        "computer."), show="•", parent=self.root)
-            if code is None:
-                return
-            if pin_hash(code.strip(), cur["salt"]) != cur["hash"]:
-                messagebox.showwarning(APP_NAME, _tr("That is not the code."), parent=self.root)
-                return
-            CONSULT["on"] = False
-            try:
-                os.remove(consult_file())
-            except OSError:
-                pass
-            keep_screen_on(False)
-            self._toast(_tr("Consultation mode is off."))
+        """Read with PIN: only reading - other documents and books (a locked book asks for the PIN), reports, print
+        and a pencil that is never saved. Your BindLens PIN starts it and only your PIN leaves it."""
+        if CONSULT["on"]:
+            self.reading_mode(False)                     # asks for the PIN
             return
-        if not messagebox.askyesno(APP_NAME, _tr("Consultation mode: this computer only for reading and searching (a "
-                                                 "reception desk, a library, a meeting room). Nothing can be changed, "
-                                                 "the screen does not sleep, and locked books keep asking for the PIN. "
-                                                 "A code starts it and the same code leaves it. Start it?"),
-                                   parent=self.root):
+        if not pin_load():
+            if messagebox.askyesno(APP_NAME, _tr("Read with PIN uses your BindLens PIN. Choose one now?"), parent=self.root):
+                self.pin_settings()
             return
-        a = simpledialog.askstring(APP_NAME, _tr("Choose a code of 4 or more digits or letters and keep it."), show="•",
-                                   parent=self.root)
-        if not a or len(a.strip()) < 4:
+        if not self._consult_pin_ok("Type your PIN to start Read with PIN (only reading; only your PIN leaves it)."):
             return
-        b = simpledialog.askstring(APP_NAME, _tr("The code again"), show="•", parent=self.root)
-        if b is None:
-            return
-        if a.strip() != b.strip():
-            messagebox.showwarning(APP_NAME, _tr("The two codes are not the same."), parent=self.root)
-            return
-        salt = os.urandom(16).hex()
         p = consult_file()
         os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, "w", encoding="utf-8") as fh:
-            json.dump({"hash": pin_hash(a.strip(), salt), "salt": salt}, fh)
-        self._consult_on()
+            json.dump({"on": True}, fh)
+        self.__dict__["_unlocked"] = {self.folder} if self.folder else set()   # the other locked books ask again
+        self._consult_on(quiet=True)
+        self.reading_mode(True)
+
+    # ---- the pencil of Read with PIN: lines on the screen to point at things, never saved (they go on redraw)
+    def _scratch_toggle(self):
+        self._scratch = not getattr(self, "_scratch", False)
+        if not self._scratch:
+            try:
+                self.canvas.delete("scratch")
+            except Exception:
+                pass
+        self.canvas.configure(cursor="pencil" if self._scratch else "")
+        self._topband_draw()
+
+    def _scratch_ev(self, e, kind):
+        c = self.canvas
+        x, y = c.canvasx(e.x), c.canvasy(e.y)
+        if kind == "press":
+            self._scratch_last = (x, y)
+        elif kind == "drag" and getattr(self, "_scratch_last", None):
+            x0, y0 = self._scratch_last
+            c.create_line(x0, y0, x, y, fill=self.accent, width=3, capstyle="round", smooth=True, tags="scratch")
+            self._scratch_last = (x, y)
+        else:
+            self._scratch_last = None
+        return "break"
 
     def _book_locked(self, f):
         """A book locked with the PIN, not opened yet since BindLens started."""

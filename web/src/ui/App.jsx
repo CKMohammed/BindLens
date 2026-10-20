@@ -1,9 +1,9 @@
-import { consult, readOnlyStore } from "../consult.js";
+import { consult, readOnlyStore, consultPlace, rememberPlace, scratch } from "../consult.js";
 import { useEffect } from "preact/hooks";
-import { batch } from "@preact/signals";
+import { batch, effect } from "@preact/signals";
 import "../theme.js";
 import { store, phase, errorText, settings, view, panel, books, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen } from "../state.js";
+  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen, bookId, pageNo, openBook } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -16,6 +16,7 @@ import { undo, redo, saveAll } from "../docs.js";
 import { openPanel } from "../actions.js";
 import { engineStarted } from "../engine/client.js";
 import { Icon } from "./icons.jsx";
+import { Scratch } from "./Scratch.jsx";
 import { Pip } from "./Gallery.jsx";
 import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Band } from "./Band.jsx";
@@ -70,6 +71,7 @@ async function startWith(s, { tour = true } = {}) {
     store.value = consult.value ? readOnlyStore(s) : s;
     settings.value = (await s.loadSettings()) || {};
     await reloadLibrary();
+    if (consult.value) backToReading();
     batch(() => {
       if (settings.value.pin) locked.value = true;
       view.value = "home";
@@ -80,8 +82,7 @@ async function startWith(s, { tour = true } = {}) {
     if (tour) {
       const { shouldWelcome } = await import("./Welcome.jsx");
       // the first time with an empty library: the first book in two steps; otherwise the short tour
-      if (consult.value) leftOpen.value = true;
-      else if (shouldWelcome(settings.value)) panel.value = { type: s.kind !== "demo" && !books.value.length ? "firstrun" : "welcome" };
+      if (!consult.value && shouldWelcome(settings.value)) panel.value = { type: s.kind !== "demo" && !books.value.length ? "firstrun" : "welcome" };
     }
     if (s.cloud) {
       s.onNeedSignIn = () => new Promise((resolve) => {
@@ -175,6 +176,20 @@ function NeedsTap() {
   );
 }
 
+// Read with PIN: always reading, in a book; where you are is kept, so a reload comes back to it
+function backToReading() {
+  const p = consultPlace();
+  const b = books.value.find(x => x.id === p.book) || books.value[0];
+  if (b) openBook(b.id, p.file && b.files.some(f => f.id === p.file) ? p.file : null, p.page || 0);
+  readMode.value = true;
+}
+effect(() => {
+  if (!consult.value) return;
+  if (!readMode.value) readMode.value = true;
+  if (view.value === "home" && books.value.length && !panel.value) backToReading();
+});
+effect(() => { if (consult.value && view.value === "book") rememberPlace({ book: bookId.value, file: fileId.value, page: pageNo.value }); });
+
 export function App() {
   useEffect(() => {
     const p = new URLSearchParams(location.search);
@@ -195,8 +210,8 @@ export function App() {
       else if (mod && e.key === "/") { e.preventDefault(); openPanel("keys"); }
       else if (mod && e.key.toLowerCase() === "u" && view.value === "book") { e.preventDefault(); import("./Aloud.jsx").then(a => a.toggleAloud()); }
       else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); openPanel("study"); }
-      else if (e.key === "F6" && view.value === "book") { e.preventDefault(); readMode.value = !readMode.value; }
-      else if (e.key === "Escape" && readMode.value && !panel.value) { readMode.value = false; }
+      else if (e.key === "F6" && view.value === "book" && !consult.value) { e.preventDefault(); readMode.value = !readMode.value; }
+      else if (e.key === "Escape" && readMode.value && !panel.value && !consult.value) { readMode.value = false; }
       else if (mod && e.key.toLowerCase() === "e" && view.value === "book") { e.preventDefault(); tool.value = "edit"; toast(_t("Click the line of text to change.")); }
       else if (e.key === "F2" && view.value === "book" && !panel.value) {
         e.preventDefault();
@@ -220,12 +235,12 @@ export function App() {
       <div class={"window" + (lava ? " lavabg" : "") + (still ? " stillbg" : "")}>
         {!ready ? <Start /> : shut ? null : view.value === "book" ? <BookView /> : <Home />}
       </div>
-      {open && <FrameBar />}
+      {open && !consult.value && <FrameBar />}
       {open && panel.value && <Panels />}
       {open && <Pip />}
       {open && <UploadPanel />}
       {open && !shut && !consult.value && <Hints />}
-      {consult.value && <button class="consultpill" onClick={() => { panel.value = { type: "consult" }; }}><Icon n="read" size={15} />{_t("Consultation mode")}</button>}
+      {consult.value && scratch.value && <Scratch />}
       {shut && <Lock />}
       <Modals />
       <Menu />

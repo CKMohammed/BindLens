@@ -1294,3 +1294,12 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .bottombar .bb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; color: inherit; font: 600 11px var(--f-body, inherit); padding: 6px 0; border-radius: 12px; cursor: pointer; }
 .bottombar .bb.on { color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 760px) { .pages { padding-bottom: 76px; } .markmap { display: none; } }
+/* Read with PIN: the pencil (never saved) */
+.scratch{position:fixed;left:0;right:0;top:var(--fwt,50px);bottom:0;z-index:30;cursor:crosshair;touch-action:none}
+@media (max-width:760px){.scratch{top:52px;bottom:64px}}
+.scratchbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--panel);box-shadow:var(--shadow)}
+.scratchbar .sdot{width:20px;height:20px;border-radius:50%;border:0;box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--line2);cursor:pointer}
+.scratchbar .sdot.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+.readband .bd-btn{background:transparent;box-shadow:none}
+.readband .bd-btn:hover{background:rgba(255,255,255,.16)}
+.readband .bd-btn.main{background:#fff}

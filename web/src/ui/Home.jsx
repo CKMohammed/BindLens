@@ -23,9 +23,9 @@ export function AccountButton() {
   const u = s?.user || {};
   return (
     <button class="ib" title={u.email || _t("Account")} onClick={(e) => openMenu(e, consult.value ? [
-      { title: _t("Consultation mode") },
+      { title: _t("Read with PIN") },
       { label: _t("Help"), icon: "help", run: () => openPanel("help") },
-      { label: _t("Leave consultation mode..."), icon: "lock", run: () => openPanel("consult") },
+      { label: _t("Leave Read with PIN..."), icon: "lock", run: () => openPanel("consult") },
     ] : [
       { title: s.kind === "demo" ? _t("Example library (nothing is saved)") : (u.email || "") },
       s.cloud && { label: _t("Open my Drive in ") + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },

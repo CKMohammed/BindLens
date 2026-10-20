@@ -194,10 +194,10 @@ export function Settings() {
         {settings.value.pin && <button class="btn plain small" onClick={() => { setSetting("pin", null); toast(_t("The PIN is off.")); }}>{_t("Take the PIN off")}</button>}
       </div>
 
-      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Consultation mode")}</h3>
+      <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("Read with PIN")}</h3>
       <div class="row wrap">
-        <span class="grow small muted">{_t("This computer only for reading and searching (a reception desk, a library, a meeting room). A code starts it and the same code leaves it.")}</span>
-        <button class="btn soft small" onClick={() => { panel.value = { type: "consult" }; }}><Icon n="read" size={16} />{_t("Start consultation mode")}</button>
+        <span class="grow small muted">{_t("Only reading on this computer: other documents and books, reports and printing, a pencil that is not saved. Your PIN starts it and only your PIN leaves it.")}</span>
+        <button class="btn soft small" onClick={() => { panel.value = { type: "consult" }; }}><Icon n="lock" size={16} />{_t("Read with PIN")}</button>
       </div>
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("What BindLens changed")}</h3>

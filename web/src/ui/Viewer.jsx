@@ -11,6 +11,7 @@ import { stampSpec, HL_COLORS } from "./marks.js";
 import { openPanel } from "../actions.js";
 import { pip } from "./Gallery.jsx";
 import { _t, _tv } from "../i18n.js";
+import { consult } from "../consult.js";
 
 export const docState = signal({});        // fileId -> {status, pages, readOnly, error, v}
 export const searchHits = signal(null);    // {query, list:[{fileId, page, quads}], cur}
@@ -860,7 +861,7 @@ function DocBlock({ book, file, k, maxW, grid }) {
           {st.status === "ready" && <PageCanvas file={file} page={i} w={p.w} h={p.h} k={k} v={st.v || 0} />}
           {st.status !== "ready" && i === 0 && <Opening file={file} />}
           {st.status !== "ready" && i > 0 && <div class="loading">{_t("Page")} {i + 1}</div>}
-          {st.status === "ready" && !grid && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
+          {st.status === "ready" && !grid && !consult.value && <Overlay file={file} page={i} k={k} pw={p.w} ph={p.h} readOnly={st.readOnly} />}
           {grid && <button class="gridpick" title={_t("Open page {0}", i + 1)} onClick={() => { fitWidth.value = true; fitPage.value = false; zoom.value = 1; fileId.value = file.id; pageNo.value = i; setTimeout(() => { scrollTo.value = { fileId: file.id, page: i }; }, 60); }} />}
           {st.status === "ready" && st.form && !st.readOnly && !grid && <FormLayer file={file} page={i} k={k} v={st.v || 0} />}
           <span class="num">{i + 1}</span>

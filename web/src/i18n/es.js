@@ -2218,5 +2218,21 @@ export default {
  "A folder from this computer (it becomes a book)...": "Una carpeta de este ordenador (se convierte en un libro)...",
  "From my Google Drive (the originals, no copies)...": "Desde mi Google Drive (los originales, sin copias)...",
  "Upload documents or a folder": "Subir documentos o una carpeta",
- "Upload": "Subir"
+ "Upload": "Subir",
+ "Read with PIN: here you can only read.": "Leer con PIN: aquí solo se puede leer.",
+ "A pencil to point at things - nothing is saved": "Un lápiz para señalar cosas: no se guarda nada",
+ "Pencil": "Lápiz",
+ "Only your PIN leaves reading": "Solo tu PIN sale de la lectura",
+ "Only reading, until your PIN is typed again": "Solo leer, hasta que se vuelva a escribir tu PIN",
+ "Lock with PIN": "Bloquear con PIN",
+ "Read with PIN": "Leer con PIN",
+ "Leave Read with PIN": "Salir de Leer con PIN",
+ "Choose your BindLens PIN first: the same PIN starts and leaves Read with PIN, and opens the locked books.": "Primero elige tu PIN de BindLens: el mismo PIN activa y quita Leer con PIN, y abre los libros bloqueados.",
+ "Type your PIN to go back to everything.": "Escribe tu PIN para volver a todo.",
+ "Only reading: other documents and books, reports and printing, and a pencil that is not saved. Only your PIN leaves it. Type your PIN to start.": "Solo leer: otros documentos y libros, reportes e impresión, y un lápiz que no se guarda. Solo tu PIN lo quita. Escribe tu PIN para empezar.",
+ "Read with PIN (only reading)": "Leer con PIN (solo leer)",
+ "read pin lock only reading kiosk reception library consultation public screen": "leer pin bloquear solo lectura quiosco recepción biblioteca consulta pantalla pública read lock",
+ "Leave Read with PIN...": "Salir de Leer con PIN...",
+ "Put the pencil away": "Guardar el lápiz",
+ "Only reading on this computer: other documents and books, reports and printing, a pencil that is not saved. Your PIN starts it and only your PIN leaves it.": "Solo leer en este ordenador: otros documentos y libros, reportes e impresión, y un lápiz que no se guarda. Tu PIN lo activa y solo tu PIN lo quita."
 };
