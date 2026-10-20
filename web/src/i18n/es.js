@@ -2253,5 +2253,6 @@ export default {
  "Study": "Estudio",
  "Something to study...": "Algo que estudiar...",
  "Something to do...": "Algo que hacer...",
- "A day to remind you": "Un día para recordártelo"
+ "A day to remind you": "Un día para recordártelo",
+ "BindLens sees only the files and folders you give it or make with it, where they are in your Drive": "BindLens solo ve los archivos y carpetas que tú le das o creas con él, donde están en tu Drive"
 };

@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BindLens</title>
-<meta name="description" content="BindLens turns your folders into books you can read, mark, search and report on - in your browser with your own Google Drive (BindLens Web), or on your own computer with nothing sent anywhere (free for Windows).">
+<meta name="description" content="BindLens turns your folders into books you can read, mark, search and report on - in your browser with your own Google Drive, or on Windows.">
+<link rel="icon" href="img/icon.png">
 <link rel="alternate" hreflang="en" href="https://bindlens.com/">
 <link rel="alternate" hreflang="es" href="https://bindlens.com/es/">
 <link rel="alternate" hreflang="x-default" href="https://bindlens.com/">
@@ -18,557 +19,56 @@ if(c==="es"||(!c&&/^es/i.test(l)))location.replace("/es/"+location.hash)}catch(e
 @font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage-grotesque-latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
 @font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
-@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:"JetBrains Mono";src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
-/* BindLens's own look: black, gold and a vivid purple - and a frame round the whole page, like the app's window */
-:root{
-  --paper:#0A0A0D;      /* the page: black */
-  --sheet:#141319;      /* cards */
-  --sheet2:#1B1922;
-  --ink:#F5F3FB;        /* text */
-  --muted:#ADA9BF;      /* quieter text */
-  --line:#2B2834;       /* hairlines */
-  --violet:#7C5CFF;     /* vivid purple: buttons, links */
-  --violet-l:#A28BFF;
-  --violet-ink:#FFFFFF;
-  --gold:#D4AF37;       /* the lens, the frame */
-  --gold-l:#F2C85A;
-  --gold-d:#8A6A1E;
-  --tab:#17151E;
-  --hl:rgba(212,175,55,.38);
-  --ok:#5BC07A; --warn:#F0A060; --bad:#F07070;
-  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
-  --r:14px;
-  --fw:14px;            /* the page frame's width */
-  color-scheme:dark;
-}
-@property --spin{syntax:"<angle>";initial-value:0deg;inherits:false}
+/* minimal and quiet: paper, ink, the logo's pink and gold - and the thin frame of the app */
+:root{--paper:#FAF9F6;--ink:#16161D;--muted:#6B6878;--line:#E7E4DD;--pink:#C2337A;--gold:#E0A82E}
 *{box-sizing:border-box}
-html{background:var(--paper)}
-body{margin:0;background:
-    radial-gradient(1200px 700px at 8% -10%,rgba(212,175,55,.10),transparent 60%),
-    radial-gradient(900px 600px at 105% 20%,rgba(124,92,255,.14),transparent 60%),
-    var(--paper);
-  color:var(--ink);font:400 1.06rem/1.6 var(--f-body);padding:var(--fw) calc(var(--fw) + clamp(16px,4vw,48px))}
-/* the frame round the page: living lava (purple, magenta, gold, orange, blue flowing round), a thin gold edge inside */
-.pageframe{position:fixed;inset:0;z-index:60;pointer-events:none;padding:var(--fw);overflow:hidden;
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
-  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
-.pageframe .lava{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;will-change:transform;
-  background:
-    radial-gradient(9% 9% at 50% 18%,#FFE07A,transparent 70%),
-    radial-gradient(10% 10% at 78% 34%,#FF3D9A,transparent 70%),
-    radial-gradient(9% 9% at 82% 62%,#FF7A2F,transparent 70%),
-    radial-gradient(10% 10% at 62% 82%,#FFC83D,transparent 70%),
-    radial-gradient(9% 9% at 34% 80%,#FF4FB8,transparent 70%),
-    radial-gradient(10% 10% at 18% 60%,#FF8A3D,transparent 70%),
-    radial-gradient(9% 9% at 22% 30%,#FFD24A,transparent 70%),
-    conic-gradient(from 0deg,#6A3BFF,#D02A8A,#F0562A,#F2A51C,#D9307E,#7C5CFF,#3E6BFF,#B23CFF,#F0562A,#6A3BFF);
-  animation:lavaspin 24s linear infinite}
-.pageframe .lava.b{mix-blend-mode:screen;opacity:.9;animation:lavaspin 33s linear infinite reverse;
-  background:
-    radial-gradient(8% 8% at 40% 20%,#FF5CA8,transparent 70%),
-    radial-gradient(9% 9% at 76% 44%,#FFD24A,transparent 70%),
-    radial-gradient(8% 8% at 60% 78%,#9A6BFF,transparent 70%),
-    radial-gradient(9% 9% at 24% 66%,#FFB13D,transparent 70%),
-    radial-gradient(8% 8% at 30% 38%,#FF6A3D,transparent 70%),
-    radial-gradient(8% 8% at 70% 22%,#7C9BFF,transparent 70%)}
-@keyframes lavaspin{to{transform:rotate(360deg)}}
-.pageedge{position:fixed;inset:var(--fw);z-index:61;pointer-events:none;
-  box-shadow:inset 0 0 0 1.5px rgba(242,200,90,.9),inset 0 0 28px rgba(255,90,140,.22),inset 0 0 60px rgba(124,92,255,.22),0 0 0 1px rgba(0,0,0,.5)}
-@keyframes spin{to{--spin:360deg}}
-@media (prefers-reduced-motion:reduce){.pageframe .lava,.frame,.vframe{animation:none}}
-a{color:var(--violet-l);text-underline-offset:3px}
-a:focus-visible,button:focus-visible,summary:focus-visible,video:focus-visible{outline:3px solid var(--gold-l);outline-offset:3px;border-radius:6px}
-h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.08}
-p{margin:0}
-kbd{font:500 .82em var(--f-mono);background:var(--sheet2);border:1px solid var(--line);border-bottom:2px solid var(--gold-d);border-radius:6px;padding:.05em .4em;white-space:nowrap;color:var(--ink)}
-.wrap{max-width:1160px;margin-inline:auto}
-.langlink{font:700 .82rem var(--f-display);color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.32em .8em}
-.langlink:hover{color:var(--ink);border-color:var(--gold-d)}
-.read{max-width:66ch}
-
-/* header */
-.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);font:800 1.5rem var(--f-display);letter-spacing:-.02em}
-.brand img{width:44px;height:44px;border-radius:11px;box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(212,175,55,.35)}
-.brand span{color:var(--gold-l);font-weight:800}
-.nav{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
-.nav a{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
-.nav a:hover{color:var(--gold-l)}
-.btn{display:inline-flex;align-items:center;gap:.6em;background:var(--violet);color:var(--violet-ink)!important;text-decoration:none;font-weight:700;border-radius:999px;padding:.8em 1.4em;border:0;font-size:1rem;
-  box-shadow:0 0 0 1.5px rgba(242,200,90,.55),0 10px 28px -10px rgba(124,92,255,.75)}
-.btn:hover{filter:brightness(1.12)}
-.btn.ghost{background:transparent;color:var(--gold-l)!important;box-shadow:inset 0 0 0 1.5px var(--gold)}
-
-/* hero */
-.hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;padding-block:clamp(24px,5vw,64px) 40px}
-.hero h1{font-size:clamp(2.5rem,5.6vw,4.4rem);letter-spacing:-.035em;font-weight:800}
-.hero h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.45) 64%,rgba(124,92,255,.45) 90%,transparent 90%)}
-.hero .lede{color:var(--muted);font-size:1.18rem;margin-top:20px;max-width:46ch}
-.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
-.facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;color:var(--muted);font-size:.92rem}
-.facts span{display:inline-flex;align-items:center;gap:6px}
-.facts svg{width:16px;height:16px;stroke:var(--gold-l)}
-
-/* the app, drawn - in its gold frame */
-.frame{border-radius:18px;padding:9px;
-  background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
-  animation:spin 26s linear infinite;box-shadow:0 30px 70px -26px rgba(124,92,255,.55),0 0 40px -10px rgba(212,175,55,.35);max-width:100%}
-.app{background:#F2F1F7;border-radius:11px;overflow:hidden;color:#17161F;font:400 12px/1.3 var(--f-body)}
-.app .bar{display:flex;align-items:center;gap:14px;padding:7px 12px;background:rgba(255,255,255,.55);border-bottom:1px solid #E1DEEC}
-.app .bar i{font-style:normal;color:#3B3A48}
-.app .bar .doc{margin-inline:auto;color:#6B6880}
-.app .bar .win{display:flex;gap:14px;color:#3B3A48}
-.app .body{display:grid;grid-template-columns:46px minmax(0,1fr) 150px;gap:12px;padding:12px;min-height:340px}
-.rail{display:flex;flex-direction:column;gap:8px}
-.rail div{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font:700 11px var(--f-body)}
-.sheet{background:#fff;border-radius:4px;box-shadow:0 2px 0 rgba(0,0,0,.05),0 8px 24px -12px rgba(0,0,0,.25);padding:20px 22px;position:relative}
-.sheet h4{margin:0 0 10px;font:700 13px var(--f-body)}
-.ln{height:6px;border-radius:3px;background:#E9E7F0;margin:9px 0}
-.ln.hl{background:linear-gradient(90deg,#FFE680 0 72%,#E9E7F0 72%)}
-.ln.u{box-shadow:0 3px 0 -1px #5B52E8}
-.note{position:absolute;right:14px;top:58px;width:92px;background:#FFF3A8;border-radius:3px;padding:8px;font-size:10px;line-height:1.3;transform:rotate(2deg);box-shadow:0 6px 14px -8px rgba(0,0,0,.4)}
-.tick{position:absolute;left:18px;bottom:16px;color:#1E8E3E;font:700 22px var(--f-body)}
-.side{display:flex;flex-direction:column;gap:10px}
-.card{background:#fff;border-radius:10px;padding:10px;box-shadow:0 4px 14px -10px rgba(0,0,0,.3)}
-.clock{width:74px;height:74px;border-radius:50%;margin:4px auto 6px;border:2px solid #5B52E8;position:relative}
-.clock::before,.clock::after{content:"";position:absolute;left:50%;bottom:50%;width:2px;background:#17161F;transform-origin:bottom;border-radius:2px}
-.clock::before{height:22px;transform:translateX(-50%) rotate(-50deg)}
-.clock::after{height:30px;transform:translateX(-50%) rotate(110deg);background:#5B52E8}
-.card small{display:block;color:#6B6880;text-align:center}
-.next{font-size:10.5px}.next b{color:#C25E12}
-.pill{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:#fff;border:1px solid #E1DEEC;border-radius:999px;padding:4px 12px;font-size:10.5px;white-space:nowrap;box-shadow:0 4px 12px -8px rgba(0,0,0,.4);color:#17161F}
-
-/* sections as index tabs - gold */
-section{padding-block:56px}
-.tabhead{display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--gold-d);margin-bottom:28px;flex-wrap:wrap}
-.tabhead .tab{background:var(--tab);border:2px solid var(--gold);border-bottom:0;border-radius:12px 12px 0 0;padding:6px 16px;margin-bottom:-2px;
-  font:700 .78rem var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
-.tabhead h2{font-size:clamp(1.7rem,3.2vw,2.5rem);letter-spacing:-.025em;padding-bottom:10px}
-
-/* steps */
-.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;counter-reset:s}
-.step{counter-increment:s;background:var(--sheet);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:var(--r);padding:20px 20px 22px}
-.step h3{font-size:1.3rem;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
-.step h3::before{content:counter(s);font:700 .9rem var(--f-mono);color:#0A0A0D;background:var(--gold-l);border-radius:999px;width:1.8em;height:1.8em;display:inline-grid;place-items:center;flex:none}
-.step p{color:var(--muted)}
-
-/* features */
-.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px}
-.f h3{font-size:1.12rem;margin:10px 0 6px;font-family:var(--f-body);font-weight:700}
-.f p{color:var(--muted);font-size:.98rem}
-.f svg{width:30px;height:30px;stroke:var(--gold-l);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
-  padding:6px;border-radius:10px;background:rgba(124,92,255,.16);box-sizing:content-box}
-
-/* report sample */
-.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(24px,4vw,56px);align-items:center}
-.report{background:var(--sheet);border:1.5px solid var(--gold-d);border-radius:var(--r);overflow:hidden;box-shadow:0 20px 50px -30px rgba(124,92,255,.6)}
-.report header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
-.report header b{font-family:var(--f-display);font-size:1.1rem;color:var(--gold-l)}
-.report header small{color:var(--muted)}
-.tw{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:.93rem;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:10px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
-tr:last-child td{border-bottom:0}
-.chip{display:inline-block;border-radius:999px;padding:.12em .7em;font-size:.82rem;font-weight:700}
-.chip.bad{color:var(--bad);background:rgba(240,112,112,.14)}
-.chip.warn{color:var(--warn);background:rgba(240,160,96,.14)}
-.chip.ok{color:var(--ok);background:rgba(91,192,122,.14)}
-.examples{font-size:.82rem;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
-
-/* privacy */
-.vault{background:linear-gradient(160deg,var(--sheet2),var(--sheet));border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;
-  box-shadow:inset 0 0 0 1px rgba(124,92,255,.35)}
-.vault h2{font-size:clamp(1.8rem,3.4vw,2.7rem);letter-spacing:-.03em}
-.vault h2 span{color:var(--gold-l)}
-.vault ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
-.vault li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:12px}
-.vault li svg{width:22px;height:22px;stroke:var(--gold-l);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-top:2px}
-.vault p.small{color:var(--muted);font-size:.95rem;margin-top:16px}
-
-/* who */
-.who{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-.who div{border-top:3px solid var(--gold);padding-top:14px}
-.who h3{font-size:1.08rem;font-family:var(--f-body);font-weight:700;margin-bottom:6px}
-.who p{color:var(--muted);font-size:.96rem}
-
-/* faq */
-details{border-bottom:1px solid var(--line);padding-block:16px}
-summary{cursor:pointer;font-weight:700;font-size:1.06rem;list-style:none;display:flex;justify-content:space-between;gap:16px}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"+";font:700 1.3rem var(--f-mono);color:var(--gold-l);line-height:1}
-details[open] summary::after{content:"\2212"}
-details p{color:var(--muted);margin-top:10px;max-width:70ch}
-
-/* the video */
-.vframe{border-radius:18px;padding:8px;background:conic-gradient(from var(--spin),#8A6A1E,#F6D77A,#B8862A,#7C5CFF,#FFE9A8,#9A7417,#8A6A1E);
-  animation:spin 30s linear infinite;box-shadow:0 30px 80px -30px rgba(124,92,255,.6),0 0 50px -12px rgba(212,175,55,.35)}
-.vframe video{display:block;width:100%;height:auto;border-radius:11px;background:#000;aspect-ratio:16/9}
-.vcap{margin-top:12px;color:var(--muted);font-size:.95rem}
-
-/* install */
-.instwrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(20px,3vw,40px);align-items:start}
-ol.inst{padding:0;margin:0;display:grid;gap:12px;counter-reset:i}
-.inst li{list-style:none;counter-increment:i;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 14px 64px;position:relative;min-height:62px}
-.inst li::before{content:counter(i);position:absolute;left:14px;top:13px;display:grid;place-items:center;width:2.1em;height:2.1em;border-radius:999px;background:var(--violet);color:#fff;
-  font:700 1rem var(--f-mono);box-shadow:0 0 0 2px var(--gold)}
-.inst b{display:block;font-size:1.06rem;margin-bottom:2px}
-.inst p{color:var(--muted);font-size:.95rem}
-.k{color:var(--gold-l);font-weight:700}
-.instshots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.instshots figure{margin:0}
-.instshots img{display:block;width:100%;height:auto;border-radius:10px;border:2px solid var(--gold);box-shadow:0 18px 40px -22px rgba(124,92,255,.7)}
-.instshots figcaption{margin-top:10px;font-size:1rem;color:var(--ink)}
-.instshots figcaption b{display:inline-grid;place-items:center;width:1.7em;height:1.7em;border-radius:999px;background:var(--violet);color:#fff;font:700 .85rem var(--f-mono);
-  box-shadow:0 0 0 2px var(--gold);margin-right:8px}
-
-/* download */
-.dl{text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:linear-gradient(160deg,var(--sheet2),var(--sheet));
-  border:1.5px solid var(--gold);border-radius:22px;padding:clamp(24px,4vw,44px);box-shadow:0 0 60px -20px rgba(124,92,255,.5)}
-.dl h2{font-size:clamp(1.7rem,3vw,2.4rem);letter-spacing:-.025em}
-.dl p{color:var(--muted);margin-top:8px}
-.soon{display:inline-block;margin-top:10px;font:500 .82rem var(--f-mono);color:var(--gold-l)}
-/* real screenshots - each in a thin gold frame */
-.shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 30px}
-.shots figure{margin:0}
-.shots img{display:block;width:100%;height:auto;border-radius:12px;border:2px solid var(--gold);box-shadow:0 18px 40px -20px rgba(124,92,255,.6);background:var(--sheet)}
-.shots figcaption{margin-top:10px;color:var(--muted);font-size:.95rem}
-.shots figcaption b{color:var(--gold-l)}
-.shots .wide{grid-column:1 / -1}
-.homes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
-.homes img{border-radius:9px;border-width:1.5px}
-
-footer{border-top:1px solid var(--gold-d);padding-block:28px 40px;color:var(--muted);font-size:.9rem;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
-footer nav{display:flex;gap:18px;flex-wrap:wrap}
-
-@media (max-width:900px){
-  .hero,.split,.vault,.dl{grid-template-columns:minmax(0,1fr)}
-  .steps,.feat{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .instwrap{grid-template-columns:minmax(0,1fr)}
-  .who{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .shots{grid-template-columns:minmax(0,1fr)}
-}
-@media (max-width:600px){
-  :root{--fw:6px}
-  body{padding:var(--fw) calc(var(--fw) + 14px)}
-  .steps,.feat,.who,.homes,.instshots{grid-template-columns:minmax(0,1fr)}
-  .app .body{grid-template-columns:minmax(0,1fr);min-height:0}
-  .rail,.side{display:none}
-  .nav a:not(.btn){display:none}
-  .app .bar i:nth-child(n+3){display:none}
-}
-
-/* ---------- the first screen in two: BindLens Web on the right (70 %, gold frame), the Windows app on the left (30 %) */
-.door{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:clamp(16px,2vw,28px);align-items:stretch;
-  min-height:calc(100vh - 2 * var(--fw) - 100px);padding-block:8px 48px;width:min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px)));
-  margin-inline:calc((min(1480px,calc(100vw - 2 * var(--fw) - 2 * clamp(16px,4vw,48px))) - 100%) / -2)}
-.door-web{order:2;position:relative;border-radius:28px;overflow:hidden;padding:clamp(16px,3.2vw,48px) clamp(16px,3cm,113px);display:flex;align-items:center;
-  background:
-    radial-gradient(60% 70% at 12% 8%,rgba(124,92,255,.55),transparent 62%),
-    radial-gradient(50% 60% at 92% 18%,rgba(255,92,170,.38),transparent 64%),
-    radial-gradient(55% 60% at 80% 100%,rgba(242,200,90,.30),transparent 60%),
-    radial-gradient(45% 50% at 0% 100%,rgba(56,140,255,.30),transparent 60%),
-    #120F1C;
-  box-shadow:0 30px 80px -30px rgba(124,92,255,.6),inset 0 0 0 1px rgba(255,255,255,.06)}
-.door-web::before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,rgba(124,92,255,.18),rgba(255,92,170,.14),rgba(242,200,90,.16),rgba(56,140,255,.14),rgba(124,92,255,.18));
-  filter:blur(60px);animation:doorturn 40s linear infinite;pointer-events:none}
-@keyframes doorturn{to{transform:rotate(360deg)}}
-.goldframe{position:relative;width:100%;border-radius:20px;padding:clamp(22px,3.4vw,52px);
-  background:linear-gradient(160deg,rgba(20,18,28,.78),rgba(14,12,20,.86));backdrop-filter:blur(6px);
-  box-shadow:0 0 0 2px var(--gold),0 0 0 7px rgba(212,175,55,.14),0 0 0 8px rgba(242,200,90,.55),0 24px 60px -20px rgba(0,0,0,.6),inset 0 0 40px rgba(242,200,90,.08)}
-.goldframe .gc{position:absolute;width:26px;height:26px;border:2px solid var(--gold-l);pointer-events:none}
-.goldframe .gc.tl{left:10px;top:10px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
-.goldframe .gc.tr{right:10px;top:10px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
-.goldframe .gc.bl{left:10px;bottom:10px;border-right:0;border-top:0;border-radius:0 0 0 8px}
-.goldframe .gc.br{right:10px;bottom:10px;border-left:0;border-top:0;border-radius:0 0 8px 0}
-.web-in{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-width:640px}
-.kicker{display:inline-flex;align-items:center;gap:8px;font:700 .8rem var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-l)}
-.kicker .dot{width:8px;height:8px;border-radius:50%;background:#5BC07A;box-shadow:0 0 0 4px rgba(91,192,122,.18)}
-.door-web h1{font-size:clamp(2.3rem,4.6vw,4rem);letter-spacing:-.035em;font-weight:800;margin:14px 0 0;line-height:1.04}
-.door-web h1 em{font-style:normal;color:var(--gold-l);background:linear-gradient(transparent 64%,rgba(124,92,255,.5) 64%,rgba(124,92,255,.5) 90%,transparent 90%)}
-.door-web .lede{margin-top:18px}
-.signin{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
-.gsign,.msign{display:inline-flex;align-items:center;gap:12px;border-radius:999px;padding:.85em 1.5em;font:700 1.02rem var(--f-body);text-decoration:none}
-.gsign{background:#fff;color:#1F1F1F!important;box-shadow:0 0 0 2px rgba(242,200,90,.8),0 14px 34px -12px rgba(124,92,255,.9);transition:transform .15s}
-.gsign:hover{transform:translateY(-2px)}
-.msign{background:rgba(255,255,255,.06);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line);cursor:default}
-.msign i{font-style:normal;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-l);border:1px solid var(--gold-d);border-radius:999px;padding:1px 7px}
-.trylink{margin-top:16px;color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1.5px solid var(--violet-l);padding-bottom:2px}
-.trylink:hover{color:var(--gold-l);border-color:var(--gold-l)}
-.shelf{display:flex;align-items:flex-end;gap:5px;margin-top:34px;padding:0 10px 0;border-bottom:7px solid #6B4A2E;border-radius:2px;
-  box-shadow:0 10px 18px -8px rgba(0,0,0,.6)}
-.shelf i{width:30px;height:var(--h);border-radius:5px 5px 2px 2px;background:linear-gradient(90deg,color-mix(in srgb,var(--c),#000 28%),var(--c) 40%,color-mix(in srgb,var(--c),#fff 22%) 60%,color-mix(in srgb,var(--c),#000 22%));
-  font:700 .62rem var(--f-display);color:rgba(255,255,255,.92);writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;
-  box-shadow:inset 0 6px 0 -3px rgba(242,200,90,.75),inset 0 -6px 0 -3px rgba(242,200,90,.75);font-style:normal;letter-spacing:.04em;transition:transform .25s}
-.shelf i:hover{transform:rotate(180deg) translateY(8px)}
-.door-web .fine{margin-top:22px;color:var(--muted);font-size:.86rem;max-width:56ch}
-.door-web .fine a{color:var(--gold-l)}
-.door-app{order:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:clamp(18px,2.4vw,34px);border-radius:28px;
-  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));box-shadow:inset 0 0 0 1px var(--line)}
-.door-app .kicker{color:var(--muted)}
-.door-app .laptop{color:var(--gold-l);opacity:.85}
-.door-app h2{font-size:clamp(1.7rem,2.5vw,2.3rem);letter-spacing:-.03em;line-height:1.08;margin:0}
-.door-app p{color:var(--muted);margin:0}
-.door-app .btn{align-self:flex-start;margin-top:6px}
-.door-app small{color:var(--muted);font-size:.82rem}
-.door-app .more{color:var(--gold-l);font-weight:700;text-decoration:none;margin-top:8px}
-@media (max-width:900px){
-  .door{grid-template-columns:minmax(0,1fr);width:auto;margin-inline:0;min-height:0}
-  .door-web{order:1;padding:14px}
-  .door-app{order:2}
-  .goldframe{padding:26px 20px}
-}
-@media (prefers-reduced-motion:reduce){.door-web::before{animation:none}}
+html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:400 16px/1.55 "Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{border:6px solid transparent;border-image:linear-gradient(135deg,#111218,#FF85C2 45%,#FFC83D) 1;min-height:100vh}
+a{color:inherit}
+.wrap{max-width:880px;margin:0 auto;padding:28px 20px 40px}
+header{display:flex;align-items:center;gap:10px}
+header img{width:30px;height:30px;border-radius:7px}
+header b{font:600 17px "Bricolage Grotesque",sans-serif;letter-spacing:-.01em} header b span{color:var(--pink)}
+header .sp{flex:1} header a{font-size:14px;color:var(--muted);text-decoration:none} header a:hover{color:var(--ink)}
+.hero{padding:72px 0 40px;text-align:center}
+h1{font:500 46px/1.08 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 14px}
+.sub{color:var(--muted);font-size:18px;max-width:560px;margin:0 auto 30px}
+.cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:999px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid var(--line);background:#fff}
+.btn.main{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.small{font-size:13px;color:var(--muted);margin-top:12px} .small a{color:var(--muted)}
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;border-top:1px solid var(--line);padding-top:32px;margin-top:34px}
+.feats b{display:block;font:600 16px "Bricolage Grotesque",sans-serif;margin-bottom:4px} .feats b::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:8px;vertical-align:2px}
+.feats p{margin:0;color:var(--muted);font-size:14.5px}
+.win{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid var(--line);border-radius:18px;background:#fff;padding:20px 22px;margin-top:40px}
+.win b{font:600 17px "Bricolage Grotesque",sans-serif} .win p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+footer{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:44px;font-size:13px;color:var(--muted)} footer a{color:var(--muted)}
+@media (max-width:700px){h1{font-size:34px} .hero{padding:44px 0 28px} .feats{grid-template-columns:1fr;gap:18px}}
 </style>
-<link rel="icon" href="img/icon.png">
 </head>
 <body>
-<div class="pageframe" aria-hidden="true"><div class="lava"></div><div class="lava b"></div></div>
-<div class="pageedge" aria-hidden="true"></div>
 <div class="wrap">
-  <header class="top">
-    <a class="brand" href="#top" aria-label="BindLens home">
-      <img src="img/logo.png" width="44" height="44" alt=""><b>Bind<span>Lens</span></b>
-    </a>
-    <nav class="nav" aria-label="Main">
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="#privacy">Privacy</a>
-      <a href="#faq">Questions</a>
-      <a href="#watch">Watch</a>
-      <a href="#install">Install</a>
-      <a class="btn ghost" href="/app/?start=google">Sign in</a>
-      <a class="btn" href="#download">Download</a>
-      <a class="langlink" href="/es/" lang="es" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a>
-    </nav>
-  </header>
-
-  <main id="top">
-    <!-- the first screen, in two: BindLens Web (70 %, in a gold frame) and the app for Windows (30 %, quiet) -->
-    <div class="door">
-      <section class="door-web" aria-labelledby="webh">
-        <div class="goldframe">
-          <span class="gc tl" aria-hidden="true"></span><span class="gc tr" aria-hidden="true"></span><span class="gc bl" aria-hidden="true"></span><span class="gc br" aria-hidden="true"></span>
-          <div class="web-in">
-            <span class="kicker"><i class="dot" aria-hidden="true"></i>BindLens Web &middot; in your browser</span>
-            <h1 id="webh">Your documents, <em>bound into books.</em></h1>
-            <p class="lede">Every folder becomes a book you can read, mark, search and report on - from any computer, tablet or phone. Your files stay in your own Google Drive.</p>
-            <div class="signin">
-              <a class="gsign" href="/app/?start=google">
-                <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.5z"/></svg>
-                Sign in with Google
-              </a>
-              <span class="msign" aria-disabled="true" title="OneDrive is coming soon">
-                <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#F25022" d="M1 1h9v9H1z"/><path fill="#7FBA00" d="M11 1h9v9h-9z"/><path fill="#00A4EF" d="M1 11h9v9H1z"/><path fill="#FFB900" d="M11 11h9v9h-9z"/></svg>
-                Microsoft (OneDrive) <i>soon</i>
-              </span>
-            </div>
-            <a class="trylink" href="/app/?demo=1">Try it first with an example library <span aria-hidden="true">&rarr;</span></a>
-            <div class="shelf" aria-hidden="true">
-              <i style="--c:#E06C9F;--h:78px">Clients</i><i style="--c:#8E6CF0;--h:92px">Contracts</i><i style="--c:#5B8DEF;--h:70px">Invoices</i><i style="--c:#F08A4B;--h:86px">Lectures</i>
-              <i style="--c:#45B07C;--h:96px">Thesis</i><i style="--c:#E9A13B;--h:74px">Taxes</i><i style="--c:#5BB9C9;--h:84px">Staff</i>
-            </div>
-            <p class="fine">BindLens sees only the files it makes or that you give it, in a folder called BindLens in your Drive. We have no servers: nothing goes to us. <a href="/app/privacy.html">Privacy</a> &middot; <a href="/app/terms.html">Terms</a></p>
-          </div>
-        </div>
-      </section>
-
-      <aside class="door-app" aria-labelledby="apph">
-        <svg class="laptop" viewBox="0 0 64 44" width="64" height="44" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="4" width="44" height="28" rx="3"/><path d="M3 38h58l-4 4H7z"/><path d="M27 18l4 4 7-8"/></svg>
-        <span class="kicker">BindLens for Windows</span>
-        <h2 id="apph">Nothing leaves your laptop.</h2>
-        <p>The same books, on your own computer. No account, no internet, no cloud.</p>
-        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-          Download for Windows
-        </a>
-        <small>Free &middot; Windows 10 and 11 &middot; open source (AGPL-3.0)</small>
-        <a class="more" href="#watch">See the app <span aria-hidden="true">&darr;</span></a>
-      </aside>
+  <header><img src="img/icon.png" alt=""><b>Bind<span>Lens</span></b><span class="sp"></span>
+    <a href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a></header>
+  <section class="hero">
+    <h1>Your documents, bound into books.</h1>
+    <p class="sub">Read, mark and find anything in your folders. Everything stays in your own Google Drive - or on your computer.</p>
+    <div class="cta">
+      <a class="btn main" href="/app/?start=google">Sign in with Google</a>
+      <a class="btn" href="/app/?demo=1">Try the example library</a>
     </div>
-
-    <section id="watch">
-      <div class="tabhead"><span class="tab">Watch</span><h2>BindLens in two minutes</h2></div>
-      <div class="vframe">
-        <video controls preload="none" playsinline poster="img/how-it-works.webp" width="1280" height="720">
-          <source src="img/how-it-works.mp4" type="video/mp4">
-        </video>
-      </div>
-      <p class="vcap">Every chapter of the app, recorded from BindLens itself (the names in it are made up). With sound.</p>
-    </section>
-
-    <section id="how">
-      <div class="tabhead"><span class="tab">How it works</span><h2>Three steps, no setup</h2></div>
-      <div class="steps">
-        <div class="step"><h3>Add a folder</h3><p>It becomes a book: all its documents one after another, in order. Folders inside it become chapters. Nothing is copied or moved.</p></div>
-        <div class="step"><h3>Read and mark</h3><p>Highlight, underline, write, draw, stamp or tick. Your marks are saved inside the original PDF, and every one of them can be taken off again.</p></div>
-        <div class="step"><h3>Pull out what you need</h3><p>Contacts, deadlines, invoices and tables come out as a report in seconds. Save it as PDF, Word or Excel, or print it.</p></div>
-      </div>
-    </section>
-
-    <section id="see">
-      <div class="tabhead"><span class="tab">See it</span><h2>BindLens, as it is</h2></div>
-      <div class="shots">
-        <figure class="wide"><img src="img/home_bookcase.webp" width="1400" height="900" loading="lazy" alt="Home in BindLens: the books of the library standing in a wooden bookcase, one of them pulled out a little."><figcaption><b>Home.</b> Continue where you were, see what needs you, and find your books - on a turning circle, in a bookcase, a filing cabinet, lever-arch files or lockers.</figcaption>
-          <div class="homes">
-            <img src="img/home_cabinet.webp" width="1400" height="900" loading="lazy" alt="Home as a filing cabinet: one drawer for each book, one drawer open.">
-            <img src="img/home_lockers.webp" width="1400" height="900" loading="lazy" alt="Home as a row of lockers, one door open.">
-            <img src="img/home_circle.webp" width="1400" height="900" loading="lazy" alt="Home with the books on a slowly turning circle and soft moving colours behind.">
-          </div>
-        </figure>
-        <figure><img src="img/book.webp" width="1400" height="900" loading="lazy" alt="A book open in BindLens: a client proposal with highlighted lines, an underlined line and sticky notes."><figcaption><b>Mark your PDFs.</b> Highlight, underline, write, add notes and stamps - saved inside the original file.</figcaption></figure>
-        <figure><img src="img/read.webp" width="1400" height="900" loading="lazy" alt="Reading mode: the page in the middle, the book's contents on the left, a calendar and clock on the right."><figcaption><b>Read calmly.</b> The page, the book's contents in its own colours, the date and the time.</figcaption></figure>
-        <figure><img src="img/gallery.webp" width="1400" height="900" loading="lazy" alt="A folder of photos shown as a gallery of framed pictures."><figcaption><b>Photos and videos.</b> A folder of pictures opens as a gallery; videos play inside BindLens.</figcaption></figure>
-        <figure><img src="img/pin.webp" width="1400" height="900" loading="lazy" alt="The PIN screen: a ring binder with a small padlock and a number pad, over moving colours."><figcaption><b>A PIN, if you want one.</b> The binder opens with the right code.</figcaption></figure>
-      </div>
-      <p style="color:var(--muted);margin-top:18px;font-size:.9rem">Real screenshots of BindLens 1.0 with an example library (the names and dates are made up).</p>
-    </section>
-
-    <section id="features">
-      <div class="tabhead"><span class="tab">Features</span><h2>Everything in the folder, in one place</h2></div>
-      <div class="feat">
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>
-          <h3>Every kind of file</h3><p>PDF, Word, Excel, PowerPoint and photos in one book. With Microsoft Office or LibreOffice installed, Office pages show exactly as they look.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>
-          <h3>Marks inside your PDFs</h3><p>Highlighter, pen, text, sticky notes, shapes, stamps, ticks and crosses. One file, no copies. Undo anything, any time.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
-          <h3>Reports in seconds</h3><p>Contacts, deadlines, invoices and money, tables as they are, a person across all files, charts that say what they show.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
-          <h3>What needs you</h3><p>Contract renewals, invoice due dates, insurance renewals and submission deadlines found in your documents, with a reminder before they come. Add them to Outlook or Google Calendar.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
-          <h3>Find anything</h3><p><kbd>Ctrl</kbd>+<kbd>K</kbd> finds document names, words inside them and actions. Scanned pages are read too, so you can search them.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2zM21 6a2 2 0 0 0-2-2h-5a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h5a2 2 0 0 0 2-2z"/></svg>
-          <h3>Calm reading</h3><p>A quiet reading mode with the contents beside the page. A folder of photos opens as a gallery and plays as a slideshow; videos play inside, big or in a corner.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg>
-          <h3>Print and scan</h3><p>Print straight to your printer, with no PDF program needed. Scan from a scanner, the camera or phone photos, straightened and cleaned.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-          <h3>A PIN if you want one</h3><p>Lock BindLens, or a single book, with a four-digit PIN on a shared computer. Correct a scanned page right on the scan, too.</p>
-        </div>
-        <div class="f">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg>
-          <h3>Make it yours</h3><p>Themes, colours and backgrounds, a frame of slowly flowing colour round the window, and your books at Home on a turning circle, in a bookcase or a filing cabinet.</p>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="split">
-        <div class="read">
-          <div class="tabhead"><span class="tab">Reports</span><h2>Deadlines, before they pass</h2></div>
-          <p style="color:var(--muted)">BindLens reads the dates in your contracts, invoices, insurance papers and project plans, and lists what is coming up. Double-click a row to open its page. Names, emails and phones are found by what each column holds, whatever its title says.</p>
-        </div>
-        <div class="report">
-          <header><b>Deadlines</b><small>Office · 32 documents</small></header>
-          <div class="tw">
-            <table>
-              <thead><tr><th>Document</th><th>What</th><th>Date</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr><td>Invoice 4502 - Cleaning</td><td>Payment due</td><td>30 Sep 2026</td><td><span class="chip bad">Overdue</span></td></tr>
-                <tr><td>Home insurance</td><td>Renewal</td><td>2 Nov 2026</td><td><span class="chip warn">In 17 days</span></td></tr>
-                <tr><td>Office lease - Main Street</td><td>Renewal notice</td><td>30 Nov 2026</td><td><span class="chip warn">In 45 days</span></td></tr>
-                <tr><td>Thesis - Chapter 1</td><td>Submission</td><td>15 Jan 2027</td><td><span class="chip ok">OK</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="examples">Example names and dates.</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="privacy">
-      <div class="vault">
-        <div>
-          <h2>Nothing leaves your <span>computer.</span></h2>
-          <p class="small">For offices, universities, freelancers and anyone who keeps important documents. BindLens has no account, no cloud and no AI. It works on your computer, with your files where they are.</p>
-        </div>
-        <ul>
-          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Your documents, marks, notes and settings stay on your computer.</span></li>
-          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>BindLens collects nothing about you and sends nothing anywhere.</span></li>
-          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>It uses the internet only when you ask: a photo for the background, a calendar link you add, or the data to read scans.</span></li>
-          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Every change it makes to your folders is written down, so you can check it.</span></li>
-        </ul>
-      </div>
-    </section>
-
-    <section>
-      <div class="tabhead"><span class="tab">Made for</span><h2>Anyone with folders of documents</h2></div>
-      <div class="who">
-        <div><h3>Offices</h3><p>Invoices, contracts, quotes and letters: read, sign, stamp and pull the numbers out.</p></div>
-        <div><h3>Universities and research</h3><p>Readings, lecture notes, papers and your thesis as books: highlight, find any word, make a summary sheet.</p></div>
-        <div><h3>Freelancers</h3><p>Clients, proposals, projects and deadlines in one place, with the dates that need you.</p></div>
-        <div><h3>Paperwork at home</h3><p>Bills, taxes, insurance, manuals and warranties: each folder a book you can find things in.</p></div>
-      </div>
-    </section>
-
-    <section id="faq">
-      <div class="tabhead"><span class="tab">Questions</span><h2>Good to know</h2></div>
-      <div class="read" style="max-width:780px">
-        <details open><summary>Does BindLens change my files?</summary><p>Only when you mark a PDF: your marks are saved inside that PDF. Nothing is copied, moved or renamed unless you ask, every mark can be taken off again, and Help › What BindLens changed in my folders lists every change.</p></details>
-        <details><summary>Do I need the internet?</summary><p>No. BindLens works offline. It goes online only when you ask for a photo, add a calendar link or ask it to read scanned pages for the first time.</p></details>
-        <details><summary>Which computers does it run on?</summary><p>Windows 10 and Windows 11. On Mac and Linux it can be run from its source code with Python.</p></details>
-        <details><summary>A blue window appears when I install it. What do I click?</summary><p>Click <b>More info</b>, then <b>Run anyway</b>. See <a href="#install">How to install</a>.</p></details>
-        <details><summary>Where are my settings kept?</summary><p>On your computer, in your user folder (%APPDATA%\BindLens). They stay when you update BindLens.</p></details>
-        <details><summary>Is BindLens open source?</summary><p>Yes. BindLens is free software under the GNU Affero General Public License v3, and its source code comes with the program. The name BindLens and its logo are not part of that licence.</p></details>
-      </div>
-    </section>
-
-    <section id="install">
-      <div class="tabhead"><span class="tab">Install</span><h2>How to install</h2></div>
-      <div class="instwrap">
-        <ol class="inst">
-          <li><b>Download</b><p>Click <span class="k">Download for Windows</span> and save <span class="k">BindLens.Setup.exe</span>.</p></li>
-          <li><b>Open it</b><p>Double-click <span class="k">BindLens.Setup.exe</span> in your Downloads.</p></li>
-          <li><b>Click <span class="k">More info</span></b><p>If a blue window appears.</p></li>
-          <li><b>Click <span class="k">Run anyway</span></b><p>The installer opens.</p></li>
-          <li><b>Install and open</b><p>Click <span class="k">Install</span>, then open BindLens from its icon on the desktop.</p></li>
-        </ol>
-        <div class="instshots">
-          <figure><img src="img/install-more-info.webp" width="1064" height="994" loading="lazy" alt="The blue Windows window, with More info marked in gold."><figcaption><b>3</b> Click <span class="k">More info</span></figcaption></figure>
-          <figure><img src="img/install-run-anyway.webp" width="1064" height="996" loading="lazy" alt="The blue Windows window after More info, with Run anyway marked in gold."><figcaption><b>4</b> Click <span class="k">Run anyway</span></figcaption></figure>
-        </div>
-      </div>
-    </section>
-
-    <section id="download">
-      <div class="dl">
-        <div>
-          <h2>BindLens for Windows</h2>
-          <p>Version 1.0 · Windows 10 and 11 · free · one installer, no administrator rights needed.</p>
-          <span class="soon"><a href="#install" style="color:inherit">How to install, step by step</a></span>
-          <p style="margin-top:10px"><a href="https://github.com/CKMohammed/BindLens">Source code</a> · <a href="https://github.com/CKMohammed/BindLens/releases">All versions</a></p>
-        </div>
-        <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-          Download BindLens 1.0
-        </a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <span>© 2026 Mohammed Chahboune Kadi · BindLens is free software under the GNU AGPL v3.</span>
-    <nav aria-label="Footer"><a href="#privacy">Privacy (app)</a><a href="/app/privacy.html">Privacy (BindLens Web)</a><a href="/app/terms.html">Terms (BindLens Web)</a><a href="#faq">Licence</a><a href="https://github.com/CKMohammed/BindLens">Source code</a><a href="#download">Download</a></nav>
-  </footer>
-  <p style="color:var(--muted);font-size:.85rem;padding-bottom:32px">This website sets no cookies, has no analytics and loads nothing from other sites (its fonts are here, under the SIL Open Font License).</p>
+  </section>
+  <section class="feats">
+    <div><b>Read and mark</b><p>Highlight, write, sign. Marks are saved in your PDFs.</p></div>
+    <div><b>Find</b><p>Any word in any document, in a moment.</p></div>
+    <div><b>Reports</b><p>Names, dates and amounts out of your documents, as PDF or Excel.</p></div>
+  </section>
+  <section class="win">
+    <div><b>BindLens · Windows</b><p>Windows 10 and 11 · free · open source</p><p>If Windows says it protected your PC: More info, then Run anyway.</p></div>
+    <a class="btn main" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">Download for Windows</a>
+  </section>
+  <footer><span>BindLens 1.0 · Mohammed Chahboune Kadi · free software under the GNU AGPL 3.0</span><a href="/app/privacy.html">Privacy</a><a href="/app/terms.html">Terms</a><a href="https://github.com/CKMohammed/BindLens">Source code (AGPL-3.0)</a></footer>
 </div>
 </body>
 </html>

@@ -1374,3 +1374,33 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .nt-x{border:0;background:none;color:var(--faint);opacity:0;padding:2px;display:flex} .nt:hover .nt-x{opacity:1}
 .nt.cd .nt-big{font:500 18px var(--f-display);color:var(--accent);min-width:26px}
 :root[data-theme="dark"] .notecard{background:var(--panel)}
+/* =================== 1.0 FLAT: no 3D anywhere (flat colours, hairlines) - except the bookcase, which is real wood == */
+.band{background:rgba(10,10,16,.30);text-shadow:none}
+.bd-btn,.bd-find,.band .fullbtn,.fb,.bd-brand .logo-wrap{box-shadow:none}
+.bd-btn{background:rgba(255,255,255,.14)} .bd-btn.main{box-shadow:none}
+.fb.on{box-shadow:none}
+.window{box-shadow:none}
+.seg button.on{box-shadow:none;outline:1px solid var(--line2)}
+.dialog{box-shadow:0 12px 40px rgba(18,12,40,.14);border:1px solid var(--line)}
+.needcard,.sidecard,.bulkbar,.scratchbar,.menu{box-shadow:none}
+.menu{border:1px solid var(--line)}
+.page{box-shadow:0 0 0 1px rgba(22,18,40,.08)}
+.btn,.ib,.rb,.bd-ib{box-shadow:none}
+.toast{box-shadow:none;border:1px solid var(--line)}
+/* the bookcase: real oak - grain, a back of planks, the shadow of each shelf, the light on the front edges */
+.home.calm .bookcase{filter:drop-shadow(0 22px 26px rgba(50,30,12,.30))}
+.home.calm .bc-body{border-radius:6px;padding:12px 12px 0;
+  background:repeating-linear-gradient(90deg,rgba(110,70,30,.07) 0 1px,transparent 1px 6px),repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 2px,transparent 2px 17px),
+    linear-gradient(90deg,#B98A57,#D2A877 8%,#C99C69 50%,#D2A877 92%,#B98A57);
+  box-shadow:inset 0 0 0 1px rgba(70,40,15,.25),inset 0 2px 0 rgba(255,255,255,.25)}
+.home.calm .bc-back{border-radius:2px 2px 0 0;
+  background:repeating-linear-gradient(90deg,rgba(60,35,15,.10) 0 1px,transparent 1px 72px),repeating-linear-gradient(90deg,rgba(110,70,30,.05) 0 1px,transparent 1px 5px),
+    linear-gradient(180deg,#B8925F,#C8A272 30%,#C29A68);
+  box-shadow:inset 0 20px 24px -8px rgba(55,30,10,.55),inset 0 -5px 8px rgba(55,30,10,.18),inset 12px 0 16px -8px rgba(55,30,10,.35),inset -12px 0 16px -8px rgba(55,30,10,.35)}
+.home.calm .bc-board{background:repeating-linear-gradient(90deg,rgba(110,70,30,.08) 0 1px,transparent 1px 7px),linear-gradient(180deg,#E3C397 0,#D3AE7E 45%,#B88D5C 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 6px 10px rgba(50,28,10,.35)}
+.home.calm .bc-shelf:last-child .bc-board{border-radius:0 0 6px 6px}
+.plate{box-shadow:0 1px 2px rgba(50,28,10,.35)}
+:root[data-theme="dark"] .home.calm .bc-body{background:repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 1px,transparent 1px 6px),linear-gradient(90deg,#4A3021,#5E3D2A 8%,#573826 50%,#5E3D2A 92%,#4A3021)}
+:root[data-theme="dark"] .home.calm .bc-back{background:repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 1px,transparent 1px 72px),linear-gradient(180deg,#2E1E15,#3A271C 30%,#33231A);box-shadow:inset 0 20px 24px -8px rgba(0,0,0,.7),inset 12px 0 16px -8px rgba(0,0,0,.5),inset -12px 0 16px -8px rgba(0,0,0,.5)}
+:root[data-theme="dark"] .home.calm .bc-board{background:linear-gradient(180deg,#6E4A33,#5A3B28 45%,#432B1D)}

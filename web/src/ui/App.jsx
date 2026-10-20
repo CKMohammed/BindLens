@@ -150,7 +150,7 @@ function Start() {
           <div class="or">{_t("or")}</div>
           <button class="btn ghost" onClick={() => startWith(new DemoStore())}>{_t("Try it with an example library")}</button>
           {errorText.value && <p class="small" style={{ color: "var(--bad)", marginTop: 16 }}>{errorText.value}</p>}
-          <p class="fine">{_t("BindLens sees only the files it makes or that you give it, in a folder called")} <b>{_t("BindLens")}</b> {_t("in your Drive")}{MS_CLIENT_ID ? _t(" (in OneDrive: Apps/BindLens)") : ""}{_t(". Nothing goes to our servers: we have none.")} <a href={import.meta.env.BASE_URL + (isEs ? "privacy.es.html" : "privacy.html")} target="_blank" rel="noopener">{_t("Privacy")}</a> · <a href={import.meta.env.BASE_URL + (isEs ? "terms.es.html" : "terms.html")} target="_blank" rel="noopener">{_t("Terms")}</a> · <a href="/" target="_blank">{_t("bindlens.com")}</a></p>
+          <p class="fine">{_t("BindLens sees only the files and folders you give it or make with it, where they are in your Drive")}{MS_CLIENT_ID ? _t(" (in OneDrive: Apps/BindLens)") : ""}{_t(". Nothing goes to our servers: we have none.")} <a href={import.meta.env.BASE_URL + (isEs ? "privacy.es.html" : "privacy.html")} target="_blank" rel="noopener">{_t("Privacy")}</a> · <a href={import.meta.env.BASE_URL + (isEs ? "terms.es.html" : "terms.html")} target="_blank" rel="noopener">{_t("Terms")}</a> · <a href="/" target="_blank">{_t("bindlens.com")}</a></p>
           <div class="langpick" role="group" aria-label="Language / Idioma">{LANGS.map(([k, l]) => <button key={k} class={lang === k ? "on" : ""} onClick={() => setLang(k)}>{l}</button>)}</div>
         </>}
       </div>
