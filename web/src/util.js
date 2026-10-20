@@ -1,7 +1,7 @@
 // Small helpers used everywhere.
 import { _t, isEs } from "./i18n.js";
 
-export const BOOK_COLORS = ["#2F4A7A", "#7A2E3E", "#B8862E", "#2D6E6A", "#4A5568", "#5E7D5A", "#5A4A7A", "#9C4F2E", "#3E6B8C", "#8A6D3B"];   // 1.0 calm: deep, matte office colours
+export const BOOK_COLORS = ["#3A3D4A", "#B4587F", "#C29A45", "#6E5A7E", "#9C6B86", "#A88B5E", "#5B5F6B", "#8A3E5C", "#B98A3A", "#4E4A63"];   // 1.0 thin: soft tones of the logo (ink, pink, gold)
 
 export function colorFor(name) {
   let h = 0;

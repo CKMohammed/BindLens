@@ -1204,6 +1204,46 @@ table.rows tr.new:hover td{background:#E5EEFF}
 :root[data-theme="dark"] .plate{background:#2C2C36;color:var(--muted)}
 .nc-foot{flex-wrap:wrap}
 
+/* =================== 1.0 THIN: the same colours, less thickness - low bars, hairlines, little padding ======== */
+:root{--fw:8px;--fwr:40px;--fwt:40px;
+  --shadow:0 10px 32px rgba(22,18,40,.10);--shadow2:0 1px 2px rgba(22,18,40,.05)}
+/* the band at the top: lower, its buttons smaller */
+.band{padding:0 10px 0 8px;gap:4px}
+.bd-ib,.band .fullbtn{width:28px;height:28px} .bd-ib svg{width:16px;height:16px}
+.bd-find{height:28px;font-size:13px} .bd-btn{height:28px;padding:0 11px;font-size:13px}
+.bd-book,.band .docswitch .ds-cur{font-size:13px;padding-top:3px;padding-bottom:3px}
+.bd-word{font-size:14px} .band .avatar{width:26px;height:26px;font-size:11px}
+.bd-brand .logo-wrap{transform:scale(.86)}
+.fb{width:28px;height:28px}
+/* the ribbon: one thin line of tools */
+.ribbon{min-height:40px;padding:0 6px 0 2px}
+.rtabs button{padding:0 9px;font-size:13px}
+.rb{min-width:32px;width:32px;height:32px;border-radius:8px} .rb svg{width:18px;height:18px}
+.rundo .ib{width:30px;height:30px}
+/* buttons, rows, panels: less padding */
+.btn{padding:7px 15px} .btn.small{padding:5px 11px;font-size:12.5px}
+.ib{width:32px;height:32px}
+.side .head{padding:9px 10px 4px} .list{padding:4px}
+.bookrow,.filerow{padding:5px 8px;font-size:13.5px}
+.side{width:268px}
+.dialog .dh{padding:16px 20px 6px} .dialog .db{padding:6px 20px 14px} .dialog .df{padding:10px 20px}
+.dialog{box-shadow:0 24px 70px rgba(18,12,40,.22),0 0 0 1px rgba(18,12,40,.05)}
+.needcard{padding:13px;box-shadow:none}
+/* the pages: paper with a hairline, hardly any shadow */
+.page{box-shadow:0 0 0 1px rgba(22,18,40,.06),0 2px 10px rgba(22,18,40,.05)}
+.dochead{font-size:12.5px;font-weight:600}
+/* statuses: a small dot of colour, the word in grey */
+.filerow .tag{background:none;padding:0;margin-left:8px;font-weight:500;-webkit-text-fill-color:var(--muted)}
+.filerow .tag::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}
+/* phone: fewer things - Home is the books; reading is only the page */
+@media (max-width:760px){
+  .needcard,.home .seg,.topdecor,.bc-deco{display:none!important}
+  .home.calm .home-top h1{font-size:24px}
+  .readband .bd-btn span,.clockcal,.bookmap{display:none!important}
+  .bottombar{padding-top:2px}
+  .bottombar .bb{padding:5px 0;font-size:10.5px}
+}
+
 /* ================= 1.0 DARK: the same calm, at night. The pages stay paper (Night pages darkens them too) ================= */
 :root[data-theme="dark"]{
   --bg:#15151B; --bg2:#1C1C24; --panel:#1E1E26; --panel2:#24242E; --ink:#ECEBF2; --muted:#A4A2B4; --faint:#6F6D80;

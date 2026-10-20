@@ -3941,6 +3941,20 @@ def unique_path(folder, name):
     return cand
 
 
+def screen_work_area(root):
+    """The main screen without the taskbar: (left, top, right, bottom)."""
+    if os.name == "nt":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            rc = wintypes.RECT()
+            if ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(rc), 0):
+                return rc.left, rc.top, rc.right, rc.bottom
+        except Exception:
+            pass
+    return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight() - 48
+
+
 def safe_geometry(root, geo):
     """4.2.2: a saved window size and place that is really on the screen (with its title bar reachable) - a window
     off the screen, or bigger than it, comes back to the middle."""
@@ -19543,12 +19557,14 @@ class App:
         self._icons = {}
 
         root.title(APP_NAME)
-        root.geometry(safe_geometry(root, s.get("geometry", "1280x820")))   # 4.2.2: always on the screen
-        if s.get("maximized"):
-            try:
-                root.state("zoomed")
-            except Exception:
-                pass
+        # 1.0: BindLens opens with about 1 cm free all round (it fills the screen only when you maximise it)
+        try:
+            cm = int(round(root.winfo_fpixels("1c")))
+            l_, t_, r_, b_ = screen_work_area(root)
+            w_, h_ = max(820, r_ - l_ - 2 * cm), max(520, b_ - t_ - 2 * cm)
+            root.geometry(f"{w_}x{h_}+{l_ + max(0, (r_ - l_ - w_) // 2)}+{t_ + max(0, (b_ - t_ - h_) // 2)}")
+        except Exception:
+            root.geometry(safe_geometry(root, s.get("geometry", "1280x820")))   # 4.2.2: always on the screen
         root.minsize(820, 520)
         s.setdefault("icon", "Black")
         set_logo_style("classic")                                 # 4.4.1: one logo (the original) - its background
@@ -49858,7 +49874,7 @@ class App:
     def _side_w(self):
         """The slim sides of the frame: as wide as you chose (Personalise > The frame > Width) - 4.2: always a
         little wider than the moulding, so the left side looks like the frame, not a line."""
-        return max(self._mould_w() + 6, min(20, int(self._frame_conf().get("width", 6)) + 8))
+        return max(self._mould_w() + 3, min(16, int(self._frame_conf().get("width", 6)) + 4))    # 1.0 thin
 
     def _bands_on(self):
         return self._frame_conf()["mode"] != "off"
@@ -49935,7 +49951,7 @@ class App:
             s_ = max(1.0, min(2.0, self.root.winfo_fpixels("1i") / 96.0))
         except Exception:
             s_ = 1.0
-        return int(round(34 * s_))
+        return int(round(30 * s_))                     # 1.0 thin: a lower band
 
     def _caption_install(self):
         """4.3: the window's own title bar (OwnBar). The top band then has minimise / maximise / close, the empty
