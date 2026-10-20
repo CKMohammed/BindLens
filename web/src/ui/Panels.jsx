@@ -22,6 +22,7 @@ const Deleted = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Del
 const Protect = lazy(() => import("./FileTools.jsx").then(m => ({ default: m.Protect })));
 const Welcome = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Welcome })));
 const Legal = lazy(() => import("./Welcome.jsx").then(m => ({ default: m.Legal })));
+const FirstRun = lazy(() => import("./FirstRun.jsx").then(m => ({ default: m.FirstRun })));
 const BookStyle = lazy(() => import("./BookStyle.jsx").then(m => ({ default: m.BookStyle })));
 const AddPages = lazy(() => import("./AddPages.jsx").then(m => ({ default: m.AddPages })));
 const Templates = lazy(() => import("./Templates.jsx").then(m => ({ default: m.Templates })));
@@ -33,7 +34,7 @@ const QuickBarChoose = lazy(() => import("./FrameBar.jsx").then(m => ({ default:
 
 const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
-  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, legal: Legal, bookstyle: BookStyle,
+  versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, firstrun: FirstRun, legal: Legal, bookstyle: BookStyle,
   addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose };
 
 function Loading() {

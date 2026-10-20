@@ -352,7 +352,7 @@ export function Home() {
         ) : !all.length ? (
           <div class="contcard empty">
             <div class="grow"><b>{_t("Your library is empty.")}</b> <span class="muted">{_t("Make a book (a folder in your Drive), then add your documents to it.")}</span></div>
-            <button class="btn small" onClick={() => openPanel("templates")}><Icon n="plus" size={15} />{_t("New book")}</button>
+            <button class="btn small" onClick={() => openPanel("firstrun")}><Icon n="plus" size={15} />{_t("Make my first book")}</button>
             <button class="btn ghost small" onClick={async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs); }}><Icon n="upload" size={15} />{_t("Add files")}</button>
           </div>
         ) : null}

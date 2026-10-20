@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { batch } from "@preact/signals";
 import "../theme.js";
-import { store, phase, errorText, settings, view, panel, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
+import { store, phase, errorText, settings, view, panel, books, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
   currentBook, readMode, offline, narrow, saving, framePulse } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
@@ -19,6 +19,7 @@ import { Pip } from "./Gallery.jsx";
 import { FrameBar, frameBarOn } from "./FrameBar.jsx";
 import { Band } from "./Band.jsx";
 import { UploadPanel } from "./Uploads.jsx";
+import { Hints } from "./FirstRun.jsx";
 import { Logo } from "./Logo.jsx";
 import { mix, brandOf } from "../util.js";
 import { _t, _n, lang, LANGS, setLang, isEs } from "../i18n.js";
@@ -77,7 +78,8 @@ async function startWith(s, { tour = true } = {}) {
     if (s.cloud && s.waiting && s.waiting().length && !s.offline) backOnline(s);
     if (tour) {
       const { shouldWelcome } = await import("./Welcome.jsx");
-      if (shouldWelcome(settings.value)) panel.value = { type: "welcome" };
+      // the first time with an empty library: the first book in two steps; otherwise the short tour
+      if (shouldWelcome(settings.value)) panel.value = { type: s.kind !== "demo" && !books.value.length ? "firstrun" : "welcome" };
     }
     if (s.cloud) {
       s.onNeedSignIn = () => new Promise((resolve) => {
@@ -220,6 +222,7 @@ export function App() {
       {open && panel.value && <Panels />}
       {open && <Pip />}
       {open && <UploadPanel />}
+      {open && !shut && <Hints />}
       {shut && <Lock />}
       <Modals />
       <Menu />

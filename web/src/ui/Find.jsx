@@ -45,6 +45,7 @@ const ACTIONS = [
   { label: _t("Add pages (blank, lined, from a file, Google Docs)"), icon: "addpage", words: _t("add page pages blank lined squared insert google docs sheets slides word"), run: async () => { const { currentBook } = await import("../state.js"); openPanel("addpages", { book: currentBook.value?.id }); } },
   { label: _t("Write it in Google Docs"), icon: "word", words: _t("google docs sheets slides word excel powerpoint real editor write"), run: async () => { const { currentBook } = await import("../state.js"); openPanel("addpages", { book: currentBook.value?.id, tab: "google" }); } },
   { label: _t("Tasks"), icon: "task", words: _t("tasks to do todo colleague assign"), run: () => openPanel("tasks") },
+  { label: _t("Make a book in two steps"), icon: "sparkle", words: _t("first start begin two steps template drive"), run: () => openPanel("firstrun") },
   { label: _t("New book from a template"), icon: "template", words: _t("template new book case file employee student project thesis course client"), run: () => openPanel("templates") },
   { label: _t("Count down to a date"), icon: "hourglass", words: _t("countdown count down days left exam audit deadline"), run: async () => (await import("./needs.js")).addCountdown() },
   { label: _t("Share this book with a colleague"), icon: "share", words: _t("share colleague team send invite permission"), run: async () => { const { currentBook } = await import("../state.js"); if (currentBook.value) openPanel("share", { id: currentBook.value.id }); else openPanel("help"); } },
