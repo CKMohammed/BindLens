@@ -2762,6 +2762,10 @@ ES_TEXT = {
     "Its icon and colour…": "Su icono y color…",
     "Move it up": "Subirla",
     "Move it down": "Bajarla",
+    "Its name and its logo (or a photo). BindLens takes its colours for the frame and the reports.": "Su nombre y su logo (o una foto). BindLens toma sus colores para el marco y los informes.",
+    "Its logo or a photo": "Su logo o una foto",
+    "Logo or photo…": "Logo o foto…",
+    "A folder that was moved has been found again.": "Se ha vuelto a encontrar una carpeta que se había movido.",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -3967,6 +3971,37 @@ def unique_path(folder, name):
         cand = os.path.join(folder, f"{base} ({i}){ext}")
         i += 1
     return cand
+
+
+def logo_colors(fitz, path, n=3):
+    """1.0: the main colours of a logo or a photo (not white, black or grey) - for the frame and the reports."""
+    try:
+        d = fitz.open(path)
+        r = d[0].rect
+        k = 64.0 / max(r.width, r.height, 1)
+        pm = d[0].get_pixmap(matrix=fitz.Matrix(k, k), alpha=False)
+        b, nc = pm.samples, pm.n
+        count = {}
+        for i in range(0, len(b) - nc + 1, nc):
+            r_, g_, b_ = b[i], b[i + 1], b[i + 2]
+            mx, mn = max(r_, g_, b_), min(r_, g_, b_)
+            if mx < 40 or mn > 225 or mx - mn < 34:
+                continue
+            key = (r_ // 24, g_ // 24, b_ // 24)
+            count[key] = count.get(key, 0) + 1
+        out = []
+        total = sum(count.values()) or 1
+        for key, _n in sorted(count.items(), key=lambda kv: -kv[1]):
+            if _n < total * 0.03:                           # a blend at the edges, not a colour of the logo
+                break
+            c = tuple(min(255, v * 24 + 12) for v in key)
+            if all(sum((c[j] - o[j]) ** 2 for j in range(3)) > 70 ** 2 for o in out):
+                out.append(c)
+            if len(out) >= n:
+                break
+        return ["#%02X%02X%02X" % c for c in out]
+    except Exception:
+        return []
 
 
 def _ch_word(c, x, cy, ink, sub, F):
@@ -15821,6 +15856,8 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
     """1.9.6: a calm, minimal PDF - the app's accent colour, a good font, the BindLens logo and title on the first
     page, a fine frame round every page, page numbers. Pictures of rows are never cut; charts stay sharp; long
     tables repeat their column titles on each page; numbers line up on the right."""
+    if _BRAND.get("color"):                              # 1.0: your institution's colour
+        accent = _BRAND["color"]
     set_report_theme(accent, rep.get("_logo"))
     A = rt_accent()
     blocks = rep.get("blocks") or []
@@ -15870,7 +15907,10 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
             st["y"] = 96
         else:
             try:
-                draw_logo(page, fitz, M - 1, 33, 15, logo_cols, style=_RT.get("style"))
+                if _BRAND.get("logo") and os.path.exists(_BRAND["logo"]):
+                    page.insert_image(fitz.Rect(M - 1, 30, M + 15, 46), filename=_BRAND["logo"], keep_proportion=True)
+                else:
+                    draw_logo(page, fitz, M - 1, 33, 15, logo_cols, style=_RT.get("style"))
             except Exception:
                 pass
             _ch_text(page, fitz, M + 18, 44, title, 7.5, INK["muted"], maxw=CW - 120)
@@ -19631,6 +19671,7 @@ class App:
             pass
         if LITE:
             self.root.after(900, self._lite_start)
+        self.root.after(2500, lambda: threading.Thread(target=self._relink_missing, daemon=True).start())   # moved folders
         if consult_load():                           # Read with PIN: it comes back as it was (only your PIN leaves it)
             self._consult_on(quiet=True)
             self.root.after(1500, lambda: self.reading_mode(True))
@@ -49487,6 +49528,8 @@ class App:
     # scan and add, read aloud, study, what's new, PIN, update from a zip
     # =================================================================================================================
     def _qb_conf(self):
+        if LITE:                                         # BookReader: one icon - your institution (logo or photo)
+            return {"on": True, "items": ["inst"]}
         c = self.lib.settings.setdefault("qbar", {})
         c.setdefault("on", True)
         items = [k for k in c.get("items", QB_DEFAULT) if k in QB_ITEMS]
@@ -49521,56 +49564,65 @@ class App:
         return self._brand_img
 
     def institution_dialog(self):
+        """Your institution, in one step: its name, and a logo or a photo. BindLens finds its colours: the frame
+        flows in them, and the reports carry the logo, the name and the colours."""
         T = self.T
         b = dict(self.lib.settings.get("brand") or {})
         d = self._dialog("Your institution")
         tk.Label(d, text=_tr("Your institution"), font=self.F(13, "bold"), bg=T["panel"], fg=T["text"]).pack(anchor="w", padx=20, pady=(16, 2))
-        tk.Label(d, text=_tr("Its name, logo and colour at the top of your reports (PDF)."), font=self.F(9), bg=T["panel"],
-                 fg=T["muted"]).pack(anchor="w", padx=20)
-        f = tk.Frame(d, bg=T["panel"])
-        f.pack(fill="x", padx=20, pady=12)
-        tk.Label(f, text=_tr("Name"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=0, column=0, sticky="w")
+        tk.Label(d, text=_tr("Its name and its logo (or a photo). BindLens takes its colours for the frame and the reports."),
+                 font=self.F(9), bg=T["panel"], fg=T["muted"], wraplength=380, justify="left").pack(anchor="w", padx=20)
         name_v = tk.StringVar(value=b.get("name", ""))
-        tk.Entry(f, textvariable=name_v, width=36, font=self.F(10)).grid(row=0, column=1, sticky="we", padx=(10, 0), pady=4)
-        logo_l = tk.Label(f, text=os.path.basename(b.get("logo", "")) or _tr("No logo"), font=self.F(9), bg=T["panel"], fg=T["text"])
-        col_l = tk.Label(f, text="      ", bg=b.get("color", self.accent))
+        tk.Entry(d, textvariable=name_v, width=40, font=self.F(11)).pack(anchor="w", padx=20, pady=(12, 8))
+        row = tk.Frame(d, bg=T["panel"])
+        row.pack(fill="x", padx=20)
+        dots = tk.Canvas(row, width=120, height=24, bg=T["panel"], highlightthickness=0)
 
-        def pick_logo():
-            pth = filedialog.askopenfilename(parent=d, title=_tr("The logo"), filetypes=[(_tr("Pictures"), "*.png *.jpg *.jpeg")])
+        def show_dots():
+            dots.delete("all")
+            for i, c in enumerate(b.get("colors") or []):
+                dots.create_oval(4 + i * 26, 3, 22 + i * 26, 21, fill=c, outline="")
+
+        def pick():
+            pth = filedialog.askopenfilename(parent=d, title=_tr("Its logo or a photo"), filetypes=[(_tr("Pictures"), "*.png *.jpg *.jpeg")])
             if not pth:
                 return
             dst = os.path.join(data_dir(), "brand-logo" + os.path.splitext(pth)[1].lower())
             try:
                 os.makedirs(data_dir(), exist_ok=True)
                 shutil.copyfile(pth, dst)
-                b["logo"] = dst
-                logo_l.configure(text=os.path.basename(pth))
             except Exception as ex:
                 messagebox.showwarning(APP_NAME, str(ex), parent=d)
-
-        def pick_col():
-            c_ = colorchooser.askcolor(color=b.get("color", self.accent), parent=d)[1]
-            if c_:
-                b["color"] = c_
-                col_l.configure(bg=c_)
-        tk.Label(f, text=_tr("Logo"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=1, column=0, sticky="w")
-        logo_l.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=4)
-        PillButton(f, self, _tr("Choose…"), pick_logo, bg_key="panel", height=28).grid(row=1, column=2, padx=(8, 0))
-        tk.Label(f, text=_tr("Colour"), font=self.F(9), bg=T["panel"], fg=T["muted"]).grid(row=2, column=0, sticky="w")
-        col_l.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=4)
-        PillButton(f, self, _tr("Choose…"), pick_col, bg_key="panel", height=28).grid(row=2, column=2, padx=(8, 0))
+                return
+            b["logo"] = dst
+            b["colors"] = logo_colors(self.fitz, dst) or [self.accent]
+            show_dots()
+        PillButton(row, self, _tr("Logo or photo…"), pick, kind="accent", bg_key="panel", height=30).pack(side="left")
+        dots.pack(side="left", padx=10)
+        show_dots()
         bb = tk.Frame(d, bg=T["panel"])
-        bb.pack(fill="x", padx=20, pady=(4, 16))
+        bb.pack(fill="x", padx=20, pady=16)
 
         def save(on=True):
             b["name"] = name_v.get().strip()
             b["on"] = bool(on and (b.get("name") or b.get("logo")))
-            if b["on"] and b.get("color"):           # the frame in the institution's colour
-                self.lib.settings["accent"] = b["color"]
-                self.lib.settings.setdefault("frame", {})["palette"] = "accent"
+            cols = b.get("colors") or []
+            if b["on"] and cols:
+                b["color"] = cols[0]
+                fr = self.lib.settings.setdefault("frame", {})
+                fr.update({"palette": "custom", "colors": cols + [mix(cols[0], "#FFFFFF", 0.45)], "mode": "moving", "speed": "normal"})
+            elif not b["on"]:
+                fr = self.lib.settings.setdefault("frame", {})
+                if fr.get("palette") == "custom":
+                    fr["palette"] = "accent"
             self.lib.settings["brand"] = b
             self.lib.save_meta()
             self._brand_load()
+            try:
+                self._frame_layout()
+                self.apply_background()
+            except Exception:
+                pass
             self._qbar_draw()
             d.destroy()
         PillButton(bb, self, _tr("Take it off"), lambda: save(False), bg_key="panel").pack(side="left")
@@ -49667,11 +49719,12 @@ class App:
                 round_rect(q, 7, yb - 15, QB_W - 7, yb + 15, 9, fill="", outline=ink, width=1.2)
             else:
                 round_rect(q, 7, yb - 15, QB_W - 7, yb + 15, 9, fill=T["hover"], outline="")
-        draw_icon(q, "plus", QB_W / 2, yb, ink if band else (T["text"] if hov else T["muted"]), s=0.62)
+        if not LITE:
+            draw_icon(q, "plus", QB_W / 2, yb, ink if band else (T["text"] if hov else T["muted"]), s=0.62)
 
     def _qbar_hit(self, y):
         h = self.qbar.winfo_height()
-        if h - 46 <= y <= h - 14:
+        if h - 46 <= y <= h - 14 and not LITE:
             return "+"
         for k, y0, y1 in self._qbar_rows():
             if y0 <= y <= y1:
@@ -50300,8 +50353,11 @@ class App:
         if not full:
             self.topband.configure(height=self.TB_H)
             self.topband.pack(side="top", fill="x")
-        if not full and LITE:                          # BookReader: the library and the pages; the thin bar below
+        if not full and LITE:                          # BookReader: the whole frame, thin; one icon on its right side
             self.status.pack(side="bottom", fill="x")
+            self.qbar.pack(side="right", fill="y")
+            self.lband.configure(width=self._side_w())
+            self.lband.pack(side="left", fill="y")
         elif not full and not reading:
             self.status.pack(side="bottom", fill="x")
             if self._qbar_wanted():
@@ -50672,8 +50728,8 @@ class App:
                 x += 24
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
-                keys_ = [("_read", "Read") if not getattr(self, "_reading", False) else ("_exit", "×"), ("_choose", "Folders"),
-                         ("_addf", ""), ("_hl", ""), ("_note", ""), ("_reports", ""), ("_inst", ""), ("_pin", "")]
+                keys_ = [("_read", "") if not getattr(self, "_reading", False) else ("_exit", ""),
+                         ("_addf", ""), ("_hl", ""), ("_note", ""), ("_reports", ""), ("_pin", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50684,15 +50740,16 @@ class App:
                 keys_.insert(1, ("_print", "Print"))             # 4.3: print while reading - the same Print
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
-                      "_note": "note", "_read": "openbook",
+                      "_note": "note", "_read": "openbook", **({"_exit": "close"} if LITE else {}),
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
                 ico_ = 18 if key in icons_ else 0
                 w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else 30
                 lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
                     (key == "_note" and self.tool == "note")
-                round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
-                           outline=ink if (on and hov == key) else (sub if on else self.T["border"]), width=1)
+                if not LITE or hov == key or lit_:           # BookReader: only the drawing, a soft round when pointed at
+                    round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
+                               outline=(ink if (on and hov == key) else (sub if on else self.T["border"])) if not LITE else "", width=1)
                 if ico_:
                     draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, ink, s=0.55, w=1.5)
                 if txt:
@@ -53738,11 +53795,15 @@ class App:
 
     # ---- BookReader by BindLens: only reading
     def _lite_start(self):
-        try:
-            self.rail.pack_forget()
-            self.rail_sep.pack_forget()
-        except Exception:
-            pass
+        for w_ in ("rail", "rail_sep", "add_btn", "seg"):
+            try:
+                getattr(self, w_).pack_forget()
+            except Exception:
+                try:
+                    getattr(self, w_).grid_remove()
+                except Exception:
+                    pass
+
         self._frame_layout()
         if not self.lib.folders:
             self.set_status(_tr("Add a folder with the + at the top."))
@@ -53756,6 +53817,83 @@ class App:
                 self._read_open(new[0], "", None)
             else:
                 self.open_folder(new[0])
+
+    def _relink_missing(self):
+        """1.0: a folder of the library that was moved is looked for and found again - by its name and the names of
+        its files - on the Desktop, in Documents, Downloads, OneDrive and Google Drive (nothing is written in it)."""
+        try:
+            changed = False
+            missing = []
+            for c in self.lib.collections:
+                fps = c.setdefault("fps", {})
+                for src in list(c.get("sources", [])):
+                    if os.path.isdir(src):
+                        try:
+                            names = sorted(e for e in os.listdir(src) if not e.startswith("."))[:60]
+                        except OSError:
+                            continue
+                        if fps.get(src) != names:
+                            fps[src] = names
+                            changed = True
+                    elif src in fps:
+                        missing.append((c, src))
+            found = []
+            if missing:
+                home = os.path.expanduser("~")
+                roots = [os.path.join(home, x) for x in ("Desktop", "Escritorio", "Documents", "Documentos", "Downloads", "Descargas")]
+                roots += [os.path.join(home, x) for x in os.listdir(home) if x.lower().startswith(("onedrive", "google drive", "dropbox"))]
+                if os.name == "nt":
+                    for L in "DEFGHIJKLMNOPQRSTUVWXYZ":
+                        for x in ("My Drive", "Mi unidad", "Shared drives"):
+                            if os.path.isdir(f"{L}:\\{x}"):
+                                roots.append(f"{L}:\\{x}")
+                for c, src in missing:
+                    roots_ = [os.path.dirname(os.path.dirname(src))] + roots
+                    hit = self._find_folder(roots_, os.path.basename(src), set(c["fps"][src]))
+                    if hit:
+                        found.append((c, src, hit))
+            if changed or found:
+                def apply():
+                    for c, src, hit in found:
+                        c["sources"] = [hit if x == src else x for x in c["sources"]]
+                        c["fps"][hit] = c["fps"].pop(src)
+                        _log(f"folder found again: {src} -> {hit}")
+                    self.lib.save_meta()
+                    if found:
+                        self.reload()
+                        self._toast(_tr("A folder that was moved has been found again."))
+                self.root.after(0, apply)
+        except Exception as ex:
+            _log(f"relink: {ex}")
+
+    @staticmethod
+    def _find_folder(roots, name, names):
+        best, seen, n = None, set(), 0
+        for r in roots:
+            if not r or not os.path.isdir(r):
+                continue
+            stack = [(r, 0)]
+            while stack and n < 30000:
+                p, dep = stack.pop()
+                n += 1
+                try:
+                    ents = [e for e in os.scandir(p) if e.is_dir(follow_symlinks=False) and not e.name.startswith((".", "$"))]
+                except OSError:
+                    continue
+                for e in ents:
+                    if e.path in seen or e.name in ("AppData", "node_modules"):
+                        continue
+                    seen.add(e.path)
+                    try:
+                        have = set(x for x in os.listdir(e.path) if not x.startswith("."))
+                    except OSError:
+                        continue
+                    share = len(have & names) / max(1, len(names))
+                    if (e.name == name and (share >= 0.6 or not names)) or (len(names) >= 3 and share >= 0.85):
+                        return e.path
+                    if dep < 3:
+                        stack.append((e.path, dep + 1))
+        return best
 
     def _lite_hl_toggle(self):
         self._lite_hl = not getattr(self, "_lite_hl", False)
