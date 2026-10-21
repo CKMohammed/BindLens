@@ -11147,10 +11147,10 @@ def draw_logo_stack(page, fitz, ox, oy, S, colors, parts=("bg", "spine", "arc", 
 
 def logo_icon_data(name, size, ring=False):
     """The logo as a picture (base64 PNG) in the chosen colours and the logo chosen in Personalise."""
+    if LITE:                                             # BookReader: its own logo, always
+        return base64.b64encode(br_logo_pix(_FITZ, size).tobytes("png")).decode()
     if LOGO_STYLE == "classic" and not ring and name in ICONS and size in ICONS[name]:
         return ICONS[name][size]                       # (the 4 first colours, drawn once; the others are drawn now)
-    if LITE:                                             # BookReader: its own logo
-        return base64.b64encode(br_logo_pix(_FITZ, size).tobytes("png")).decode()
     cols = LOGO_COLORS.get(name, LOGO_COLORS["Black"])
     if ring:
         return base64.b64encode(logo_ring_png(size, cols)).decode()
@@ -41851,12 +41851,13 @@ class App:
                     if nc_ != colx:
                         colx, y = nc_, 4                   # the next column
                     x0 = 6 + colx * colw
-                    gw_ = self._measure(g_.upper(), self._sfont(8, "bold")) + 22
-                    round_rect(lc, x0 + 4, y + 6, x0 + 4 + gw_, y + 25, 9, fill=mix(T["panel"], col, 0.13),
-                               outline="")
-                    lc.create_oval(x0 + 10, y + 12.5, x0 + 16, y + 18.5, fill=col, outline="")
-                    lc.create_text(x0 + 20, y + 16, text=g_.upper(), anchor="w", font=self.F(8, "bold"), fill=col)
-                    y += GH
+                    if g_:                                 # (BookReader: one short list, no group title)
+                        gw_ = self._measure(g_.upper(), self._sfont(8, "bold")) + 22
+                        round_rect(lc, x0 + 4, y + 6, x0 + 4 + gw_, y + 25, 9, fill=mix(T["panel"], col, 0.13),
+                                   outline="")
+                        lc.create_oval(x0 + 10, y + 12.5, x0 + 16, y + 18.5, fill=col, outline="")
+                        lc.create_text(x0 + 20, y + 16, text=g_.upper(), anchor="w", font=self.F(8, "bold"), fill=col)
+                        y += GH
                     for it in shown:
                         hits.append((x0, y, x0 + colw - 16, y + RH, it[0], col, it[2]))
                         y += RH
@@ -43419,9 +43420,9 @@ class App:
         if scope == "file" and self.book and self.book.total:
             f = self.book.files[self.book.pages[self.current_page][0]]
             return [(self.folder, f["rel"], f["path"])]
-        if scope == "folder" and self.folder is not None:
+        if scope == "folder" and self.folder is not None:     # (BookReader: the whole book, all its subfolders)
             return [(self.folder, rel, self.lib.file_path(self.folder, rel))
-                    for rel in self.lib.folders.get(self.folder, []) if rel.startswith(self.prefix or "")]
+                    for rel in self.lib.folders.get(self.folder, []) if LITE or rel.startswith(self.prefix or "")]
         for folder in self.lib.folders:
             for rel in self.lib.folders.get(folder, []):
                 out.append((folder, rel, self.lib.file_path(folder, rel)))
@@ -47799,6 +47800,23 @@ class App:
                             row["text"]])
         if job["cancel"]:
             return None
+        got_ = {(r[1], r[2]) for r in out}
+        for folder, rel, path in P["files"]:              # 1.0: nothing missed - every page's own text too
+            if job["cancel"]:
+                return None
+            name = f"{P['labels'].get(folder, folder)} / {rel}" if P["lib"] else rel
+            try:
+                texts = self._page_texts(path)
+            except Exception:
+                continue
+            for pi, tx in enumerate(texts or []):
+                if (name, pi + 1) in got_ or not tx or not pf(tx):
+                    continue
+                for line in tx.splitlines():
+                    line = " ".join(line.split())
+                    hits = match({"text": line, "cells": [line], "table": False}) if line else []
+                    if hits and self._date_ok(line, P["from"], P["to"]):
+                        out.append([", ".join(hits), name, pi + 1, "", line[:400]])
         if not out:
             return "Nothing found."
         per_doc = OrderedDict()
@@ -50536,11 +50554,11 @@ class App:
         if not full:
             self.topband.configure(height=self.TB_H)
             self.topband.pack(side="top", fill="x")
-        if not full and LITE:                          # BookReader: the whole frame; its left side holds your logo
+        if not full and LITE:                          # BookReader: the whole frame; its right side holds your logo
             self.status.pack(side="bottom", fill="x")
-            self.qbar.pack(side="left", fill="y")
-            self.rband.configure(width=self._side_w())
-            self.rband.pack(side="right", fill="y")
+            self.qbar.pack(side="right", fill="y")
+            self.lband.configure(width=self._side_w())
+            self.lband.pack(side="left", fill="y")
         elif not full and not reading:
             self.status.pack(side="bottom", fill="x")
             if self._qbar_wanted():
@@ -50642,9 +50660,9 @@ class App:
         """(left, right) widths of the frame where it meets the top and bottom bands: the left side and the tools
         (or the thin right side) - or the thin lines while reading."""
         reading = getattr(self, "_reading", False)
-        if LITE and not self.fullscreen:                 # BookReader: the band with the logo (left), a thin right side
-            return (self.qbar.winfo_width() if self.qbar.winfo_ismapped() else 0,
-                    self.rband.winfo_width() if self.rband.winfo_ismapped() else 0)
+        if LITE and not self.fullscreen:                 # BookReader: a thin left side, the band with the logo (right)
+            return (self.lband.winfo_width() if self.lband.winfo_ismapped() else 0,
+                    self.qbar.winfo_width() if self.qbar.winfo_ismapped() else 0)
         if reading or self.fullscreen:
             wd = max(2, min(10, int(self._frame_conf().get("width", 6))))
             on = self._read_conf().get("frame", True) if reading else True
@@ -50953,7 +50971,13 @@ class App:
                       **({"_exit": "folders", "_choose": "folders"} if LITE else {}),
                       "_light": "sun", "_find": "search", "_marks": "star", "_cal": "calendar",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
-            for key, txt in keys_:
+            rk_ = [(self._lite_show(k_), "") for k_ in self._lite_keys()[2]] if LITE else []
+            xr_ = right - 8 - 42 * len(rk_) + 6
+            xl_ = None
+            for i_k, (key, txt) in enumerate(keys_ + rk_):
+                if i_k == len(keys_):                        # BookReader: the icons you put at the right of the band
+                    xl_ = x
+                    x = max(x + 20, xr_)
                 ico_ = 18 if key in icons_ else 0
                 w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else (36 if LITE else 30)
                 lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
@@ -50978,7 +51002,10 @@ class App:
                     tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
                 hits.append((x, x + w, key))
                 x += w + 6
-            room = right - x - 24
+            if xl_ is not None:
+                room, x = xr_ - xl_ - 24, xl_
+            else:
+                room = right - x - 24
             if room > 80:
                 tb.create_text(x + 14, H / 2, text=self._fit_text(title, self._sfont(9, "bold"), room), anchor="w",
                                font=self.F(9, "bold"), fill=ink)
@@ -54071,7 +54098,7 @@ class App:
                   [("wholeword", "Whole words only", False)], "search look for where name person people word"),
                  pick_["snapshot"][:1] + ("Rows and columns as they are",) + pick_["snapshot"][2:],
                  pick_["columns"], pick_["rows"], pick_["tables"], pick_["marks"]]
-        self.REPORT_MENU = [("Basic", "#6C63FF", lite_)]
+        self.REPORT_MENU = [("", "#6C63FF", lite_)]
         try:
             self.lib_count.configure(text="")
         except Exception:
@@ -54532,12 +54559,14 @@ class App:
                   "_cal": "calendar"}
 
     def _lite_keys(self):
+        """(top band - left, the band with the logo, top band - right): where you put each icon."""
         st = self.lib.settings
         allk = self.LITE_TOP + self.LITE_SIDE
         side = [k for k in st.get("lite_side", self.LITE_SIDE) if k in allk]
-        top = [k for k in st.get("lite_top", self.LITE_TOP) if k in allk and k not in side]
-        top += [k for k in allk if k not in top and k not in side]
-        return top, side
+        right = [k for k in st.get("lite_topr", []) if k in allk and k not in side]
+        top = [k for k in st.get("lite_top", self.LITE_TOP) if k in allk and k not in side and k not in right]
+        top += [k for k in allk if k not in top and k not in side and k not in right]
+        return top, side, right
 
     def _lite_show(self, k):
         """The light while reading; Read (the open book) when not reading - one place for both."""
@@ -54553,12 +54582,12 @@ class App:
             (k == "_lib" and (self.sidebar_visible or self._side_overlay))
 
     def _qbar_draw_lite(self):
-        """BookReader's left band - part of the frame: your institution's logo on it, then the icons you put here."""
+        """BookReader's right band - part of the frame: your institution's logo on it, then the icons you put here."""
         q = self.qbar
         T = self.T
         q.delete("all")
         q.configure(bg=T["bg"])
-        band = self._band_bg(q, "lq")
+        band = self._band_bg(q, "qb")
         ink = self._band_ink()[0] if band else T["icon"]
         hov = self._qb_hov
         rows = [("inst", 8, 50)]
@@ -54623,21 +54652,22 @@ class App:
             return
         if k == "inst":
             return
-        top, side = self._lite_keys()
-        for lst in (top, side):
+        top, side, right = self._lite_keys()
+        for lst in (top, side, right):
             if k in lst:
                 lst.remove(k)
-        if self._inside(self.qbar, e.x_root, e.y_root):        # onto the left band
+        if self._inside(self.qbar, e.x_root, e.y_root):        # onto the band with the logo
             y = e.y_root - self.qbar.winfo_rooty()
             side.insert(max(0, min(len(side), int((y - 62 + 20) // 40))), k)
-        elif self._inside(self.topband, e.x_root, e.y_root):   # onto the top band, among the others
+        elif self._inside(self.topband, e.x_root, e.y_root):   # anywhere along the top band: its left or its right
             x = e.x_root - self.topband.winfo_rootx()
-            hits = [h for h in getattr(self, "_tb_hits", []) if self._lite_slot(h[2]) in top]
-            at = next((top.index(self._lite_slot(h[2])) for h in hits if (h[0] + h[1]) / 2 > x), len(top))
-            top.insert(at, k)
+            grp = right if x > self.topband.winfo_width() / 2 else top
+            hits = [h for h in getattr(self, "_tb_hits", []) if self._lite_slot(h[2]) in grp]
+            at = next((grp.index(self._lite_slot(h[2])) for h in hits if (h[0] + h[1]) / 2 > x), len(grp))
+            grp.insert(at, k)
         else:
             return
-        self.lib.settings["lite_top"], self.lib.settings["lite_side"] = top, side
+        self.lib.settings["lite_top"], self.lib.settings["lite_side"], self.lib.settings["lite_topr"] = top, side, right
         self.lib.save_meta()
         self._tb_hov = self._qb_hov = None
         self._topband_draw()
@@ -55778,7 +55808,7 @@ def _main():
         try:
             import ctypes
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("BindLens.App")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("BookReader.App" if LITE else "BindLens.App")
         except Exception:
             pass
     install_language()
