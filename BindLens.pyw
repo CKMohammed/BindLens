@@ -2790,6 +2790,10 @@ ES_TEXT = {
     "Find a name or a word": "Buscar un nombre o una palabra",
     "Every page, row and line where it appears - how many times and in which document": "Cada página, fila y línea donde aparece: cuántas veces y en qué documento",
     "Rows and columns as they are": "Filas y columnas tal cual",
+    "A name's rows, as they look": "Filas de un nombre, tal cual",
+    "Each row with the name - a picture of the row exactly as it is, in this document, this book or all of them": "Cada fila con el nombre: una captura de la fila tal cual, en este documento, este libro o todos",
+    "Lock it with your PIN…": "Bloquearla con tu PIN…",
+    "Remove its PIN lock": "Quitarle el PIN",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -22904,6 +22908,9 @@ class App:
             m = self._menu()
             m.add_command(label=_tr("Rename…"), command=lambda: self.rename_folder(f))
             m.add_command(label=_tr("Its icon and colour…"), command=lambda: self.book_style_dialog(f))
+            lk_ = f in self.lib.settings.get("locked_books", [])
+            m.add_command(label=_tr("Remove its PIN lock" if lk_ else "Lock it with your PIN…"),
+                          command=lambda: self.lock_book(f, not lk_))
             m.add_separator()
             m.add_command(label=_tr("Remove from the library (the documents stay where they are)"), command=lambda: self.delete_folder(f))
             m.tk_popup(e.x_root, e.y_root)
@@ -47715,6 +47722,15 @@ class App:
                 snap = self._snapshot(doc, pi, rs[0], header=adv.get("header", True),
                                       title=adv.get("title", True), more=rs[1:])
                 found[t].append((name, folder, rel, page, rs, snap))
+            seen_ = {t for (t, _k) in on_page}
+            for t in P["terms"]:                         # 1.0: a row the table reader missed - cut out round the name
+                if t in seen_:
+                    continue
+                try:
+                    for snap, txt in self._row_bands(doc.load_page(pi), t):
+                        found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
+                except Exception as ex:
+                    _log(f"row picture: {ex}")
         if job["cancel"]:
             return None
         total = sum(len(rs) for v in found.values() for *_x, rs, _s in v)
@@ -47753,6 +47769,57 @@ class App:
         return {"title": f"Rows of {what}", "subtitle": self._subtitle(P["scope"], f"{total} rows"),
                 "blocks": blocks, "preview_table": tb, "images": images, "_name": f"Rows of {what[:40]}",
                 "_view": "pictures"}
+
+    def _row_bands(self, pg, term):
+        """Pictures of the rows a name is in, exactly as they look: between the table's lines above and below the
+        name (or round its line), across the width of what is on that row. [(png, w, h), row text]."""
+        fitz = self.fitz
+        W = pg.rect.width
+        hs, boxes = [], []
+        try:
+            for d in pg.get_drawings():
+                for it in d["items"]:
+                    if it[0] == "l":
+                        p1, p2 = it[1], it[2]
+                        if abs(p1.y - p2.y) < 1 and abs(p1.x - p2.x) > W * 0.15:
+                            hs.append(p1.y)
+                    elif it[0] == "re":
+                        rr = it[1]
+                        boxes.append(rr)
+                        if rr.width > W * 0.15:
+                            hs += [rr.y0, rr.y1] if rr.height >= 2 else [(rr.y0 + rr.y1) / 2]
+        except Exception:
+            pass
+        edges = {}                                       # the edges many cells share are the rows' lines
+        for b in boxes:
+            if b.height < 80 and b.width < W * 0.5:
+                for y_ in (b.y0, b.y1):
+                    edges[round(y_ * 2) / 2] = edges.get(round(y_ * 2) / 2, 0) + 1
+        hs += [y_ for y_, n_ in edges.items() if n_ >= 3]
+        words = pg.get_text("words")
+        out, done = [], []
+        for r in pg.search_for(term)[:40]:
+            lh = max(6.0, r.height)
+            above = [y for y in hs if r.y0 - lh * 4 < y <= r.y0 + 0.5]
+            below = [y for y in hs if r.y1 - 0.5 <= y < r.y1 + lh * 4]
+            top = max(above) if above else r.y0 - lh * 0.5
+            bot = min(below) if below else r.y1 + lh * 0.5
+            if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
+                continue
+            done.append((top, bot))
+            mid = (top + bot) / 2
+            inrow = [w for w in words if w[1] < bot - 1 and w[3] > top + 1]
+            xs0 = [w[0] for w in inrow] + [b.x0 for b in boxes if b.y0 < mid < b.y1 and b.width < W * 0.9]
+            xs1 = [w[2] for w in inrow] + [b.x1 for b in boxes if b.y0 < mid < b.y1 and b.width < W * 0.9]
+            clip = fitz.Rect(max(0, min(xs0 + [r.x0]) - 3), max(0, top - 1), min(W, max(xs1 + [r.x1]) + 3),
+                             min(pg.rect.height, bot + 1))
+            if clip.width < 5 or clip.height < 3:
+                continue
+            k = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
+            pix = pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False)
+            txt = " ".join(w[4] for w in sorted(inrow, key=lambda w: (round(w[1] / 4), w[0])))
+            out.append(((pix.tobytes("png"), clip.width, clip.height), txt[:400]))
+        return out
 
     def _job_person(self, P, job):
         match, pf = self._matcher(P, whole=P["adv"].get("wholeword", True))
@@ -50956,7 +51023,7 @@ class App:
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
                 rd_ = getattr(self, "_reading", False)
-                keys_ = [(self._lite_show(k_), "") for k_ in self._lite_keys()[0]]
+                keys_ = [(k_, "Report" if k_ == "_reports" else "") for k_ in self._lite_keys()[0]]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50971,22 +51038,28 @@ class App:
                       **({"_exit": "folders", "_choose": "folders"} if LITE else {}),
                       "_light": "sun", "_find": "search", "_marks": "star", "_cal": "calendar",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
-            rk_ = [(self._lite_show(k_), "") for k_ in self._lite_keys()[2]] if LITE else []
-            xr_ = right - 8 - 42 * len(rk_) + 6
+            rk_ = [(k_, "Report" if k_ == "_reports" else "") for k_ in self._lite_keys()[2]] if LITE else []
+            xr_ = right - 8 - sum(((self._measure(_tr(t_), self._sfont(9)) + 40) if t_ else 36) + 6 for _k, t_ in rk_)
             xl_ = None
             for i_k, (key, txt) in enumerate(keys_ + rk_):
                 if i_k == len(keys_):                        # BookReader: the icons you put at the right of the band
                     xl_ = x
                     x = max(x + 20, xr_)
                 ico_ = 18 if key in icons_ else 0
-                w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else (36 if LITE else 30)
+                w = (self._measure(_tr(txt) if LITE else txt, self._sfont(9)) + 22 + ico_) if txt else (36 if LITE else 30)
                 lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
                     (key == "_note" and self.tool == "note") or \
                     (key == "_erase" and getattr(self, "_lite_er", False)) or \
                     (key == "_lib" and (self.sidebar_visible or self._side_overlay) and LITE)
                 icol_ = ink
                 if LITE:                                     # BookReader: flat - a thin round when pointed at, filled when on
-                    if lit_:
+                    if key == "_reports":                    # Reports stands out: a filled pill with its word
+                        round_rect(tb, x + 2, pad_ - 1, x + w - 2, H - pad_ + 1, 9,
+                                   fill=ink if on else self.accent, outline="")
+                        icol_ = ("#FFFFFF" if ink != "#FFFFFF" else "#15151B") if on else "#FFFFFF"
+                        if hov == key:
+                            round_rect(tb, x + 2, pad_ - 1, x + w - 2, H - pad_ + 1, 9, fill="", outline=icol_, width=1)
+                    elif lit_:
                         round_rect(tb, x + 3, pad_ - 1, x + w - 3, H - pad_ + 1, 8, fill=ink if on else self.accent, outline="")
                         icol_ = (mix(self.accent, "#000000", 0.3) if ink == "#FFFFFF" else "#FFFFFF") if on else "#FFFFFF"
                     elif hov == key:
@@ -50999,7 +51072,8 @@ class App:
                     draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, icol_, s=0.74 if LITE else 0.55,
                               w=1.5)
                 if txt:
-                    tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
+                    tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=self.F(9, "bold") if LITE else f,
+                                   fill=icol_ if LITE else ink)
                 hits.append((x, x + w, key))
                 x += w + 6
             if xl_ is not None:
@@ -54093,11 +54167,13 @@ class App:
             self._place_side()
         self._frame_layout()
         pick_ = {it[0]: it for _g, _c, its in App.REPORT_MENU for it in its}
-        lite_ = [("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
+        lite_ = [pick_["snapshot"][:1] + ("A name's rows, as they look", "Each row with the name - a picture of the "
+                                          "row exactly as it is, in this document, this book or all of them")
+                 + pick_["snapshot"][3:],
+                 ("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
                                                    "in which document", "names",
                   [("wholeword", "Whole words only", False)], "search look for where name person people word"),
-                 pick_["snapshot"][:1] + ("Rows and columns as they are",) + pick_["snapshot"][2:],
-                 pick_["columns"], pick_["rows"], pick_["tables"], pick_["marks"]]
+                 pick_["columns"], pick_["tables"], pick_["marks"]]
         self.REPORT_MENU = [("", "#6C63FF", lite_)]
         try:
             self.lib_count.configure(text="")
@@ -54570,7 +54646,7 @@ class App:
 
     def _lite_show(self, k):
         """The light while reading; Read (the open book) when not reading - one place for both."""
-        return ("_light" if getattr(self, "_reading", False) else "_read") if k == "_light" else k
+        return k
 
     @staticmethod
     def _lite_slot(k):
@@ -54609,6 +54685,9 @@ class App:
             elif hov == k:
                 round_rect(q, 7, y0 + 1, QB_W - 7, y0 + 35, 9, fill="" if band else T["hover"],
                            outline=ink if band else "", width=1)
+            if kk == "_reports":                                  # Reports stands out here too
+                round_rect(q, 7, y0 + 1, QB_W - 7, y0 + 35, 9, fill=ink if band else self.accent, outline="")
+                col = ("#FFFFFF" if ink != "#FFFFFF" else "#15151B") if band else "#FFFFFF"
             draw_icon(q, self.LITE_ICONS[kk], QB_W / 2, y0 + 18, col, s=0.74, w=1.5)
             rows.append((k, y0, y0 + 36))
             y0 += 40
@@ -54765,6 +54844,9 @@ class App:
             cur = self.folder
             m.add_command(label=_tr("Rename this folder…"), command=lambda: (self.rename_folder(cur), self._topband_draw()))
             m.add_command(label=_tr("Its icon and colour…"), command=lambda: self.book_style_dialog(cur))
+            lk_ = cur in self.lib.settings.get("locked_books", [])
+            m.add_command(label=_tr("Remove its PIN lock" if lk_ else "Lock it with your PIN…"),
+                          command=lambda: self.lock_book(cur, not lk_))
             m.add_command(label=_tr("Move it up"), command=lambda: self._lite_move(cur, -1))
             m.add_command(label=_tr("Move it down"), command=lambda: self._lite_move(cur, 1))
         try:
