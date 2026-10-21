@@ -3236,7 +3236,18 @@ APP_NAME = "BindLens"
 # 1.0: BookReader by BindLens - the same program, only reading: add and organise folders (name, icon), read, highlight,
 # reports, the frame with your institution's logo and colours, a PIN. It is BindLens built as "BookReader.exe" (or
 # started with --reader). Same library and settings as BindLens (%APPDATA%\BindLens); marks go into the originals.
-LITE = ("--reader" in sys.argv) or (getattr(sys, "frozen", False) and "bookreader" in os.path.basename(sys.executable).lower())
+def _is_reader():
+    """BookReader is BindLens built as BookReader.exe: known by its name, its folder or the mark next to it."""
+    if "--reader" in sys.argv:
+        return True
+    if not getattr(sys, "frozen", False):
+        return False
+    exe = os.path.abspath(sys.executable)
+    return "bookreader" in os.path.basename(exe).lower() or "bookreader" in os.path.basename(os.path.dirname(exe)).lower() \
+        or os.path.exists(os.path.join(os.path.dirname(exe), "bookreader.mode"))
+
+
+LITE = _is_reader()
 APP_VERSION = "1.0"
 APP_AUTHOR = "Mohammed Chahboune Kadi"          # 4.3.1: the copyright holder (LICENSE.txt, NOTICE.txt, About)
 APP_LICENSE = "GNU Affero General Public License v3 (AGPL-3.0)"
@@ -50785,7 +50796,7 @@ class App:
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
                 rd_ = getattr(self, "_reading", False)
-                keys_ = [("_exit", "") if rd_ else ("_read", ""), ("_light", "") if rd_ else ("_addf", ""),
+                keys_ = [("_exit", "Library") if rd_ else ("_read", ""), ("_light", "") if rd_ else ("_addf", ""),
                          ("_find", ""), ("_hl", ""), ("_note", ""), ("_marks", ""), ("_cal", ""), ("_reports", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
@@ -50797,7 +50808,7 @@ class App:
                 keys_.insert(1, ("_print", "Print"))             # 4.3: print while reading - the same Print
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
-                      "_note": "note", "_read": "openbook", **({"_exit": "close"} if LITE else {}),
+                      "_note": "note", "_read": "openbook", **({"_exit": "folders"} if LITE else {}),
                       "_light": "sun", "_find": "search", "_marks": "star", "_cal": "calendar",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
@@ -53863,6 +53874,7 @@ class App:
 
     # ---- BookReader by BindLens: only reading
     def _lite_start(self):
+        _log(f"BookReader: its own memory in {data_dir()}")
         for k_ in ("<Control-k>", "<Control-K>", "<Control-comma>", "<Control-e>", "<Control-E>", "<Control-h>", "<Control-H>"):
             try:
                 self.root.unbind(k_)                     # BookReader: none of BindLens's tools and windows
