@@ -2787,6 +2787,9 @@ ES_TEXT = {
     "Add your first folder.": "Añade tu primera carpeta.",
     "All documents": "Todos los documentos",
     "Forgot it?": "¿Lo has olvidado?",
+    "Find a name or a word": "Buscar un nombre o una palabra",
+    "Every page, row and line where it appears - how many times and in which document": "Cada página, fila y línea donde aparece: cuántas veces y en qué documento",
+    "Rows and columns as they are": "Filas y columnas tal cual",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -21706,7 +21709,7 @@ class App:
         self.root.after(2500, self.check_reminders)
         self.root.after(30000, self._scan_auto_tick)          # 3.2: scanned pages are read by themselves
         self.root.after(4000, self._office_tick)              # 3.2: Office files exactly as they look
-        if os.name == "nt":
+        if os.name == "nt" and not LITE:                      # (BookReader: its installer makes its shortcut)
             first = not self.lib.settings.get("shortcut_auto")
             remake = self.lib.settings.get("shortcut_fix") != APP_VERSION
             self.lib.settings["shortcut_auto"] = True
@@ -28679,7 +28682,7 @@ class App:
                     add(d, {"t": ev.get("title") or "(no title)", "c": fd.get("color") or CAL_COLORS[4], "k": "feed",
                             "time": ev.get("time"), "src": fd.get("name", "")})
         if conf["dates"]:
-            for r in (getattr(self, "_attention", None) or {}).get("rows") or []:
+            for r in ([] if LITE else (getattr(self, "_attention", None) or {}).get("rows") or []):
                 try:
                     d = datetime.date.fromisoformat(r["date"])
                 except Exception:
@@ -30676,6 +30679,8 @@ class App:
                 return list(FRAME_PALETTES[fr][1])
             if fr == "accent":
                 return frame_palette({**self._frame_conf(), "palette": "accent"}, self.accent)
+        if LITE:                                         # BookReader: the same colours, a little softer (flat, calm)
+            return [mix(c_, "#FFFFFF", 0.14) for c_ in frame_palette(self._frame_conf(), self.accent)]
         return frame_palette(self._frame_conf(), self.accent)
 
     def show_home(self, _e=None):
@@ -41680,7 +41685,7 @@ class App:
         items = OrderedDict((it[0], (it, g, col)) for g, col, its in self.REPORT_MENU for it in its)
         if pick and pick not in items:
             pick = {"extract": "extract2", "phones": "pick:Phones", "contacts": "pick:Emails"}.get(pick)
-        S = {"type": None, "hover": None, "scope": scope or mem.get("scope") or
+        S = {"type": None, "hover": None, "scope": scope or ("library" if LITE else None) or mem.get("scope") or
              ("folder" if self.folder is not None else "library"),
              "kinds": set(mem.get("kinds") or self.XKINDS[:3] + ["IDs & codes", "Emails", "Phones"]), "checks": {},
              "books": {f for f in (mem.get("books") or []) if f in self.lib.folders}}
@@ -41801,7 +41806,8 @@ class App:
             hint.pack(fill="x", padx=14, pady=(0, 4))
             ask_l = tk.Label(f, text="Or ask your documents in your own words…", font=self.F(9, "bold"),
                              bg=T["panel"], fg="#9B5DE5", cursor="hand2", anchor="w")
-            ask_l.pack(fill="x", padx=14, pady=(0, 10))
+            if not LITE:                                 # (BookReader: the list only)
+                ask_l.pack(fill="x", padx=14, pady=(0, 10))
             ask_l.bind("<Button-1>", lambda e: (close_list(), select("ask")))
             hits, cur = [], {"i": -1}
             NC = 3
@@ -41824,7 +41830,7 @@ class App:
                 if not groups:
                     lc.create_text(LW / 2, 60, text="Nothing in the list with that.", font=self.F(10),
                                    fill=T["muted"])
-                    if qq:
+                    if qq and not LITE:
                         lc.create_text(LW / 2, 90, text=f"Press Enter to ask your documents:  “{sv.get().strip()}”",
                                        font=self.F(10, "bold"), fill="#9B5DE5")
                     cur["i"] = -1
@@ -41895,7 +41901,7 @@ class App:
                     k = hits[i][4]
                     close_list()
                     select(k)
-                elif sv.get().strip():
+                elif sv.get().strip() and not LITE:
                     q_ = sv.get().strip()
                     close_list()
                     select("ask", question=q_)
@@ -49804,6 +49810,8 @@ class App:
         q = getattr(self, "qbar", None)
         if q is None:
             return
+        if LITE:
+            return self._qbar_draw_lite()
         T, A = self.T, self.accent
         q.delete("all")
         q.configure(bg=T["bg"])
@@ -49876,6 +49884,12 @@ class App:
         return None
 
     def _qbar_motion(self, e):
+        if LITE:
+            k = next((r[0] for r in getattr(self, "_lq_rows", []) if r[1] <= e.y <= r[2]), None)
+            if k != self._qb_hov:
+                self._qb_hov = k
+                self._qbar_draw()
+            return
         k = self._qbar_hit(e.y)
         if k != self._qb_hov:
             self._qb_hov = k
@@ -49888,9 +49902,15 @@ class App:
                 self.tooltip.schedule(self.qbar, nm + (f"  ({sc})" if sc else ""))
 
     def _qbar_press(self, e):
+        if LITE:
+            k = next((r[0] for r in getattr(self, "_lq_rows", []) if r[1] <= e.y <= r[2]), None)
+            self._lq_drag = {"k": k, "x0": e.x_root, "y0": e.y_root, "moved": False} if k else None
+            return
         self._qb_drag = {"k": self._qbar_hit(e.y), "y0": e.y, "y": e.y, "moved": False}
 
     def _qbar_drag(self, e):
+        if LITE:
+            return self._lite_drag_move(e)
         d = getattr(self, "_qb_drag", None)
         if not d or d["k"] in (None, "+"):
             return
@@ -49901,6 +49921,8 @@ class App:
             self._qbar_draw()
 
     def _qbar_release(self, e):
+        if LITE:
+            return self._lite_drag_up(e)
         d, self._qb_drag = getattr(self, "_qb_drag", None), None
         if not d:
             return
@@ -49919,6 +49941,8 @@ class App:
             self.quick_action(k)
 
     def _qbar_menu(self, e):
+        if LITE:
+            return
         c = self._qb_conf()
         m = self._menu()
         k = self._qbar_hit(e.y) if e.widget is self.qbar else None
@@ -50246,7 +50270,7 @@ class App:
             c["look"], c["glow"], c["busy"], c["pulse"] = "flat", False, False, False
         return c
 
-    TB_H, ST_H, SIDE_W = 28, 26, 10
+    TB_H, ST_H, SIDE_W = 28, (22 if LITE else 26), 10
 
     def _frame_build(self):
         """4.1: the frame is the window's own edges - the menu row at the top (File … Help, and the document), the
@@ -50512,11 +50536,11 @@ class App:
         if not full:
             self.topband.configure(height=self.TB_H)
             self.topband.pack(side="top", fill="x")
-        if not full and LITE:                          # BookReader: the whole frame, thin; one icon on its right side
+        if not full and LITE:                          # BookReader: the whole frame; its left side holds your logo
             self.status.pack(side="bottom", fill="x")
-            self.qbar.pack(side="right", fill="y")
-            self.lband.configure(width=self._side_w())
-            self.lband.pack(side="left", fill="y")
+            self.qbar.pack(side="left", fill="y")
+            self.rband.configure(width=self._side_w())
+            self.rband.pack(side="right", fill="y")
         elif not full and not reading:
             self.status.pack(side="bottom", fill="x")
             if self._qbar_wanted():
@@ -50545,7 +50569,7 @@ class App:
             c.place_forget()
             c.delete("all")
             d["item"] = None
-            if not on or not (full or reading) or (side == "t" and not full) or \
+            if not on or not (full or reading) or (side == "t" and not full) or (LITE and not full) or \
                     (reading and not full and not self._read_conf().get("frame", True)):
                 continue
             c.configure(bg=self.T["bg"])
@@ -50588,7 +50612,8 @@ class App:
         return "#FFFFFF", "#ECECF3"
 
     BAND_SPEC = {"tb": (True, False, True), "st": (True, True, False), "qb": (False, False, False),
-                 "rb": (False, False, False), "lb": (False, True, True)}   # horizontal, reverse, outer edge first
+                 "rb": (False, False, False), "lb": (False, True, True),
+                 "lq": (False, True, True)}   # horizontal, reverse, outer edge first (lq: BookReader's left band)
 
     def _ring_P(self):
         """4.2: one round of colours fits the window's edge a whole number of times - so where the ring closes (the
@@ -50617,6 +50642,9 @@ class App:
         """(left, right) widths of the frame where it meets the top and bottom bands: the left side and the tools
         (or the thin right side) - or the thin lines while reading."""
         reading = getattr(self, "_reading", False)
+        if LITE and not self.fullscreen:                 # BookReader: the band with the logo (left), a thin right side
+            return (self.qbar.winfo_width() if self.qbar.winfo_ismapped() else 0,
+                    self.rband.winfo_width() if self.rband.winfo_ismapped() else 0)
         if reading or self.fullscreen:
             wd = max(2, min(10, int(self._frame_conf().get("width", 6))))
             on = self._read_conf().get("frame", True) if reading else True
@@ -50778,7 +50806,8 @@ class App:
         if key in cache:
             return cache[key]
         horiz, rev, outer = self.BAND_SPEC[side]
-        thick = {"tb": self.TB_H, "st": self.ST_H, "qb": QB_W, "rb": self._side_w(), "lb": self._side_w()}[side]
+        thick = {"tb": self.TB_H, "st": self.ST_H, "qb": QB_W, "rb": self._side_w(), "lb": self._side_w(),
+                 "lq": QB_W}[side]
         ln = (max(800, self.root.winfo_screenwidth()) if horiz else max(600, self.root.winfo_screenheight())) + \
             self._fr_P
         # 4.2: the bands are one flowing colour (no shading of their own) - the moulding over them is shared
@@ -50796,12 +50825,12 @@ class App:
         P = getattr(self, "_fr_P", 900)
         t = self.TB_H
         return {"tb": (-ph) % P, "st": (ph - 2 * W - H) % P, "qb": (W + t - ph) % P, "rb": (W + t - ph) % P,
-                "lb": (ph - 2 * W - 2 * H + t) % P}[side]
+                "lb": (ph - 2 * W - 2 * H + t) % P, "lq": (ph - 2 * W - 2 * H + t) % P}[side]
 
     def _band_bg(self, cv, side):
         """The flowing colours behind a band's writing (the theme's plain colour when the frame is off)."""
         cv.delete("bandbg")
-        hidden = self.fullscreen or (getattr(self, "_reading", False) and side != "tb")
+        hidden = self.fullscreen or (getattr(self, "_reading", False) and side != "tb" and not LITE)
         if not self._bands_on() or hidden:
             cv.configure(bg=self.T["bg"])
             self.__dict__.setdefault("_band_items", {}).pop(side, None)
@@ -50909,8 +50938,7 @@ class App:
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
                 rd_ = getattr(self, "_reading", False)
-                keys_ = [("_lib", ""), ("_choose", ""), ("_find", ""), ("_hl", ""), ("_note", ""), ("_erase", ""),
-                         ("_light", "") if rd_ else ("_read", ""), ("_marks", ""), ("_cal", ""), ("_reports", "")]
+                keys_ = [(self._lite_show(k_), "") for k_ in self._lite_keys()[0]]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50932,11 +50960,20 @@ class App:
                     (key == "_note" and self.tool == "note") or \
                     (key == "_erase" and getattr(self, "_lite_er", False)) or \
                     (key == "_lib" and (self.sidebar_visible or self._side_overlay) and LITE)
-                if not LITE or hov == key or lit_:           # BookReader: only the drawing, a soft round when pointed at
+                icol_ = ink
+                if LITE:                                     # BookReader: flat - a thin round when pointed at, filled when on
+                    if lit_:
+                        round_rect(tb, x + 3, pad_ - 1, x + w - 3, H - pad_ + 1, 8, fill=ink if on else self.accent, outline="")
+                        icol_ = (mix(self.accent, "#000000", 0.3) if ink == "#FFFFFF" else "#FFFFFF") if on else "#FFFFFF"
+                    elif hov == key:
+                        round_rect(tb, x + 3, pad_ - 1, x + w - 3, H - pad_ + 1, 8, fill="" if on else hov_fill,
+                                   outline=ink if on else "", width=1)
+                else:
                     round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
-                               outline=(ink if (on and hov == key) else (sub if on else self.T["border"])) if not LITE else "", width=1)
+                               outline=(ink if (on and hov == key) else (sub if on else self.T["border"])), width=1)
                 if ico_:
-                    draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, ink, s=0.72 if LITE else 0.55, w=1.8 if LITE else 1.5)
+                    draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, icol_, s=0.74 if LITE else 0.55,
+                              w=1.5)
                 if txt:
                     tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
                 hits.append((x, x + w, key))
@@ -50999,6 +51036,9 @@ class App:
             name = h[2]
         if getattr(self, "_lock", None) is not None and name not in ("_min", "_max", "_close"):
             return                                            # 4.4.1: the PIN first
+        if LITE and e is not None and self._lite_slot(name) in self.LITE_TOP + self.LITE_SIDE:
+            self._lq_drag = {"k": self._lite_slot(name), "x0": e.x_root, "y0": e.y_root, "moved": False}
+            return                                            # (on release: a click, or a new place)
         act = {"_min": self._win_min, "_max": self._win_max, "_close": self.on_close,
                "_choose": (self._lite_folders if LITE else (lambda: self._read_choose())), "_exit": lambda: self.reading_mode(False),
                "_print": lambda: self.print_dialog(), "_reports": lambda: self.simple_reports(),
@@ -51093,7 +51133,7 @@ class App:
         # the bands (menu row, status row, tools, sides): their pictures move, the writing stays
         for side, (cv, it, lvl) in list(getattr(self, "_band_items", {}).items()):
             if lvl != level or force:
-                {"tb": self._topband_draw, "st": self._status_draw, "qb": self._qbar_draw,
+                {"tb": self._topband_draw, "st": self._status_draw, "qb": self._qbar_draw, "lq": self._qbar_draw,
                  "rb": self._sideband_draw, "lb": self._sideband_draw}[side]()
                 continue
             o = self._band_offset(side)
@@ -54003,6 +54043,8 @@ class App:
         except Exception:
             pass
         threading.Thread(target=self._lite_update_check, daemon=True).start()
+        self.topband.bind("<B1-Motion>", self._lite_drag_move, add="+")     # the icons can be dragged
+        self.topband.bind("<ButtonRelease-1>", self._lite_drag_up, add="+")
         self.root.bind("<Control-f>", lambda e: (self._lite_find(), "break")[1])      # find as in a PDF
         self.root.bind("<Control-F>", lambda e: (self._lite_find(), "break")[1])
         self.root.bind("<F3>", lambda e: self.search_step(1))
@@ -54023,8 +54065,13 @@ class App:
             self.lib.save_meta()
             self._place_side()
         self._frame_layout()
-        self.REPORT_MENU = [("Basic", "#6C63FF", [it for _g, _c, its in App.REPORT_MENU for it in its
-                                                  if it[0] in ("tables", "find", "pick:Names", "person", "marks")])]
+        pick_ = {it[0]: it for _g, _c, its in App.REPORT_MENU for it in its}
+        lite_ = [("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
+                                                   "in which document", "names",
+                  [("wholeword", "Whole words only", False)], "search look for where name person people word"),
+                 pick_["snapshot"][:1] + ("Rows and columns as they are",) + pick_["snapshot"][2:],
+                 pick_["columns"], pick_["rows"], pick_["tables"], pick_["marks"]]
+        self.REPORT_MENU = [("Basic", "#6C63FF", lite_)]
         try:
             self.lib_count.configure(text="")
         except Exception:
@@ -54476,6 +54523,125 @@ class App:
         c.focus_set()
         tick()
         flow()
+
+    # ---- BookReader: the icons - at the top or on the left band, where you drag them
+    LITE_TOP = ["_lib", "_choose", "_find", "_hl", "_note", "_erase", "_reports"]
+    LITE_SIDE = ["_light", "_marks", "_cal"]
+    LITE_ICONS = {"_lib": "sidebar", "_choose": "folders", "_find": "search", "_hl": "highlighter", "_note": "note",
+                  "_erase": "eraser", "_reports": "report", "_light": "sun", "_read": "openbook", "_marks": "star",
+                  "_cal": "calendar"}
+
+    def _lite_keys(self):
+        st = self.lib.settings
+        allk = self.LITE_TOP + self.LITE_SIDE
+        side = [k for k in st.get("lite_side", self.LITE_SIDE) if k in allk]
+        top = [k for k in st.get("lite_top", self.LITE_TOP) if k in allk and k not in side]
+        top += [k for k in allk if k not in top and k not in side]
+        return top, side
+
+    def _lite_show(self, k):
+        """The light while reading; Read (the open book) when not reading - one place for both."""
+        return ("_light" if getattr(self, "_reading", False) else "_read") if k == "_light" else k
+
+    @staticmethod
+    def _lite_slot(k):
+        return "_light" if k == "_read" else k
+
+    def _lite_lit(self, k):
+        return (k == "_hl" and getattr(self, "_lite_hl", False)) or (k == "_note" and self.tool == "note") or \
+            (k == "_erase" and getattr(self, "_lite_er", False)) or \
+            (k == "_lib" and (self.sidebar_visible or self._side_overlay))
+
+    def _qbar_draw_lite(self):
+        """BookReader's left band - part of the frame: your institution's logo on it, then the icons you put here."""
+        q = self.qbar
+        T = self.T
+        q.delete("all")
+        q.configure(bg=T["bg"])
+        band = self._band_bg(q, "lq")
+        ink = self._band_ink()[0] if band else T["icon"]
+        hov = self._qb_hov
+        rows = [("inst", 8, 50)]
+        img_ = self._brand_icon()
+        if hov == "inst":
+            round_rect(q, 6, 9, QB_W - 6, 49, 10, fill="" if band else T["hover"], outline=ink if band else "", width=1)
+        if img_ is not None:
+            q.create_image(QB_W / 2, 29, image=img_)
+        else:
+            draw_icon(q, "building", QB_W / 2, 29, ink, s=0.78, w=1.5)
+        y0 = 62
+        q.create_line(14, y0 - 6, QB_W - 14, y0 - 6, fill=ink, width=1, dash=(1, 3))
+        for k in self._lite_keys()[1]:
+            kk = self._lite_show(k)
+            col = ink
+            if self._lite_lit(kk):
+                round_rect(q, 7, y0 + 1, QB_W - 7, y0 + 35, 9, fill=ink if band else self.accent, outline="")
+                col = (mix(self.accent, "#000000", 0.3) if ink == "#FFFFFF" else "#FFFFFF") if band else "#FFFFFF"
+            elif hov == k:
+                round_rect(q, 7, y0 + 1, QB_W - 7, y0 + 35, 9, fill="" if band else T["hover"],
+                           outline=ink if band else "", width=1)
+            draw_icon(q, self.LITE_ICONS[kk], QB_W / 2, y0 + 18, col, s=0.74, w=1.5)
+            rows.append((k, y0, y0 + 36))
+            y0 += 40
+        if getattr(self, "_lq_over", None) == "side":             # an icon on its way here
+            q.create_line(10, y0 + 2, QB_W - 10, y0 + 2, fill=ink, width=2)
+        self._lq_rows = rows
+
+    def _lite_drag_move(self, e):
+        d = getattr(self, "_lq_drag", None)
+        if not d or d["k"] == "inst":
+            return
+        if abs(e.x_root - d["x0"]) + abs(e.y_root - d["y0"]) > 8:
+            d["moved"] = True
+        if not d["moved"]:
+            return
+        over = "side" if self._inside(self.qbar, e.x_root, e.y_root) else \
+            ("top" if self._inside(self.topband, e.x_root, e.y_root) else None)
+        for w_ in (self.topband, self.qbar):
+            w_.configure(cursor="fleur")
+        if over != getattr(self, "_lq_over", None):
+            self._lq_over = over
+            self._qbar_draw()
+
+    def _lite_drag_up(self, e):
+        d, self._lq_drag = getattr(self, "_lq_drag", None), None
+        self._lq_over = None
+        for w_ in (self.topband, self.qbar):
+            try:
+                w_.configure(cursor="")
+            except Exception:
+                pass
+        if not d:
+            return
+        k = d["k"]
+        if not d["moved"]:                                   # a click
+            if k == "inst":
+                self.quick_action("inst")
+            else:
+                self._tb_click(name=self._lite_show(k))
+            self._qbar_draw()
+            return
+        if k == "inst":
+            return
+        top, side = self._lite_keys()
+        for lst in (top, side):
+            if k in lst:
+                lst.remove(k)
+        if self._inside(self.qbar, e.x_root, e.y_root):        # onto the left band
+            y = e.y_root - self.qbar.winfo_rooty()
+            side.insert(max(0, min(len(side), int((y - 62 + 20) // 40))), k)
+        elif self._inside(self.topband, e.x_root, e.y_root):   # onto the top band, among the others
+            x = e.x_root - self.topband.winfo_rootx()
+            hits = [h for h in getattr(self, "_tb_hits", []) if self._lite_slot(h[2]) in top]
+            at = next((top.index(self._lite_slot(h[2])) for h in hits if (h[0] + h[1]) / 2 > x), len(top))
+            top.insert(at, k)
+        else:
+            return
+        self.lib.settings["lite_top"], self.lib.settings["lite_side"] = top, side
+        self.lib.save_meta()
+        self._tb_hov = self._qb_hov = None
+        self._topband_draw()
+        self._qbar_draw()
 
     def _lite_lib_close(self):
         self.side.place_forget()

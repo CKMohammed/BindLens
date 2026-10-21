@@ -45,8 +45,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\dist\BookReader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; Comment: "BookReader - read your folders"
-Name: "{autodesktop}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; Comment: "BookReader - read your folders"; Tasks: desktopicon
+Name: "{autoprograms}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"
+Name: "{autodesktop}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\BookReader.exe"; Description: "{cm:LaunchProgram,BookReader}"; Flags: nowait postinstall skipifsilent
