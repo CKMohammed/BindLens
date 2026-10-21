@@ -2766,6 +2766,9 @@ ES_TEXT = {
     "Its logo or a photo": "Su logo o una foto",
     "Logo or photo…": "Logo o foto…",
     "A folder that was moved has been found again.": "Se ha vuelto a encontrar una carpeta que se había movido.",
+    "Your institution (logo or photo)…": "Tu institución (logo o foto)…",
+    "PIN…": "PIN…",
+    "Basic": "Básicos",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -35082,7 +35085,7 @@ class App:
                     self.start_box_editor(g, p0[0], p0[1])
             return
         if d["moved"] and self.sel and getattr(self, "_lite_hl", False):
-            self.add_markup("highlight")                 # BookReader: the highlighter is on - it marks at once
+            self.add_markup("highlight", color="#FFE066")   # BookReader: one soft yellow, at once
         elif d["moved"] and self.sel:
             self.show_float(e.x_root, e.y_root)
 
@@ -49837,7 +49840,16 @@ class App:
         elif k == "reminders":
             self.reminders_dialog()
         elif k == "inst":
-            self.institution_dialog()
+            if LITE:
+                m = tk.Menu(self.root, tearoff=0)
+                m.add_command(label=_tr("Your institution (logo or photo)…"), command=self.institution_dialog)
+                m.add_command(label=_tr("PIN…"), command=self.pin_settings)
+                try:
+                    m.tk_popup(self.root.winfo_pointerx() - 180, self.root.winfo_pointery())
+                finally:
+                    m.grab_release()
+            else:
+                self.institution_dialog()
         elif k == "pages":
             self.pages_overview()
         elif k == "deleted":
@@ -50728,8 +50740,9 @@ class App:
                 x += 24
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
-                keys_ = [("_read", "") if not getattr(self, "_reading", False) else ("_exit", ""),
-                         ("_addf", ""), ("_hl", ""), ("_note", ""), ("_reports", ""), ("_pin", "")]
+                rd_ = getattr(self, "_reading", False)
+                keys_ = [("_exit", "") if rd_ else ("_read", ""), ("_light", "") if rd_ else ("_addf", ""),
+                         ("_find", ""), ("_hl", ""), ("_note", ""), ("_marks", ""), ("_reports", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50741,6 +50754,7 @@ class App:
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
                       "_note": "note", "_read": "openbook", **({"_exit": "close"} if LITE else {}),
+                      "_light": "sun", "_find": "search", "_marks": "star",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
                 ico_ = 18 if key in icons_ else 0
@@ -50819,7 +50833,8 @@ class App:
                "_print": lambda: self.print_dialog(), "_reports": lambda: self.simple_reports(),
                "_pencil": self._scratch_toggle, "_pinlock": self._read_lock,
                "_addf": self._lite_add, "_hl": self._lite_hl_toggle, "_inst": self.institution_dialog,
-               "_read": lambda: self.reading_mode(True),
+               "_read": lambda: self.reading_mode(True), "_light": self._lite_light, "_find": self._lite_find,
+               "_marks": lambda: self._qp_open("marks"),
                "_note": lambda: (self.set_tool("select" if self.tool == "note" else "note"), self._topband_draw()),
                "_pin": self.pin_settings,
                "_play": self._slide_toggle}.get(name)
@@ -50854,9 +50869,18 @@ class App:
         ink, sub = self._band_ink()
         W = max(200, st.winfo_width())
         f = self.F(9)
-        if LITE:                                         # BookReader: "by BindLens", tiny, at the end of the bottom bar
+        if LITE:                                         # BookReader: "page 3 of 12", how far, and "by BindLens" tiny
             st.create_text(W - 10, self.ST_H / 2, text="by BindLens", anchor="e", font=self.F(6), fill=mix(sub, self.T["bg"], 0.35))
-            W -= 78
+            pg_txt = (self.where_lbl.text or "").split("  ·  ")[-1].split(" · ")[-1]
+            st.create_text(W / 2, self.ST_H / 2, text=pg_txt, font=f, fill=sub)
+            try:
+                tot = max(1, self.book.total) if self.book else 0
+                if tot:
+                    fr_ = (self.current_page + 1) / tot
+                    st.create_line(0, 1, W * fr_, 1, fill=self.accent, width=2)
+            except Exception:
+                pass
+            return
         wt = st.create_text(W - 14, self.ST_H / 2, text=self.where_lbl.text, anchor="e", font=f, fill=sub)
         bb = st.bbox(wt)
         room = (bb[0] if bb and self.where_lbl.text else W) - 40
@@ -50968,7 +50992,7 @@ class App:
             return
         delay = 70
         try:
-            still = conf["mode"] == "still" or self._fast()
+            still = conf["mode"] == "still" or self._fast() or (LITE and getattr(self, "_reading", False))
             paused = (self.root.state() == "iconic" or time.time() < getattr(self, "_scroll_quiet", 0) or
                       getattr(self, "_idle_win", None) is not None or getattr(self, "_lock", None) is not None)
             if not paused:
@@ -53805,7 +53829,18 @@ class App:
                     pass
 
         self._frame_layout()
-        if not self.lib.folders:
+        self.REPORT_MENU = [("Basic", "#6C63FF", [it for _g, _c, its in App.REPORT_MENU for it in its
+                                                  if it[0] in ("tables", "find", "pick:Names", "person", "marks")])]
+        try:
+            self.lib_count.configure(text="")
+        except Exception:
+            pass
+        rec = [x for x in self.lib.settings.get("recent_docs", []) if x.get("f") in self.lib.folders]
+        if rec:
+            self.root.after(300, lambda: self._go_doc(rec[0]["f"], rec[0]["rel"], rec[0].get("p", 0)))   # where you left off
+        elif self.lib.folders:
+            self.open_folder(next(iter(self.lib.folders)))
+        else:
             self.set_status(_tr("Add a folder with the + at the top."))
 
     def _lite_add(self):
@@ -53894,6 +53929,33 @@ class App:
                     if dep < 3:
                         stack.append((e.path, dep + 1))
         return best
+
+    def _lite_light(self):
+        """The light of reading: white page, warm paper, night - one icon, round and round."""
+        st = self.lib.settings
+        cur = "night" if st.get("night_pages") else ("warm" if st.get("warm_pages") else "white")
+        nxt = {"white": "warm", "warm": "night", "night": "white"}[cur]
+        st["night_pages"], st["warm_pages"] = nxt == "night", nxt == "warm"
+        try:
+            self._read_conf()["page"] = "same"
+        except Exception:
+            pass
+        self.lib.save_meta()
+        try:
+            self.cache.clear()
+        except Exception:
+            pass
+        self.redraw()
+        self._toast({"white": _tr("White page"), "warm": _tr("Warm paper"), "night": _tr("Night")}[nxt])
+
+    def _lite_find(self):
+        try:
+            if getattr(self, "_reading", False):
+                return self.quick_search()
+            self.show_tab("Search")
+            self.focus_search()
+        except Exception:
+            self.quick_search()
 
     def _lite_hl_toggle(self):
         self._lite_hl = not getattr(self, "_lite_hl", False)
