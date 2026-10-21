@@ -135,13 +135,18 @@ def _tr_find(s):
 
 def _tr(s):
     """The Spanish for an English text of BindLens (when the language is Spanish); anything else as it is."""
-    if not isinstance(s, str) or not s or app_lang() != "es":
+    if not isinstance(s, str) or not s:
         return s
-    hit = _TR_CACHE.get(s)
-    if hit is None:
-        hit = _tr_find(s)
-        if len(_TR_CACHE) < 50000:
-            _TR_CACHE[s] = hit
+    if app_lang() != "es":
+        hit = s
+    else:
+        hit = _TR_CACHE.get(s)
+        if hit is None:
+            hit = _tr_find(s)
+            if len(_TR_CACHE) < 50000:
+                _TR_CACHE[s] = hit
+    if LITE and "BindLens" in hit and "by BindLens" not in hit:    # BookReader: its own name everywhere
+        hit = hit.replace("BindLens", "BookReader")
     return hit
 
 
@@ -1697,7 +1702,7 @@ ES_TEXT = {
     "Remove the chosen mark": "Quitar la marca elegida",
     "Turn the chosen mark": "Girar la marca elegida",
     "Copy the selected text": "Copiar el texto seleccionado",
-    "Find anywhere": "Buscar en todas partes",
+    "Find anywhere": "Buscar en todo",
     "Document names": "Nombres de documentos",
     "Inside the documents": "Dentro de los documentos",
     "Names don't have to be exact - e.g.  week 38,  wk38,  invoce march": "No hace falta que los nombres sean exactos; p. ej.  semana 38,  sem38,  factrua marzo",
@@ -2776,6 +2781,10 @@ ES_TEXT = {
     "Remove from the library (the documents stay where they are)": "Quitar de la biblioteca (los documentos se quedan donde están)",
     "My highlights and notes": "Mis resaltados y notas",
     "A newer BookReader is on bindlens.com.": "Hay una versión nueva de BookReader en bindlens.com.",
+    "Deleted - Ctrl+Z brings it back.": "Borrado. Ctrl+Z lo recupera.",
+    "Click a highlight or a note to delete it.": "Haz clic en un resaltado o una nota para borrarlo.",
+    "Your recovery code (the one you saved when you chose the PIN):": "Tu código de recuperación (el que guardaste al elegir el PIN):",
+    "Add your first folder.": "Añade tu primera carpeta.",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -3144,7 +3153,7 @@ ES_PATTERNS = {
 
 def install_language():
     """Puts _tr() at the edge of Tk: every label, button, menu, dialog and title shows the reader's language."""
-    if app_lang() != "es" or getattr(tk, "_bl_tr", False):
+    if (app_lang() != "es" and not LITE) or getattr(tk, "_bl_tr", False):
         return
     tk._bl_tr = True
     base_init = tk.BaseWidget.__init__
@@ -9125,6 +9134,9 @@ def _hop_search(st, msg, **_):
 
 
 def write_report_file(fitz, rep, dst, fmt, accent):
+    if isinstance(rep.get("_brand"), dict):              # (a helper process: your institution comes with the report)
+        _BRAND.clear()
+        _BRAND.update(rep["_brand"])
     set_report_theme(accent, rep.get("_logo"))
     if fmt == "pdf":
         write_report_pdf(fitz, rep, dst, accent)
@@ -16191,7 +16203,8 @@ def write_report_docx(rep, path, accent="#6C63FF", fitz=None):
         ppr = f"<w:pPr>{ppr}</w:pPr>" if ppr else ""
         return f"<w:p>{ppr}{run(text, **kw)}</w:p>"
 
-    body = [para(rep["title"], "Title")]
+    body = ([para(_BRAND["name"], bold=True, color=_BRAND.get("color", accent).lstrip("#").upper(), size=22)]
+            if _BRAND.get("name") else []) + [para(rep["title"], "Title")]
     media = {}
 
     def picture(png, wpt, hpt, caption=None):
@@ -16424,6 +16437,8 @@ def write_report_xlsx(rep, path, fitz=None):
     """Summary sheet (key numbers, findings, text), a Charts sheet with real Excel charts, one sheet per table."""
     sheets = []
     summary = [[rep["title"]]]
+    if _BRAND.get("name"):                               # your institution, under the title
+        summary.append([_BRAND["name"]])
     if rep.get("subtitle"):
         summary.append([rep["subtitle"]])
     summary.append([])
@@ -19892,7 +19907,9 @@ class App:
     def _idle_start(self, force=False):
         """The resting screen: 'sky' (1.9.2 - a night sky where your books are constellations and the lens looks
         among them) or 'pieces' (the logo breaks into pieces and flies to another corner)."""
-        if self.lib.settings.get("rest_style", "sky") == "pieces":
+        if LITE:                                         # BookReader: its own, very quiet
+            r = self._idle_start_lite(force)
+        elif self.lib.settings.get("rest_style", "sky") == "pieces":
             r = self._idle_start_pieces(force)
         else:
             r = self._idle_start_sky(force)
@@ -30063,8 +30080,10 @@ class App:
         self.lib.settings["side_pinned"] = self.side_pinned
         self.lib.save_meta()
         self._place_side()
-        if not self.side_pinned:
+        if not self.side_pinned and not LITE:
             self.set_status("Library panel: opens when you move the mouse onto the icons on the left.  F9 keeps it open.")
+        if LITE:
+            self._topband_draw()
         self.root.after(60, self._relayout_after_side)
 
     def _relayout_after_side(self):
@@ -30076,7 +30095,7 @@ class App:
             w.place_forget()
             w.pack_forget()
         self._side_overlay = False
-        self.sidebar_visible = self.side_pinned and not self.fullscreen and not getattr(self, "_reading", False)
+        self.sidebar_visible = self.side_pinned and not self.fullscreen and (LITE or not getattr(self, "_reading", False))
         if self.sidebar_visible:
             self.side.pack(side="left", fill="y", before=self.view)
             self.side_sep.pack(side="left", fill="y", before=self.view)
@@ -34857,6 +34876,16 @@ class App:
             return self._scratch_ev(e, "press")
         if CONSULT["on"]:
             return "break"
+        if LITE and getattr(self, "_lite_er", False) and not self._over_ui(e):   # BookReader: the eraser
+            m = self._annot_at(e)
+            self.drag = None
+            if m is not None:
+                self._lite_er = False
+                self.canvas.config(cursor="")
+                self.erase_marks(m["g"], m["bbox"], only=m.get("xref"))
+                self._toast(_tr("Deleted - Ctrl+Z brings it back."))
+                self._topband_draw()
+            return "break"
         if self._over_ui(e):
             self.drag = None
             return
@@ -35300,6 +35329,9 @@ class App:
 
     def _on_motion(self, e):
         if self.drag:
+            return
+        if LITE and getattr(self, "_lite_er", False):    # BookReader: the eraser shows where it would delete
+            self.canvas.config(cursor="X_cursor" if self._annot_at(e) else "crosshair")
             return
         if getattr(self, "page_lefts", None) is not None and not getattr(self, "_reading", False):
             self._gal_hover(e)
@@ -41064,7 +41096,7 @@ class App:
                     lb.selection_set(0)
                 return
             m = mode["m"]
-            if m == "all":                              # 3.0: actions by name
+            if m == "all" and not LITE:                 # 3.0: actions by name
                 qt_ = q.split()
                 for act in self._actions():
                     if not act or not act[4]:
@@ -49143,6 +49175,7 @@ class App:
                 done()
             else:
                 done("perm" if res.get("perm") else (res.get("err") or "unknown problem"))
+        rep = dict(rep, _brand=dict(_BRAND))
         self.pool.submit("write", prio=3, timeout=1800, rep=rep, dst=dst, fmt=fmt, accent=self.accent, cb=got)
 
     def _subtitle(self, scope, extra=""):
@@ -50148,6 +50181,8 @@ class App:
             c.setdefault("look", "bevel")
         c.setdefault("look", "bevel")
         c.setdefault("own_bar", True)           # 4.3: Windows - BindLens's own title bar (the frame from the very top)
+        if LITE:                                # BookReader: flat - one colour, no moulding, no glow
+            c["look"], c["glow"], c["busy"], c["pulse"] = "flat", False, False, False
         return c
 
     TB_H, ST_H, SIDE_W = 28, 26, 10
@@ -50748,7 +50783,24 @@ class App:
         f = self.F(9)
         hov_fill = mix(self.T["bg"], self.accent, 0.16) if not on else ""
         right = W
-        if self._cap_on():                                  # minimise · maximise / restore · close
+        if self._cap_on() and LITE:                         # BookReader: three small circles at the left (as on a Mac)
+            sh_ = hov in ("_close", "_min", "_max")
+            for k, (key, col) in enumerate((("_close", "#FF5F57"), ("_min", "#FEBC2E"), ("_max", "#28C840"))):
+                cx, cy = x + 9 + k * 20, H / 2
+                tb.create_oval(cx - 6, cy - 6, cx + 6, cy + 6, fill=col, outline=mix(col, "#000000", 0.15))
+                if sh_:                                  # their signs when the mouse comes near
+                    dk = mix(col, "#000000", 0.6)
+                    if key == "_close":
+                        tb.create_line(cx - 2.6, cy - 2.6, cx + 2.6, cy + 2.6, fill=dk, width=1.2)
+                        tb.create_line(cx - 2.6, cy + 2.6, cx + 2.6, cy - 2.6, fill=dk, width=1.2)
+                    elif key == "_min":
+                        tb.create_line(cx - 3, cy, cx + 3, cy, fill=dk, width=1.3)
+                    else:
+                        tb.create_line(cx - 3, cy, cx + 3, cy, fill=dk, width=1.2)
+                        tb.create_line(cx, cy - 3, cx, cy + 3, fill=dk, width=1.2)
+                hits.append((cx - 10, cx + 10, key))
+            x += 3 * 20 + 12
+        elif self._cap_on():                                # minimise · maximise / restore · close
             bw = self.WIN_BTN_W
             right = W - 3 * bw
             zoomed = self._cap.zoomed()
@@ -50796,8 +50848,8 @@ class App:
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
                 rd_ = getattr(self, "_reading", False)
-                keys_ = [("_exit", "Library") if rd_ else ("_read", ""), ("_light", "") if rd_ else ("_addf", ""),
-                         ("_find", ""), ("_hl", ""), ("_note", ""), ("_marks", ""), ("_cal", ""), ("_reports", "")]
+                keys_ = [("_lib", ""), ("_choose", ""), ("_find", ""), ("_hl", ""), ("_note", ""), ("_erase", ""),
+                         ("_light", "") if rd_ else ("_read", ""), ("_marks", ""), ("_cal", ""), ("_reports", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50808,14 +50860,17 @@ class App:
                 keys_.insert(1, ("_print", "Print"))             # 4.3: print while reading - the same Print
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
-                      "_note": "note", "_read": "openbook", **({"_exit": "folders"} if LITE else {}),
+                      "_note": "note", "_read": "openbook", "_lib": "sidebar", "_erase": "eraser",
+                      **({"_exit": "folders", "_choose": "folders"} if LITE else {}),
                       "_light": "sun", "_find": "search", "_marks": "star", "_cal": "calendar",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
                 ico_ = 18 if key in icons_ else 0
                 w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else (36 if LITE else 30)
                 lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
-                    (key == "_note" and self.tool == "note")
+                    (key == "_note" and self.tool == "note") or \
+                    (key == "_erase" and getattr(self, "_lite_er", False)) or \
+                    (key == "_lib" and (self.sidebar_visible or self._side_overlay) and LITE)
                 if not LITE or hov == key or lit_:           # BookReader: only the drawing, a soft round when pointed at
                     round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
                                outline=(ink if (on and hov == key) else (sub if on else self.T["border"])) if not LITE else "", width=1)
@@ -50891,7 +50946,7 @@ class App:
                "_read": lambda: self.reading_mode(True), "_light": self._lite_light, "_find": self._lite_find,
                "_marks": lambda: self._qp_open("marks"), "_cal": lambda: self._qp_open("calendar"),
                "_note": lambda: (self.set_tool("select" if self.tool == "note" else "note"), self._topband_draw()),
-               "_pin": self.pin_settings,
+               "_pin": self.pin_settings, "_lib": self._lite_lib, "_erase": self._lite_er_toggle,
                "_play": self._slide_toggle}.get(name)
         if act is not None:
             self._tb_hov = None
@@ -52699,6 +52754,8 @@ class App:
         cur = pin_load()
         if not cur:
             return
+        if LITE:                                         # BookReader: a small lock and four dots, nothing more
+            return self._lock_show_lite(cur)
         ov = tk.Frame(self.root, bg="#120F2E")
         self._lock = ov
         self._lock_place()
@@ -53894,6 +53951,12 @@ class App:
                 except Exception:
                     pass
 
+        if not self.lib.settings.get("lite_side_v2"):     # the library opens with its icon (its pin keeps it)
+            self.lib.settings["lite_side_v2"] = True
+            self.side_pinned = False
+            self.lib.settings["side_pinned"] = False
+            self.lib.save_meta()
+            self._place_side()
         self._frame_layout()
         self.REPORT_MENU = [("Basic", "#6C63FF", [it for _g, _c, its in App.REPORT_MENU for it in its
                                                   if it[0] in ("tables", "find", "pick:Names", "person", "marks")])]
@@ -53907,7 +53970,7 @@ class App:
         elif self.lib.folders:
             self.open_folder(next(iter(self.lib.folders)))
         else:
-            self.set_status(_tr("Add a folder with the + at the top."))
+            self.set_status(_tr("Add your first folder."))
             self.root.after(700, self._lite_add)         # the first time, in one step: choose your first folder
 
     def _lite_add(self):
@@ -54016,13 +54079,224 @@ class App:
         self._toast({"white": _tr("White page"), "warm": _tr("Warm paper"), "night": _tr("Night")}[nxt])
 
     def _lite_find(self):
+        self.quick_search()
         try:
-            if getattr(self, "_reading", False):
-                return self.quick_search()
-            self.show_tab("Search")
-            self.focus_search()
+            self._qs.lift()
+            self._qs.focus_force()
         except Exception:
-            self.quick_search()
+            pass
+
+    def _lite_lib(self):
+        """BookReader: the whole library at the left - its icon opens it; its pin keeps it open."""
+        if self.sidebar_visible:                           # kept open: the icon puts it away
+            self.toggle_sidebar()
+            return
+        if self._side_overlay:
+            return self._lite_lib_close()
+        self.side.place(in_=self.paned, x=0, y=0, width=290, relheight=1)
+        self.side_sep.place(in_=self.paned, x=290, y=0, width=1, relheight=1)
+        self.side.lift()
+        self.side_sep.lift()
+        self._side_overlay = True
+        st = {"in": False}
+
+        def check():
+            if not self._side_overlay:
+                return
+            px, py = self.root.winfo_pointerxy()
+            busy = self._menu_open or self.root.grab_current() is not None
+            if self._inside(self.side, px, py, 4):
+                st["in"] = True
+            elif st["in"] and not busy and not self._inside(self.topband, px, py):
+                return self._lite_lib_close()
+            self.root.after(400, check)
+        self.root.after(400, check)
+        self._topband_draw()
+
+    def _lite_soft(self):
+        """BookReader's quiet colours: the institution's (or the app's), very light."""
+        cols = [c_ for c_ in (_BRAND.get("colors") or []) if c_] or [self.accent, "#E0A82E"]
+        return cols + cols[:1] if len(cols) == 1 else cols
+
+    def _idle_start_lite(self, force=False):
+        """BookReader resting: a light plain colour moving very slowly, the time in thin figures, the date, and one
+        of your highlights now and then."""
+        import math
+        if getattr(self, "_idle_win", None) is not None:
+            return
+        c = tk.Canvas(self.root, highlightthickness=0, bd=0, bg="#F6F5F2")
+        c.place(x=0, y=0, relwidth=1, relheight=1)
+        c.tk.call("raise", c._w)
+        self._idle_win = c
+        self._idle_since = time.time()
+        cols = self._lite_soft()
+        quotes = [m_.get("text", "") for ms_ in (getattr(self, "marks_by_g", None) or {}).values() for m_ in ms_
+                  if m_.get("kind") == "Highlight" and 18 <= len(m_.get("text", "")) <= 240]
+        random.shuffle(quotes)
+        es_ = app_lang() == "es"
+        days = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo") if es_ else \
+            ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+        months = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+                  "noviembre", "diciembre") if es_ else ("January", "February", "March", "April", "May", "June", "July",
+                                                         "August", "September", "October", "November", "December")
+        ink = "#2B2B33"
+
+        def step():
+            if getattr(self, "_idle_win", None) is not c:
+                return
+            try:
+                W, H = max(300, c.winfo_width()), max(200, c.winfo_height())
+                t = (time.time() - self._idle_since) / 90.0          # very slow
+                a = mix(cols[0], cols[1], (math.sin(t) + 1) / 2)
+                c.delete("all")
+                c.configure(bg=mix(a, "#FFFFFF", 0.9))
+                r = max(W, H) * 0.42
+                for k_, (cx, cy, col) in enumerate(((W * (0.3 + 0.12 * math.sin(t * 0.8)), H * (0.35 + 0.1 * math.cos(t * 0.6)), cols[0]),
+                                                      (W * (0.72 + 0.1 * math.cos(t * 0.7)), H * (0.68 + 0.1 * math.sin(t * 0.5)), cols[1]))):
+                    c.create_oval(cx - r, cy - r, cx + r, cy + r, fill=mix(col, "#FFFFFF", 0.8), outline="")
+                now = time.localtime()
+                big = self._text_img(time.strftime("%H:%M", now), 84, ink, style="sans_l")
+                self._idle_imgs = [big[0]]
+                c.create_image(W / 2, H / 2 - 40, image=big[0])
+                c.create_text(W / 2, H / 2 + big[2] / 2 - 14, text=f"{days[now.tm_wday]}, {now.tm_mday} {months[now.tm_mon - 1]}",
+                              font=(self.family, 13), fill=mix(ink, "#FFFFFF", 0.35))
+                if quotes:
+                    q_ = quotes[int(time.time() // 40) % len(quotes)]
+                    c.create_text(W / 2, H * 0.8, text="“" + q_ + "”", width=min(620, W - 80), justify="center",
+                                  font=(self.family, 12, "italic"), fill=mix(ink, "#FFFFFF", 0.3))
+            except Exception as ex:
+                _log(f"bookreader rest: {ex}")
+            self._idle_job = self.root.after(1000, step)
+        step()
+
+    def _lock_show_lite(self, cur):
+        """BookReader's PIN: a light plain screen, a small thin lock, the time, a dot for each figure."""
+        cols = self._lite_soft()
+        bgc = mix(cols[0], "#FFFFFF", 0.9)
+        ink, sub = "#2B2B33", "#7A7A85"
+        ov = tk.Frame(self.root, bg=bgc)
+        self._lock = ov
+        st = self._lock_st = {"hidden": [], "job": None, "v": "", "msg": "", "busy": False}
+        self._lock_place()
+        ov.lift()
+        self.__dict__.setdefault("_after_unlock", [])
+        c = tk.Canvas(ov, bg=bgc, highlightthickness=0, bd=0, cursor="arrow")
+        c.pack(fill="both", expand=True)
+        n = int(cur.get("n", 4) or 4)
+
+        def draw():
+            if getattr(self, "_lock", None) is not ov:
+                return
+            c.delete("all")
+            W, H = max(300, c.winfo_width()), max(260, c.winfo_height())
+            cy = H / 2 - 30
+            draw_icon(c, "lock", W / 2, cy - 74, ink, s=1.0, w=1.4)
+            big = self._text_img(time.strftime("%H:%M"), 46, ink, style="sans_l")
+            st["img"] = big[0]
+            c.create_image(W / 2, cy - 18, image=big[0])
+            k_ = max(n, len(st["v"]))
+            for i in range(k_):
+                x_ = W / 2 + (i - (k_ - 1) / 2.0) * 22
+                on_ = i < len(st["v"])
+                c.create_oval(x_ - 5, cy + 36, x_ + 5, cy + 46, outline=ink, width=1.2, fill=ink if on_ else "")
+            c.create_text(W / 2, cy + 74, text=_tr(st["msg"] or "Type your PIN"), font=(self.family, 9), fill=sub)
+            f_ = c.create_text(W / 2, H - 30, text=_tr("Forgot it?"), font=(self.family, 8, "underline"), fill=sub,
+                               tags=("forgot",))
+            c.tag_bind("forgot", "<Button-1>", lambda e: forgot())
+
+        def tick():
+            if getattr(self, "_lock", None) is not ov:
+                return
+            if not st["busy"]:
+                draw()
+            st["job"] = self.root.after(15000, tick)
+
+        def check():
+            d = pin_load() or {}
+            now = time.time()
+            if now < float(d.get("until", 0)):
+                st["msg"], st["v"] = "Too many tries - wait a minute.", ""
+                return draw()
+            val, st["busy"] = st["v"], True
+
+            def work():
+                try:
+                    st["res"] = bool(d.get("hash")) and pin_hash(val, d.get("salt", "00")) == d.get("hash")
+                except Exception:
+                    st["res"] = False
+                self.root.after(0, lambda: answer(st["res"]))
+            threading.Thread(target=work, daemon=True).start()
+
+        def answer(ok):
+            st["busy"] = False
+            if getattr(self, "_lock", None) is not ov:
+                return
+            d = pin_load() or {}
+            if ok:
+                d["fails"], d["until"] = 0, 0
+                pin_save(d)
+                return self._lock_hide()
+            d["fails"] = int(d.get("fails", 0)) + 1
+            if d["fails"] >= 5:
+                d["until"], d["fails"] = time.time() + 60, 0
+                st["msg"] = "Too many tries - wait a minute."
+            else:
+                st["msg"] = "Not right - try again."
+            pin_save(d)
+            st["v"] = ""
+            draw()
+
+        def forgot():
+            code = simpledialog.askstring("BookReader", _tr("Your recovery code (the one you saved when you chose the PIN):"),
+                                          parent=self.root)
+            if not code:
+                return
+            d = pin_load() or {}
+            if d.get("rhash") and pin_hash(code.strip().replace("-", "").upper(), d.get("rsalt", "00")) == d["rhash"]:
+                self._lock_hide()
+                self.root.after(300, self.pin_settings)
+            else:
+                st["msg"] = "That code is not right."
+                draw()
+
+        def key(e):
+            if getattr(self, "_lock", None) is not ov or st["busy"]:
+                return "break"
+            if e.keysym == "BackSpace":
+                st["v"] = st["v"][:-1]
+            elif e.keysym in ("Return", "KP_Enter"):
+                if st["v"]:
+                    check()
+                return "break"
+            elif e.char and e.char.isprintable() and len(st["v"]) < 12:
+                st["v"] += e.char
+                st["msg"] = ""
+            draw()
+            if len(st["v"]) == n:
+                self.root.after(150, check)
+            return "break"
+        self.root.bind("<Key>", key)
+        c.bind("<Configure>", lambda e: draw())
+        c.bind("<Button-1>", lambda e: c.focus_set())
+        c.focus_set()
+        tick()
+
+    def _lite_lib_close(self):
+        self.side.place_forget()
+        self.side_sep.place_forget()
+        self._side_overlay = False
+        self._topband_draw()
+
+    def _lite_er_toggle(self):
+        """BookReader: the eraser - click a highlight or a note and it goes (Ctrl+Z brings it back)."""
+        self._lite_er = not getattr(self, "_lite_er", False)
+        self._lite_hl = False
+        self.set_tool("select")
+        if self._lite_er:
+            self._toast(_tr("Click a highlight or a note to delete it."))
+        else:
+            self.canvas.config(cursor="")
+        self._topband_draw()
 
     def _lite_pct(self, f):
         try:
@@ -54034,6 +54308,8 @@ class App:
         return f["count"]
 
     def _lite_read(self):
+        if self._side_overlay and not self.side_pinned:    # the library goes once a document is chosen
+            self.root.after(250, self._lite_lib_close)
         if not getattr(self, "_reading", False) and self.book is not None:
             self.reading_mode(True)
 
@@ -54079,6 +54355,7 @@ class App:
 
     def _lite_hl_toggle(self):
         self._lite_hl = not getattr(self, "_lite_hl", False)
+        self._lite_er = False
         self.set_tool("select")
         if self._lite_hl:
             self._toast(_tr("Select the words to highlight."))
