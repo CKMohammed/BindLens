@@ -814,7 +814,7 @@ ES_TEXT = {
     "New sub-book inside…": "Nuevo sublibro dentro…",
     "Add a folder from your computer inside…": "Añadir dentro una carpeta de tu ordenador…",
     "Remove from this book (the folder stays on your computer)": "Quitar de este libro (la carpeta se queda en tu ordenador)",
-    "Rename…": "Cambiar nombre…",
+    "Rename…": "Cambiar el nombre…",
     "Icon and colour…": "Icono y color…",
     "Add more documents to this book…": "Añadir más documentos a este libro…",
     "Open it in its own program": "Abrirlo en su propio programa",
@@ -2769,6 +2769,13 @@ ES_TEXT = {
     "Your institution (logo or photo)…": "Tu institución (logo o foto)…",
     "PIN…": "PIN…",
     "Basic": "Básicos",
+    "Select the words to highlight.": "Selecciona las palabras que quieres resaltar.",
+    "Background: plain paper": "Fondo: papel liso",
+    "Background: the colours of the logo": "Fondo: los colores del logo",
+    "Background: dark": "Fondo: oscuro",
+    "Remove from the library (the documents stay where they are)": "Quitar de la biblioteca (los documentos se quedan donde están)",
+    "My highlights and notes": "Mis resaltados y notas",
+    "A newer BookReader is on bindlens.com.": "Hay una versión nueva de BookReader en bindlens.com.",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -3246,11 +3253,11 @@ def data_dir():
     if os.environ.get("BINDLENS_DATA"):
         d = os.environ["BINDLENS_DATA"]
     elif os.name == "nt":
-        d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "BindLens")
+        d = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "BookReader" if LITE else "BindLens")
     elif sys.platform == "darwin":
-        d = os.path.expanduser("~/Library/Application Support/BindLens")
+        d = os.path.expanduser("~/Library/Application Support/" + ("BookReader" if LITE else "BindLens"))
     else:
-        d = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "BindLens")
+        d = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "BookReader" if LITE else "BindLens")
     try:
         os.makedirs(d, exist_ok=True)
         probe = os.path.join(d, ".write-test")
@@ -15878,9 +15885,13 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
     ink2 = "#2D2D2F"
 
     def frame(page):
+        bc_ = [c for c in (_BRAND.get("colors") or []) if c][:2]
         sh = page.new_shape()
         sh.draw_rect(fitz.Rect(FR, FR, W - FR, H - FR), radius=0.018)
-        sh.finish(color=hex_to_rgb01(rt_tint(0.70)), width=0.7)
+        sh.finish(color=hex_to_rgb01(bc_[0] if bc_ else rt_tint(0.70)), width=1.4 if bc_ else 0.7)
+        if len(bc_) > 1:                                 # 1.0: the institution's colours - a second fine line inside
+            sh.draw_rect(fitz.Rect(FR + 4, FR + 4, W - FR - 4, H - FR - 4), radius=0.016)
+            sh.finish(color=hex_to_rgb01(bc_[1]), width=0.6)
         sh.commit()
 
     def new_page(first=False):
@@ -15898,6 +15909,9 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
             _ch_text(page, fitz, x, 64, _BRAND.get("name", ""), 11, _BRAND.get("color") or INK["primary"], bold=True)
             _ch_text(page, fitz, W - M, 64, when, 8.5, INK["muted"], align="r")
             st["y"] = 96
+        elif first and LITE:
+            _ch_text(page, fitz, W - M, 64, when, 8.5, INK["muted"], align="r")
+            st["y"] = 80
         elif first:
             try:
                 draw_logo(page, fitz, M - 2, 44, 30, logo_cols, style=_RT.get("style"))
@@ -16116,8 +16130,10 @@ def write_report_pdf(fitz, rep, path, accent="#6C63FF"):
     n = doc.page_count
     for i, pg in enumerate(doc):
         x = M
-        x += _ch_text(pg, fitz, x, H - 38, "BindLens", 7.5, A, bold=True)
-        _ch_text(pg, fitz, x + 6, H - 38, "·  " + title, 7.5, INK["muted"], maxw=CW - 90)
+        who_ = _BRAND.get("name") or ("" if LITE else "BindLens")
+        if who_:
+            x += _ch_text(pg, fitz, x, H - 38, who_, 7.5, A, bold=True) + 6
+        _ch_text(pg, fitz, x, H - 38, ("·  " if who_ else "") + title, 7.5, INK["muted"], maxw=CW - 90)
         _ch_text(pg, fitz, W - M, H - 38, f"{i + 1} / {n}", 7.5, INK["muted"], align="r")
     try:
         doc.subset_fonts()
@@ -22823,6 +22839,14 @@ class App:
         self._folder_menu(f, e, sp)
 
     def _folder_menu(self, f, e, sp=""):
+        if LITE and f is not None:                       # BookReader: only what a reader needs
+            m = self._menu()
+            m.add_command(label=_tr("Rename…"), command=lambda: self.rename_folder(f))
+            m.add_command(label=_tr("Its icon and colour…"), command=lambda: self.book_style_dialog(f))
+            m.add_separator()
+            m.add_command(label=_tr("Remove from the library (the documents stay where they are)"), command=lambda: self.delete_folder(f))
+            m.tk_popup(e.x_root, e.y_root)
+            return
         m = self._menu()
         explorer = "Show in Explorer" if os.name == "nt" else "Show in folder"
         if f is not None and sp:
@@ -23547,7 +23571,7 @@ class App:
                     t.insert(parent, "end", iid=did, text="  " + parts[k], values=("",), open=True)
                 parent = did
             label = ("  ! " if f["error"] else "  ") + parts[-1] + (f"   · {tag}" if tag else "")
-            t.insert(parent, "end", iid=str(i), text=label, values=("" if f["error"] else f["count"],),
+            t.insert(parent, "end", iid=str(i), text=label, values=("" if f["error"] else (self._lite_pct(f) if LITE else f["count"]),),
                      tags=("st_" + tag,) if tag else ())
 
     def _files_filter_menu(self, e=None):
@@ -23597,6 +23621,13 @@ class App:
             return
         fi = int(row)
         f = self.book.files[fi]
+        if LITE:                                         # BookReader: read it, my highlights, remember a page
+            m = self._menu()
+            m.add_command(label=_tr("Read"), command=lambda: (self.goto_page(f["first"]), self._lite_read()))
+            m.add_command(label=_tr("My highlights and notes"), command=lambda: self._qp_open("marks"))
+            m.add_command(label=_tr("Remind me about this page…"), command=lambda: self.add_reminder(f["first"]))
+            m.tk_popup(e.x_root, e.y_root)
+            return
         m = self._menu()
         if not f["pdf"] and not f["error"]:
             m.add_command(label="Convert to PDF (to add marks)", command=lambda: self.convert_to_pdf(fi))
@@ -27978,13 +28009,8 @@ class App:
         cy = 64
         big = self._text_img(time.strftime("%H:%M", now), 30, ink, style="sans_l")
         cv.create_image(w / 2, cy, image=big[0], anchor="center", tags="hands")
-        L = min(120, w * 0.6)
-        x0, yl = (w - L) / 2, cy + big[2] / 2 + 10
-        fr = now.tm_sec / 60.0
-        cv.create_line(x0, yl, x0 + L, yl, fill=mix(T["bg"], ink, 0.12), width=2, tags="hands")
-        cv.create_line(x0, yl, x0 + L * fr, yl, fill=BRAND_PINK, width=2, tags="hands")
-        cv.create_oval(x0 + L * fr - 3, yl - 3, x0 + L * fr + 3, yl + 3, fill=BRAND_GOLD, outline="", tags="hands")
-        cv.create_text(w / 2, yl + 18, text=f"{now.tm_mday:02d} · {now.tm_mon:02d} · {now.tm_year}", font=self.F(9),
+        yl = cy + big[2] / 2 + 4
+        cv.create_text(w / 2, yl + 12, text=f"{now.tm_mday:02d} · {now.tm_mon:02d} · {now.tm_year}", font=self.F(9),
                        fill=T["muted"], tags="hands")
 
     def _clock_draw(self, full=False):
@@ -35085,7 +35111,9 @@ class App:
                     self.start_box_editor(g, p0[0], p0[1])
             return
         if d["moved"] and self.sel and getattr(self, "_lite_hl", False):
-            self.add_markup("highlight", color="#FFE066")   # BookReader: one soft yellow, at once
+            self.add_markup("highlight", color="#FFE066")   # BookReader: one soft yellow, at once - then the pointer is back
+            self._lite_hl = False
+            self._topband_draw()
         elif d["moved"] and self.sel:
             self.show_float(e.x_root, e.y_root)
 
@@ -35121,6 +35149,12 @@ class App:
             self.edit_annot_note(m["g"], m["xref"])
 
     def _on_right(self, e):
+        if LITE and not CONSULT["on"]:                   # BookReader: remember this page, my highlights
+            m = self._menu()
+            m.add_command(label=_tr("Remind me about this page…"), command=lambda: self.add_reminder(self.current_page))
+            m.add_command(label=_tr("My highlights and notes"), command=lambda: self._qp_open("marks"))
+            m.tk_popup(e.x_root, e.y_root)
+            return "break"
         if CONSULT["on"]:                                # Read with PIN: nothing to change on the page
             return "break"
         if self._over_ui(e):
@@ -49701,6 +49735,8 @@ class App:
                     round_rect(q, 5, y0, QB_W - 5, y1, 10, fill=T["hover"], outline="")
                 col = A if on else (T["text"] if self._qb_hov == k else T["icon"])
             img_ = self._brand_icon() if k == "inst" else None
+            if LITE and k == "inst":                     # BookReader: the logo icon stands out a little
+                round_rect(q, 4, y0 - 2, QB_W - 4, y1 + 2, 12, fill=mix(T["bg"], self.accent, 0.22), outline=mix(T["bg"], self.accent, 0.5))
             if img_ is not None:
                 q.create_image(QB_W / 2, (y0 + y1) / 2, image=img_)          # 1.0: your logo, when there is one
             else:
@@ -49843,6 +49879,10 @@ class App:
             if LITE:
                 m = tk.Menu(self.root, tearoff=0)
                 m.add_command(label=_tr("Your institution (logo or photo)…"), command=self.institution_dialog)
+                m.add_separator()
+                for k_, l_ in (("paper", "Background: plain paper"), ("logo", "Background: the colours of the logo"), ("dark", "Background: dark")):
+                    m.add_command(label=_tr(l_), command=lambda k_=k_: self._lite_bg(k_))
+                m.add_separator()
                 m.add_command(label=_tr("PIN…"), command=self.pin_settings)
                 try:
                     m.tk_popup(self.root.winfo_pointerx() - 180, self.root.winfo_pointery())
@@ -50735,6 +50775,10 @@ class App:
                     tb.create_image(x + 12, H / 2, image=img_)
                     x += 30
                 x += 4 + _ch_word(tb, x, H / 2, ink, sub, self.F)
+                if _BRAND.get("name"):                   # your institution, discreet
+                    t_ = tb.create_text(x + 2, H / 2, text=_BRAND["name"], anchor="w", font=(self.family, 8), fill=sub)
+                    b_ = tb.bbox(t_)
+                    x += ((b_[2] - b_[0]) if b_ else 60) + 14
             else:
                 draw_icon(tb, "openbook", x + 9, H / 2, ink, s=0.7, w=1.4)
                 x += 24
@@ -50742,7 +50786,7 @@ class App:
             if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
                 rd_ = getattr(self, "_reading", False)
                 keys_ = [("_exit", "") if rd_ else ("_read", ""), ("_light", "") if rd_ else ("_addf", ""),
-                         ("_find", ""), ("_hl", ""), ("_note", ""), ("_marks", ""), ("_reports", "")]
+                         ("_find", ""), ("_hl", ""), ("_note", ""), ("_marks", ""), ("_cal", ""), ("_reports", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50754,18 +50798,18 @@ class App:
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
                       "_note": "note", "_read": "openbook", **({"_exit": "close"} if LITE else {}),
-                      "_light": "sun", "_find": "search", "_marks": "star",
+                      "_light": "sun", "_find": "search", "_marks": "star", "_cal": "calendar",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
                 ico_ = 18 if key in icons_ else 0
-                w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else 30
+                w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else (36 if LITE else 30)
                 lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
                     (key == "_note" and self.tool == "note")
                 if not LITE or hov == key or lit_:           # BookReader: only the drawing, a soft round when pointed at
                     round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
                                outline=(ink if (on and hov == key) else (sub if on else self.T["border"])) if not LITE else "", width=1)
                 if ico_:
-                    draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, ink, s=0.55, w=1.5)
+                    draw_icon(tb, icons_[key], (x + 17) if txt else (x + w / 2), H / 2, ink, s=0.72 if LITE else 0.55, w=1.8 if LITE else 1.5)
                 if txt:
                     tb.create_text(x + (w + ico_) / 2, H / 2, text=txt, font=f, fill=ink)
                 hits.append((x, x + w, key))
@@ -50834,7 +50878,7 @@ class App:
                "_pencil": self._scratch_toggle, "_pinlock": self._read_lock,
                "_addf": self._lite_add, "_hl": self._lite_hl_toggle, "_inst": self.institution_dialog,
                "_read": lambda: self.reading_mode(True), "_light": self._lite_light, "_find": self._lite_find,
-               "_marks": lambda: self._qp_open("marks"),
+               "_marks": lambda: self._qp_open("marks"), "_cal": lambda: self._qp_open("calendar"),
                "_note": lambda: (self.set_tool("select" if self.tool == "note" else "note"), self._topband_draw()),
                "_pin": self.pin_settings,
                "_play": self._slide_toggle}.get(name)
@@ -50870,7 +50914,7 @@ class App:
         W = max(200, st.winfo_width())
         f = self.F(9)
         if LITE:                                         # BookReader: "page 3 of 12", how far, and "by BindLens" tiny
-            st.create_text(W - 10, self.ST_H / 2, text="by BindLens", anchor="e", font=self.F(6), fill=mix(sub, self.T["bg"], 0.35))
+            st.create_text(W - 10, self.ST_H / 2, text="by BindLens", anchor="e", font=(self.family, 6), fill=mix(sub, self.T["bg"], 0.6))
             pg_txt = (self.where_lbl.text or "").split("  ·  ")[-1].split(" · ")[-1]
             st.create_text(W / 2, self.ST_H / 2, text=pg_txt, font=f, fill=sub)
             try:
@@ -53819,6 +53863,16 @@ class App:
 
     # ---- BookReader by BindLens: only reading
     def _lite_start(self):
+        for k_ in ("<Control-k>", "<Control-K>", "<Control-comma>", "<Control-e>", "<Control-E>", "<Control-h>", "<Control-H>"):
+            try:
+                self.root.unbind(k_)                     # BookReader: none of BindLens's tools and windows
+            except Exception:
+                pass
+        try:
+            self.files_tree.bind("<ButtonRelease-1>", lambda e: self.root.after(200, self._lite_read), add="+")
+        except Exception:
+            pass
+        threading.Thread(target=self._lite_update_check, daemon=True).start()
         for w_ in ("rail", "rail_sep", "add_btn", "seg"):
             try:
                 getattr(self, w_).pack_forget()
@@ -53842,6 +53896,7 @@ class App:
             self.open_folder(next(iter(self.lib.folders)))
         else:
             self.set_status(_tr("Add a folder with the + at the top."))
+            self.root.after(700, self._lite_add)         # the first time, in one step: choose your first folder
 
     def _lite_add(self):
         before = set(self.lib.folders)
@@ -53957,10 +54012,64 @@ class App:
         except Exception:
             self.quick_search()
 
+    def _lite_pct(self, f):
+        try:
+            rec = next((x for x in self.lib.settings.get("recent_docs", []) if x.get("f") == self.folder and x.get("rel") == f["rel"]), None)
+            if rec and f["count"]:
+                return f"{min(100, int(round((rec.get('p', 0) + 1) * 100.0 / f['count'])))}%"
+        except Exception:
+            pass
+        return f["count"]
+
+    def _lite_read(self):
+        if not getattr(self, "_reading", False) and self.book is not None:
+            self.reading_mode(True)
+
+    def _lite_bg(self, kind):
+        """Three backgrounds: plain paper, the colours of the logo (soft), dark."""
+        st = self.lib.settings
+        rc = self._read_conf()
+        cols = (st.get("brand") or {}).get("colors") or [self.accent]
+        if kind == "dark":
+            st["theme"], rc["bg"] = "Dark", "dark"
+            st["background"] = {"mode": "none"}
+        elif kind == "logo":
+            st["theme"] = "Light"
+            rc.update({"bg": "own", "colors": cols, "motion": "still"})
+            st["background"] = {"mode": "gradient", "colors": [mix("#FAFAF9", c_, 0.18) for c_ in cols[:3]] + ["#FAFAF9"], "motion": "still"}
+        else:
+            st["theme"], rc["bg"] = "Light", "plain"
+            st["background"] = {"mode": "none"}
+        self.lib.save_meta()
+        try:
+            self.apply_theme()
+        except Exception:
+            pass
+        self.apply_background()
+
+    def _lite_update_check(self):
+        """A quiet line when a newer BookReader is on bindlens.com (nothing is sent; only GitHub is asked)."""
+        try:
+            import urllib.request
+            import calendar as _cal
+            if not FROZEN:
+                return
+            with urllib.request.urlopen("https://api.github.com/repos/CKMohammed/BindLens/releases/latest", timeout=8) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            a = next((x for x in data.get("assets", []) if x.get("name", "").lower().startswith("bookreader")), None)
+            if not a:
+                return
+            t = _cal.timegm(time.strptime(a["updated_at"], "%Y-%m-%dT%H:%M:%SZ"))
+            if t > os.path.getmtime(sys.executable) + 6 * 3600:
+                self.root.after(0, lambda: self.set_status(_tr("A newer BookReader is on bindlens.com.")))
+        except Exception:
+            pass
+
     def _lite_hl_toggle(self):
         self._lite_hl = not getattr(self, "_lite_hl", False)
         self.set_tool("select")
-        self._toast(_tr("Highlighter on: select words and they are highlighted.") if self._lite_hl else _tr("Highlighter off."))
+        if self._lite_hl:
+            self._toast(_tr("Select the words to highlight."))
         self._topband_draw()
 
     def _lite_folders(self):
