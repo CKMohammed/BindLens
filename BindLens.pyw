@@ -3973,9 +3973,7 @@ def _ch_word(c, x, cy, ink, sub, F):
     """BookReader, and small "by BindLens" after it - drawn on a canvas; returns its width."""
     a = c.create_text(x, cy, text="BookReader", anchor="w", font=F(10, "bold"), fill=ink)
     b_ = c.bbox(a)
-    w = (b_[2] - b_[0]) if b_ else 80
-    c.create_text(x + w + 4, cy + 2, text="by BindLens", anchor="w", font=F(6), fill=sub, stipple="gray50")   # barely there
-    return w + 4 + 48
+    return ((b_[2] - b_[0]) if b_ else 80) + 8
 
 
 def screen_work_area(root):
@@ -4406,7 +4404,7 @@ class Library:
             if loose:
                 cols.append({"name": "Unsorted", "sources": loose, "exclude": [], "color": "#9AA0A6"})
         welcome = os.path.join(self.path, "Welcome")
-        if not cols and os.path.isdir(welcome):
+        if not cols and os.path.isdir(welcome) and not LITE:
             cols.append({"name": "Welcome", "sources": [welcome], "exclude": [], "color": "#6C63FF"})
         return cols
 
@@ -29332,8 +29330,6 @@ class App:
         on = (not cur) if on is None else bool(on)
         if on == cur:
             return
-        if not on and LITE:                              # BookReader is only reading
-            return
         if not on and CONSULT["on"]:                     # Read with PIN: only your PIN leaves it
             if not self._consult_pin_ok("Type your PIN to unlock reading."):
                 return
@@ -29342,7 +29338,7 @@ class App:
             if not self.lib.folders:
                 self.set_status("Add a folder first - then press Read.")
                 return
-            if not CONSULT["on"] and not self.lib.settings.get("read_pin_asked"):
+            if not LITE and not CONSULT["on"] and not self.lib.settings.get("read_pin_asked"):
                 self.lib.settings["read_pin_asked"] = True       # 1.0: the first time - the lock explained, optional
                 self.lib.save_meta()
                 self.root.after(900, self._read_pin_offer)
@@ -29384,7 +29380,7 @@ class App:
                 if d is not None and d.winfo_exists():
                     d.destroy()
             self._frame_layout()
-            if not self.fullscreen:
+            if not self.fullscreen and not LITE:
                 self.rail.pack(side="left", fill="y", before=self.view)
                 self.rail_sep.pack(side="left", fill="y", before=self.view)
             self._place_side()
@@ -30553,6 +30549,8 @@ class App:
         return frame_palette(self._frame_conf(), self.accent)
 
     def show_home(self, _e=None):
+        if LITE:                                         # BookReader: the library is on the side, no Home
+            return
         """Home (Ctrl+H, the house at the top): your books - on a turning circle, a cover flow, a wave, a shelf or
         a grid - with Continue, Find and a few calm icons. A lava of the app's colours (or your photo) behind it,
         and the frame round the window in gold."""
@@ -50295,14 +50293,16 @@ class App:
         if not hasattr(self, "topband"):
             return
         on = self._bands_on()
-        reading, full = bool(getattr(self, "_reading", False)) or LITE, bool(self.fullscreen)
+        reading, full = bool(getattr(self, "_reading", False)), bool(self.fullscreen)
         for w_ in (self.topband, self.status, self.qbar, self.qbar_sep, self.lband, self.rband, self.bar,
                    self.paned):
             w_.pack_forget()
         if not full:
             self.topband.configure(height=self.TB_H)
             self.topband.pack(side="top", fill="x")
-        if not full and not reading:
+        if not full and LITE:                          # BookReader: the library and the pages; the thin bar below
+            self.status.pack(side="bottom", fill="x")
+        elif not full and not reading:
             self.status.pack(side="bottom", fill="x")
             if self._qbar_wanted():
                 self.qbar.pack(side="right", fill="y")
@@ -50671,8 +50671,9 @@ class App:
                 draw_icon(tb, "openbook", x + 9, H / 2, ink, s=0.7, w=1.4)
                 x += 24
             # 1.0: one reading, minimal - choose, reports, print, the pencil, a small lock (optional), leave
-            if LITE:                                     # BookReader: folders, add, highlight, reports, logo, PIN
-                keys_ = [("_choose", "Folders"), ("_addf", ""), ("_hl", ""), ("_reports", ""), ("_inst", ""), ("_pin", "")]
+            if LITE:                                     # BookReader: read, folders, add, highlight, a note, reports, logo, PIN
+                keys_ = [("_read", "Read") if not getattr(self, "_reading", False) else ("_exit", "×"), ("_choose", "Folders"),
+                         ("_addf", ""), ("_hl", ""), ("_note", ""), ("_reports", ""), ("_inst", ""), ("_pin", "")]
             else:
                 keys_ = [("_choose", "Choose"), ("_reports", "Reports"), ("_pencil", "")] + \
                     ([("_exit", "Leave (PIN)")] if CONSULT["on"] else [("_pinlock", ""), ("_exit", "×")])
@@ -50683,11 +50684,13 @@ class App:
                 keys_.insert(1, ("_print", "Print"))             # 4.3: print while reading - the same Print
             pad_ = max(5, int(H * 0.17))
             icons_ = {"_print": "printer", "_pencil": "pen", "_pinlock": "lock", "_addf": "plus", "_hl": "highlighter",
+                      "_note": "note", "_read": "openbook",
                       "_reports": "report", "_inst": "building", "_pin": "lock"}
             for key, txt in keys_:
                 ico_ = 18 if key in icons_ else 0
                 w = (self._measure(txt, self._sfont(9)) + 22 + ico_) if txt else 30
-                lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False))
+                lit_ = (key == "_pencil" and getattr(self, "_scratch", False)) or (key == "_hl" and getattr(self, "_lite_hl", False)) or \
+                    (key == "_note" and self.tool == "note")
                 round_rect(tb, x, pad_, x + w, H - pad_, 9, fill=hov_fill if (hov == key or lit_) else "",
                            outline=ink if (on and hov == key) else (sub if on else self.T["border"]), width=1)
                 if ico_:
@@ -50759,6 +50762,8 @@ class App:
                "_print": lambda: self.print_dialog(), "_reports": lambda: self.simple_reports(),
                "_pencil": self._scratch_toggle, "_pinlock": self._read_lock,
                "_addf": self._lite_add, "_hl": self._lite_hl_toggle, "_inst": self.institution_dialog,
+               "_read": lambda: self.reading_mode(True),
+               "_note": lambda: (self.set_tool("select" if self.tool == "note" else "note"), self._topband_draw()),
                "_pin": self.pin_settings,
                "_play": self._slide_toggle}.get(name)
         if act is not None:
@@ -50792,6 +50797,9 @@ class App:
         ink, sub = self._band_ink()
         W = max(200, st.winfo_width())
         f = self.F(9)
+        if LITE:                                         # BookReader: "by BindLens", tiny, at the end of the bottom bar
+            st.create_text(W - 10, self.ST_H / 2, text="by BindLens", anchor="e", font=self.F(6), fill=mix(sub, self.T["bg"], 0.35))
+            W -= 78
         wt = st.create_text(W - 14, self.ST_H / 2, text=self.where_lbl.text, anchor="e", font=f, fill=sub)
         bb = st.bbox(wt)
         room = (bb[0] if bb and self.where_lbl.text else W) - 40
@@ -53735,10 +53743,8 @@ class App:
             self.rail_sep.pack_forget()
         except Exception:
             pass
-        if self.lib.folders:
-            self.reading_mode(True)
-        else:
-            self._frame_layout()
+        self._frame_layout()
+        if not self.lib.folders:
             self.set_status(_tr("Add a folder with the + at the top."))
 
     def _lite_add(self):
@@ -53746,9 +53752,10 @@ class App:
         self.import_folder()
         new = [f for f in self.lib.folders if f not in before]
         if new:
-            if not getattr(self, "_reading", False):
-                self.reading_mode(True)
-            self._read_open(new[0], "", None)
+            if getattr(self, "_reading", False):
+                self._read_open(new[0], "", None)
+            else:
+                self.open_folder(new[0])
 
     def _lite_hl_toggle(self):
         self._lite_hl = not getattr(self, "_lite_hl", False)
@@ -53761,7 +53768,7 @@ class App:
         m = tk.Menu(self.root, tearoff=0)
         for f in list(self.lib.folders):
             m.add_command(label=("✓ " if f == self.folder else "    ") + self.lib.label(f),
-                          command=lambda f=f: (self.reading_mode(True), self._read_open(f, "", None)))
+                          command=lambda f=f: (self._read_open(f, "", None) if getattr(self, "_reading", False) else self.open_folder(f)))
         m.add_separator()
         m.add_command(label=_tr("Add a folder…"), command=self._lite_add)
         if self.folder in self.lib.folders:
@@ -54140,6 +54147,8 @@ class App:
 
     def show_tour(self, force=False):
         """The first time BindLens opens (and Help > Show the tour again): a bubble points at each thing in turn."""
+        if LITE and not force:                           # BookReader: no tour, it is only reading
+            return
         if not force and self._when_unlocked(lambda: self.show_tour(force)):
             return
         if getattr(self, "_tour", None) is not None:
@@ -54335,7 +54344,7 @@ class App:
     def _pin_ask_once(self):
         """4.1: once - 'Protect BindLens with a 4-digit PIN?' (never again after the answer)."""
         s = self.lib.settings
-        if s.get("pin_asked") or pin_load() or not self.lib.folders:
+        if LITE or s.get("pin_asked") or pin_load() or not self.lib.folders:   # BookReader: the PIN is its icon
             return
         if any(isinstance(w, tk.Toplevel) and w.winfo_viewable() for w in self.root.winfo_children()) or \
                 getattr(self, "_tour", None) is not None:
