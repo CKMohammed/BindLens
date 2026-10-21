@@ -105,8 +105,8 @@ jobs:
       - name: Build BookReader by BindLens (only reading - the same program as BookReader.exe)
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --windowed --name BookReader --icon BindLens.ico --collect-all tkinterdnd2 --collect-all pymupdf BindLens.pyw
-          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, BindLens.ico -Destination dist\BookReader\
+          python -m PyInstaller --noconfirm --windowed --name BookReader --icon BookReader.ico --collect-all tkinterdnd2 --collect-all pymupdf BindLens.pyw
+          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, BookReader.ico -Destination dist\BookReader\
           Set-Content -Path dist\BookReader\bookreader.mode -Value "BookReader by BindLens: only reading, its own library (%APPDATA%\BookReader)"
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\BookReader.iss

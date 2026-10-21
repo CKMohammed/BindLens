@@ -2785,6 +2785,8 @@ ES_TEXT = {
     "Click a highlight or a note to delete it.": "Haz clic en un resaltado o una nota para borrarlo.",
     "Your recovery code (the one you saved when you chose the PIN):": "Tu código de recuperación (el que guardaste al elegir el PIN):",
     "Add your first folder.": "Añade tu primera carpeta.",
+    "All documents": "Todos los documentos",
+    "Forgot it?": "¿Lo has olvidado?",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -3257,6 +3259,24 @@ def _is_reader():
 
 
 LITE = _is_reader()
+BR_LOGO_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">'
+               '<rect x="4" y="4" width="120" height="120" rx="28" fill="#17151F"/>'
+               '<rect x="30" y="22" width="56" height="84" rx="6" fill="#FFFFFF"/>'
+               '<path d="M42 22v84" stroke="#17151F" stroke-width="2.5" stroke-opacity="0.18"/>'
+               '<circle cx="36" cy="40" r="3.6" fill="#EF6FA6"/><circle cx="36" cy="64" r="3.6" fill="#EF6FA6"/>'
+               '<circle cx="36" cy="88" r="3.6" fill="#EF6FA6"/>'
+               '<path d="M50 92h22M50 84h16" stroke="#17151F" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.25"/>'
+               '<circle cx="82" cy="62" r="18" fill="none" stroke="#F2B33D" stroke-width="7"/>'
+               '<path d="M95 75l13 13" stroke="#F2B33D" stroke-width="8" stroke-linecap="round"/></svg>')
+
+
+def br_logo_pix(f, size):
+    """BookReader's logo as a picture of size x size (transparent corners)."""
+    d = f.open(stream=BR_LOGO_SVG.encode(), filetype="svg")
+    k = size / d[0].rect.width
+    pix = d[0].get_pixmap(matrix=f.Matrix(k, k), alpha=True)
+    d.close()
+    return pix
 APP_VERSION = "1.0"
 APP_AUTHOR = "Mohammed Chahboune Kadi"          # 4.3.1: the copyright holder (LICENSE.txt, NOTICE.txt, About)
 APP_LICENSE = "GNU Affero General Public License v3 (AGPL-3.0)"
@@ -11126,6 +11146,8 @@ def logo_icon_data(name, size, ring=False):
     """The logo as a picture (base64 PNG) in the chosen colours and the logo chosen in Personalise."""
     if LOGO_STYLE == "classic" and not ring and name in ICONS and size in ICONS[name]:
         return ICONS[name][size]                       # (the 4 first colours, drawn once; the others are drawn now)
+    if LITE:                                             # BookReader: its own logo
+        return base64.b64encode(br_logo_pix(_FITZ, size).tobytes("png")).decode()
     cols = LOGO_COLORS.get(name, LOGO_COLORS["Black"])
     if ring:
         return base64.b64encode(logo_ring_png(size, cols)).decode()
@@ -19803,6 +19825,8 @@ class App:
         """1.9.4: the BindLens icon in the taskbar and the window's title is alive: a golden light runs round the
         logo, slowly (one round in about 7 seconds). Personalise > 'The logo moves' off = it stands still."""
         self._icon_job = None
+        if LITE:                                         # BookReader: its logo stands still
+            return
         try:
             alive = self.lib.settings.get("logo_moves", True)
             n = self.ICON_FRAMES
@@ -19889,7 +19913,7 @@ class App:
     # ---- resting screen: after a while without touching anything, the logo comes alive in the middle -----
     def _idle_check(self):
         try:
-            mins = float(self.lib.settings.get("idle_minutes", 2))
+            mins = 2.0 if LITE else float(self.lib.settings.get("idle_minutes", 2))
             last = max(getattr(self, "_last_input", 0.0), getattr(self, "_last_motion", 0.0))
             if mins > 0 and getattr(self, "_idle_win", None) is None and time.time() - last > mins * 60:
                 others = [w for w in self.root.winfo_children()
@@ -19897,7 +19921,7 @@ class App:
                 # 3.0: never over a page you are reading (reading mode or full screen)
                 if not others and self.root.state() != "iconic" and self.root.grab_current() is None and \
                         self.root.focus_displayof() is not None and not getattr(self, "_ed", None) and \
-                        not getattr(self, "_rep_job", None) and not getattr(self, "_reading", False) and \
+                        not getattr(self, "_rep_job", None) and (LITE or not getattr(self, "_reading", False)) and \
                         not getattr(self, "fullscreen", False):
                     self._idle_start()
         except Exception:
@@ -21366,6 +21390,12 @@ class App:
     def set_search_count(self, text):
         self.search_count = text
         self._draw_search()
+        lb_ = getattr(self, "_lfb_cnt", None)
+        if LITE and lb_ is not None:
+            try:
+                lb_.configure(text=str(text).replace("/", " / "))
+            except Exception:
+                pass
 
     def about(self):
         d = self._dialog(f"About {APP_NAME}")
@@ -48835,7 +48865,7 @@ class App:
             if printing:                 # 1.9.7: print the report - made as a PDF (the new look), then printed
                 import tempfile
                 f = "pdf"
-                dst = os.path.join(tempfile.gettempdir(), f"BindLens report {int(time.time())}.pdf")
+                dst = os.path.join(tempfile.gettempdir(), f"{'Report' if LITE else 'BindLens report'} {int(time.time())}.pdf")
             else:
                 dst = self._ask_report_path(rep, f, w)
             if not dst:
@@ -48947,7 +48977,7 @@ class App:
             ids = shown if not tv.selection() else [int(x) for x in tv.selection()]
             rows_ = [tb["rows"][k] for k in ids if k < len(tb["rows"])]
             ev = self._rows_to_events(tb["headers"], rows_)
-            self.export_ics(ev, (rep.get("title") or "BindLens dates"), parent=w)
+            self.export_ics(ev, (rep.get("title") or ("Dates" if LITE else "BindLens dates")), parent=w)
         if any(self._rows_to_events(t_["headers"], t_["rows"][:30]) for t_ in tables):
             PillButton(foot, self, "Add to calendar", to_calendar, kind="ghost").pack(side="right")
         fill()
@@ -49180,6 +49210,9 @@ class App:
 
     def _subtitle(self, scope, extra=""):
         where = {"file": "This file", "folder": "This book", "library": "All my books"}.get(scope, "Chosen books")
+        who_ = "" if (LITE or _BRAND.get("name")) else "BindLens"
+        if not who_:                                      # BookReader / your institution: never "BindLens"
+            return " · ".join(x_ for x_ in (_tr(where), time.strftime('%d/%m/%Y'), extra) if x_)
         return f"BindLens · {where} · {time.strftime('%d %B %Y')}" + (f" · {extra}" if extra else "")
 
     # ---- Find rows: names / values across every table and line --------------------------------
@@ -49627,6 +49660,34 @@ class App:
         if b.get("on") and (b.get("name") or b.get("logo")):
             _BRAND.update(b)
         self.__dict__.pop("_brand_img", None)
+
+    def _pic_br(self, size):
+        """BookReader's logo as a picture (kept)."""
+        cache = self.__dict__.setdefault("_br_pics", {})
+        if size not in cache:
+            try:
+                cache[size] = tk.PhotoImage(data=base64.b64encode(br_logo_pix(self.fitz, size).tobytes("png")))
+            except Exception:
+                cache[size] = None
+        return cache[size]
+
+    def _pic_brand(self, size):
+        """Your institution's logo as a picture of about size (kept); None without one."""
+        b = self.lib.settings.get("brand") or {}
+        if not b.get("on") or not b.get("logo") or not os.path.exists(b["logo"]):
+            return None
+        cache = self.__dict__.setdefault("_brand_pics", {})
+        key = (b["logo"], size)
+        if key not in cache:
+            try:
+                d_ = self.fitz.open(b["logo"])
+                r_ = d_[0].rect
+                k_ = float(size) / max(r_.width, r_.height, 1)
+                pm = d_[0].get_pixmap(matrix=self.fitz.Matrix(k_, k_), alpha=False)
+                cache[key] = tk.PhotoImage(data=base64.b64encode(pm.tobytes("png")))
+            except Exception:
+                cache[key] = None
+        return cache[key]
 
     def _brand_icon(self):
         b = self.lib.settings.get("brand") or {}
@@ -50833,8 +50894,8 @@ class App:
         if getattr(self, "_reading", False) or LITE:
             title = self._read_title() if getattr(self, "_reading", False) else ""
             if LITE:
-                img_ = self._brand_icon()
-                if img_ is not None:                     # your institution's logo
+                img_ = self._brand_icon() or self._pic_br(20)
+                if img_ is not None:                     # your institution's logo (or BookReader's)
                     tb.create_image(x + 12, H / 2, image=img_)
                     x += 30
                 x += 4 + _ch_word(tb, x, H / 2, ink, sub, self.F)
@@ -53942,6 +54003,10 @@ class App:
         except Exception:
             pass
         threading.Thread(target=self._lite_update_check, daemon=True).start()
+        self.root.bind("<Control-f>", lambda e: (self._lite_find(), "break")[1])      # find as in a PDF
+        self.root.bind("<Control-F>", lambda e: (self._lite_find(), "break")[1])
+        self.root.bind("<F3>", lambda e: self.search_step(1))
+        self.root.bind("<Shift-F3>", lambda e: self.search_step(-1))
         for w_ in ("rail", "rail_sep", "add_btn", "seg"):
             try:
                 getattr(self, w_).pack_forget()
@@ -54079,12 +54144,66 @@ class App:
         self._toast({"white": _tr("White page"), "warm": _tr("Warm paper"), "night": _tr("Night")}[nxt])
 
     def _lite_find(self):
-        self.quick_search()
-        try:
-            self._qs.lift()
-            self._qs.focus_force()
-        except Exception:
-            pass
+        """BookReader: find a word as Ctrl+F in a PDF - Enter (or ↓) the next one, Shift+Enter (or ↑) the one
+        before, "3 / 12"; "All documents" looks in the whole library."""
+        fb = getattr(self, "_lfb", None)
+        if fb is not None and fb.winfo_exists():
+            self._lfb_en.focus_set()
+            self._lfb_en.select_range(0, "end")
+            return
+        T = self.T
+        fb = tk.Frame(self.root, bg=T["panel"], highlightthickness=1, highlightbackground=T["border"], bd=0)
+        self._lfb = fb
+        v = tk.StringVar(value=getattr(self, "search_query", "") or "")
+        draw_ = tk.Canvas(fb, width=20, height=20, bg=T["panel"], highlightthickness=0)
+        draw_icon(draw_, "search", 11, 10, T["muted"], s=0.5, w=1.4)
+        draw_.pack(side="left", padx=(8, 0))
+        en = tk.Entry(fb, textvariable=v, width=22, font=self.F(10), relief="flat", bd=0, bg=T["panel"], fg=T["text"],
+                      insertbackground=T["text"])
+        en.pack(side="left", padx=(6, 6), pady=7)
+        self._lfb_en = en
+        cnt = tk.Label(fb, text="", font=self.F(8), bg=T["panel"], fg=T["muted"], width=8)
+        cnt.pack(side="left")
+        self._lfb_cnt = cnt
+
+        def go(d=1):
+            q = v.get().strip()
+            if not q:
+                return
+            if q != (getattr(self, "search_query", None) or "") or not self.hits:
+                self.start_search(q)
+            else:
+                self.search_step(d)
+            en.after(30, en.focus_set)
+
+        def close():
+            try:
+                self.clear_search()
+            except Exception:
+                pass
+            self._lfb_cnt = None
+            self._lfb = None
+            fb.destroy()
+            self.canvas.focus_set()
+
+        def btn(txt, fn):
+            b_ = tk.Label(fb, text=txt, font=self.F(11), bg=T["panel"], fg=T["text"], cursor="hand2", padx=5)
+            b_.pack(side="left")
+            b_.bind("<Button-1>", lambda e: fn())
+        btn("↑", lambda: go(-1))
+        btn("↓", lambda: go(1))
+        al_ = tk.Label(fb, text=_tr("All documents"), font=self.F(8, "underline"), bg=T["panel"], fg=T["muted"],
+                       cursor="hand2")
+        al_.pack(side="left", padx=(6, 2))
+        al_.bind("<Button-1>", lambda e: (lambda q_: (close(), self.quick_search(q_ or None)))(v.get().strip()))
+        btn("×", close)
+        for k_, d_ in (("<Return>", 1), ("<KP_Enter>", 1), ("<Down>", 1), ("<Shift-Return>", -1), ("<Up>", -1)):
+            en.bind(k_, lambda e, d_=d_: (go(d_), "break")[1])
+        en.bind("<Escape>", lambda e: close())
+        fb.place(in_=self.view, relx=1.0, x=-14, y=10, anchor="ne")
+        fb.lift()
+        en.focus_set()
+        en.select_range(0, "end")
 
     def _lite_lib(self):
         """BookReader: the whole library at the left - its icon opens it; its pin keeps it open."""
@@ -54118,18 +54237,52 @@ class App:
         cols = [c_ for c_ in (_BRAND.get("colors") or []) if c_] or [self.accent, "#E0A82E"]
         return cols + cols[:1] if len(cols) == 1 else cols
 
+    def _lava_make(self, c, cols, n=4, light=0.6):
+        """Soft blobs in the institution's colours that flow slowly, like a lava lamp (behind everything)."""
+        rnd = random.Random()
+        out = []
+        for i in range(n):
+            it = c.create_polygon(0, 0, 0, 0, 0, 0, smooth=True, fill=mix(cols[i % len(cols)], "#FFFFFF", light),
+                                  outline="", tags=("lava",))
+            out.append({"it": it, "ph": rnd.uniform(0, 6.28), "sx": rnd.uniform(0.10, 0.2), "sy": rnd.uniform(0.08, 0.16),
+                        "r": rnd.uniform(0.18, 0.28), "cx": 0.15 + 0.7 * (i + 0.5) / n, "cy": rnd.uniform(0.3, 0.7),
+                        "w": [rnd.uniform(0, 6.28) for _ in range(8)]})
+        return out
+
+    def _lava_step(self, c, blobs, t):
+        W, H = max(50, c.winfo_width()), max(50, c.winfo_height())
+        R = (W + H) / 2.0
+        for b in blobs:
+            cx = W * (b["cx"] + 0.18 * math.sin(t * b["sx"] + b["ph"]))
+            cy = H * (b["cy"] + 0.22 * math.cos(t * b["sy"] + b["ph"] * 1.3))
+            r = R * b["r"]
+            pts = []
+            for k in range(8):
+                a_ = k * math.pi / 4 + t * 0.04
+                rr = r * (1 + 0.17 * math.sin(t * 0.6 + b["w"][k]))
+                pts += [cx + rr * math.cos(a_), cy + rr * 0.86 * math.sin(a_)]
+            c.coords(b["it"], *pts)
+
     def _idle_start_lite(self, force=False):
-        """BookReader resting: a light plain colour moving very slowly, the time in thin figures, the date, and one
-        of your highlights now and then."""
-        import math
+        """BookReader resting (after 2 minutes): the frame flowing in your institution's colours, its logo, soft
+        colours moving like lava, the time in thin figures, the date - and one of your highlights now and then."""
         if getattr(self, "_idle_win", None) is not None:
             return
-        c = tk.Canvas(self.root, highlightthickness=0, bd=0, bg="#F6F5F2")
+        cols = self._lite_soft()
+        ink = "#2B2B33"
+        c = tk.Canvas(self.root, highlightthickness=0, bd=0, bg=mix(cols[0], "#FFFFFF", 0.9))
         c.place(x=0, y=0, relwidth=1, relheight=1)
         c.tk.call("raise", c._w)
         self._idle_win = c
         self._idle_since = time.time()
-        cols = self._lite_soft()
+        blobs = self._lava_make(c, cols, 4, 0.7)
+        segs = [c.create_rectangle(0, 0, 0, 0, outline="", width=0) for _ in range(96)]
+        logo = self._pic_brand(72) or self._pic_br(72)
+        it_logo = c.create_image(0, 0, image=logo) if logo is not None else None
+        it_name = c.create_text(0, 0, text=_BRAND.get("name", ""), font=(self.family, 11), fill=mix(ink, "#FFFFFF", 0.3))
+        it_time = c.create_image(0, 0)
+        it_date = c.create_text(0, 0, text="", font=(self.family, 13), fill=mix(ink, "#FFFFFF", 0.3))
+        it_q = c.create_text(0, 0, text="", justify="center", font=(self.family, 12, "italic"), fill=mix(ink, "#FFFFFF", 0.3))
         quotes = [m_.get("text", "") for ms_ in (getattr(self, "marks_by_g", None) or {}).values() for m_ in ms_
                   if m_.get("kind") == "Highlight" and 18 <= len(m_.get("text", "")) <= 240]
         random.shuffle(quotes)
@@ -54139,34 +54292,63 @@ class App:
         months = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
                   "noviembre", "diciembre") if es_ else ("January", "February", "March", "April", "May", "June", "July",
                                                          "August", "September", "October", "November", "December")
-        ink = "#2B2B33"
+        st = {"sz": None, "min": None, "q": None}
+        fw = max(5, min(12, int(self._frame_conf().get("width", 6))))
+
+        def cyc(p_):
+            p_ = (p_ % 1.0) * len(cols)
+            i_ = int(p_)
+            return mix(cols[i_ % len(cols)], cols[(i_ + 1) % len(cols)], p_ - i_)
+
+        def layout(W, H):
+            n_ = len(segs) // 4
+            for i_, it in enumerate(segs):           # the frame: 4 sides, each in pieces that change colour
+                side, k_ = divmod(i_, n_)
+                if side == 0:
+                    c.coords(it, W * k_ / n_, 0, W * (k_ + 1) / n_ + 1, fw)
+                elif side == 1:
+                    c.coords(it, W - fw, H * k_ / n_, W, H * (k_ + 1) / n_ + 1)
+                elif side == 2:
+                    c.coords(it, W - W * (k_ + 1) / n_, H - fw, W - W * k_ / n_ + 1, H)
+                else:
+                    c.coords(it, 0, H - H * (k_ + 1) / n_, fw, H - H * k_ / n_ + 1)
+            if it_logo is not None:
+                c.coords(it_logo, W / 2, H / 2 - 150)
+            c.coords(it_name, W / 2, H / 2 - 98)
+            c.coords(it_time, W / 2, H / 2 - 20)
+            c.coords(it_date, W / 2, H / 2 + 44)
+            c.coords(it_q, W / 2, H * 0.8)
+            c.itemconfigure(it_q, width=min(620, W - 80))
+            st["min"] = None
 
         def step():
             if getattr(self, "_idle_win", None) is not c:
                 return
             try:
                 W, H = max(300, c.winfo_width()), max(200, c.winfo_height())
-                t = (time.time() - self._idle_since) / 90.0          # very slow
-                a = mix(cols[0], cols[1], (math.sin(t) + 1) / 2)
-                c.delete("all")
-                c.configure(bg=mix(a, "#FFFFFF", 0.9))
-                r = max(W, H) * 0.42
-                for k_, (cx, cy, col) in enumerate(((W * (0.3 + 0.12 * math.sin(t * 0.8)), H * (0.35 + 0.1 * math.cos(t * 0.6)), cols[0]),
-                                                      (W * (0.72 + 0.1 * math.cos(t * 0.7)), H * (0.68 + 0.1 * math.sin(t * 0.5)), cols[1]))):
-                    c.create_oval(cx - r, cy - r, cx + r, cy + r, fill=mix(col, "#FFFFFF", 0.8), outline="")
+                t = time.time() - self._idle_since
+                if (W, H) != st["sz"]:
+                    st["sz"] = (W, H)
+                    layout(W, H)
+                self._lava_step(c, blobs, t)
+                for i_, it in enumerate(segs):
+                    c.itemconfigure(it, fill=cyc(i_ / float(len(segs)) - t * 0.025))
                 now = time.localtime()
-                big = self._text_img(time.strftime("%H:%M", now), 84, ink, style="sans_l")
-                self._idle_imgs = [big[0]]
-                c.create_image(W / 2, H / 2 - 40, image=big[0])
-                c.create_text(W / 2, H / 2 + big[2] / 2 - 14, text=f"{days[now.tm_wday]}, {now.tm_mday} {months[now.tm_mon - 1]}",
-                              font=(self.family, 13), fill=mix(ink, "#FFFFFF", 0.35))
+                m_ = time.strftime("%H:%M", now)
+                if m_ != st["min"]:
+                    st["min"] = m_
+                    big = self._text_img(m_, 84, ink, style="sans_l")
+                    self._idle_imgs = [big[0]]
+                    c.itemconfigure(it_time, image=big[0])
+                    c.itemconfigure(it_date, text=f"{days[now.tm_wday]}, {now.tm_mday} {months[now.tm_mon - 1]}")
                 if quotes:
-                    q_ = quotes[int(time.time() // 40) % len(quotes)]
-                    c.create_text(W / 2, H * 0.8, text="“" + q_ + "”", width=min(620, W - 80), justify="center",
-                                  font=(self.family, 12, "italic"), fill=mix(ink, "#FFFFFF", 0.3))
+                    q_ = quotes[int(t // 40) % len(quotes)]
+                    if q_ != st["q"]:
+                        st["q"] = q_
+                        c.itemconfigure(it_q, text="“" + q_ + "”")
             except Exception as ex:
                 _log(f"bookreader rest: {ex}")
-            self._idle_job = self.root.after(1000, step)
+            self._idle_job = self.root.after(90, step)
         step()
 
     def _lock_show_lite(self, cur):
@@ -54183,25 +54365,38 @@ class App:
         c = tk.Canvas(ov, bg=bgc, highlightthickness=0, bd=0, cursor="arrow")
         c.pack(fill="both", expand=True)
         n = int(cur.get("n", 4) or 4)
+        blobs = self._lava_make(c, cols, 5, 0.5)
+        t0 = time.time()
+
+        def flow():                                      # the colours keep moving, slowly
+            if getattr(self, "_lock", None) is not ov:
+                return
+            try:
+                self._lava_step(c, blobs, time.time() - t0)
+            except Exception:
+                return
+            self.root.after(80, flow)
 
         def draw():
             if getattr(self, "_lock", None) is not ov:
                 return
-            c.delete("all")
+            c.delete("ui")
             W, H = max(300, c.winfo_width()), max(260, c.winfo_height())
             cy = H / 2 - 30
-            draw_icon(c, "lock", W / 2, cy - 74, ink, s=1.0, w=1.4)
+            draw_icon(c, "lock", W / 2, cy - 74, ink, s=1.0, w=1.4, tag="ui")
             big = self._text_img(time.strftime("%H:%M"), 46, ink, style="sans_l")
             st["img"] = big[0]
-            c.create_image(W / 2, cy - 18, image=big[0])
+            c.create_image(W / 2, cy - 18, image=big[0], tags=("ui",))
             k_ = max(n, len(st["v"]))
             for i in range(k_):
                 x_ = W / 2 + (i - (k_ - 1) / 2.0) * 22
                 on_ = i < len(st["v"])
-                c.create_oval(x_ - 5, cy + 36, x_ + 5, cy + 46, outline=ink, width=1.2, fill=ink if on_ else "")
-            c.create_text(W / 2, cy + 74, text=_tr(st["msg"] or "Type your PIN"), font=(self.family, 9), fill=sub)
-            f_ = c.create_text(W / 2, H - 30, text=_tr("Forgot it?"), font=(self.family, 8, "underline"), fill=sub,
-                               tags=("forgot",))
+                c.create_oval(x_ - 5, cy + 36, x_ + 5, cy + 46, outline=ink, width=1.2, fill=ink if on_ else "",
+                              tags=("ui",))
+            c.create_text(W / 2, cy + 74, text=_tr(st["msg"] or "Type your PIN"), font=(self.family, 9), fill=ink,
+                          tags=("ui",))
+            c.create_text(W / 2, H - 30, text=_tr("Forgot it?"), font=(self.family, 8, "underline"), fill=ink,
+                          tags=("ui", "forgot"))
             c.tag_bind("forgot", "<Button-1>", lambda e: forgot())
 
         def tick():
@@ -54280,6 +54475,7 @@ class App:
         c.bind("<Button-1>", lambda e: c.focus_set())
         c.focus_set()
         tick()
+        flow()
 
     def _lite_lib_close(self):
         self.side.place_forget()
@@ -55063,13 +55259,16 @@ def build_ico(name=None, style=None):
     colors = LOGO_COLORS.get(name or "Black", LOGO_COLORS["Black"])
     entries = []
     for size in (16, 20, 24, 32, 40, 48, 64, 128, 256):
-        doc = _f.open()
-        pg = doc.new_page(width=size, height=size)
-        draw_logo(pg, _f, 0, 0, size, colors, style=style)
-        if size >= 32:                                   # 1.9.4: the golden line, with its light
-            draw_gold_ring(pg, _f, size, head=0.3)
-        pix = pg.get_pixmap(alpha=True)
-        doc.close()
+        if LITE:                                         # BookReader: its own logo
+            pix = br_logo_pix(_f, size)
+        else:
+            doc = _f.open()
+            pg = doc.new_page(width=size, height=size)
+            draw_logo(pg, _f, 0, 0, size, colors, style=style)
+            if size >= 32:                               # 1.9.4: the golden line, with its light
+                draw_gold_ring(pg, _f, size, head=0.3)
+            pix = pg.get_pixmap(alpha=True)
+            doc.close()
         if size == 256:
             entries.append((size, pix.tobytes("png")))
             continue
