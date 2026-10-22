@@ -47561,8 +47561,15 @@ class App:
         terms = P["terms"] if terms is None else terms
         whole = P["adv"].get("wholeword", False) if whole is None else whole
         # 3.0: accents and apostrophes don't matter (Sean = Seán, O'Brien = O’Brien)
-        pats = {t: re.compile(((r"(?<!\w)" + re.escape(fold(t)) + r"(?!\w)") if whole else re.escape(fold(t))), re.I)
-                for t in terms}
+        wb = (lambda x: r"(?<!\w)" + x + r"(?!\w)") if whole else (lambda x: x)
+        pats, toks = {}, {}
+        for t in terms:                                   # 1.0: "Ana  Ruiz" = "Ana\nRuiz"; a name on two lines too
+            ws = fold(t).split() or [fold(t)]
+            pats[t] = re.compile(wb(r"\s+".join(re.escape(w) for w in ws)), re.I)
+            toks[t] = [re.compile(wb(re.escape(w)), re.I) for w in ws] if len(ws) > 1 else []
+
+        def hit(t, txt):
+            return bool(pats[t].search(txt)) or bool(toks[t] and all(p_.search(txt) for p_ in toks[t]))
 
         def match(row):
             hits = []
@@ -47571,11 +47578,10 @@ class App:
                     first = next((c for c in row["cells"] if c.strip()), "")
                     if p.match(fold(first.strip())) or (not row["table"] and p.match(fold(row["text"].strip()))):
                         hits.append(t)
-                elif p.search(fold(row["text"])):
+                elif hit(t, fold(row["text"])):
                     hits.append(t)
             return hits
-        lows = [fold(t) for t in terms]
-        return match, (lambda tx: any(t in fold(tx) for t in lows))
+        return match, (lambda tx: any(hit(t, fold(tx)) for t in terms))
 
     def _snapshot(self, doc, pi, row, header=True, scale=2.0, title=False, more=()):
         """A picture of the row exactly as it looks in the PDF - with the table's title and its column titles
@@ -47709,6 +47715,14 @@ class App:
         found = OrderedDict((t, []) for t in P["terms"])
         join = adv.get("join", True)
         for name, folder, rel, page, rows, doc, pi in self._walk_pages(P, job, pf):
+            if LITE:                                     # BookReader: every row the name is in, as it looks
+                for t in P["terms"]:
+                    try:
+                        for snap, txt in self._row_pictures(doc, pi, t, rows, adv):
+                            found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
+                    except Exception as ex:
+                        _log(f"row pictures: {ex}")
+                continue
             on_page = OrderedDict()
             for row in rows:
                 hits = match(row)
@@ -47770,9 +47784,90 @@ class App:
                 "blocks": blocks, "preview_table": tb, "images": images, "_name": f"Rows of {what[:40]}",
                 "_view": "pictures"}
 
+    def _row_pictures(self, doc, pi, term, rows, adv):
+        """The rows a name is in, as pictures - with the table's column titles (and title) on top when the table
+        reader knows them; a scanned page (no text to cut along): the page itself."""
+        fitz = self.fitz
+        pg = doc.load_page(pi)
+        out, used = [], []
+        toks = fold(term).split()
+        words = pg.get_text("words")
+        fw = [(w, fold(w[4])) for w in words]
+        tabs = []
+        if toks and words:
+            try:
+                tabs = pg.find_tables().tables                # the tables as they are drawn: rows, column titles
+            except Exception as ex:
+                _log(f"tables: {ex}")
+        for tab in tabs:
+            tb = fitz.Rect(tab.bbox)
+            hb = None
+            try:
+                if tab.header is not None and tab.header.bbox:
+                    hb = fitz.Rect(tab.header.bbox)
+            except Exception:
+                hb = None
+            for row_ in tab.rows:
+                rb = fitz.Rect(row_.bbox)
+                if hb is not None and rb.y0 < hb.y1 - 1:
+                    continue                              # (the column titles themselves)
+                inrow = [(x, fx) for x, fx in fw if x[1] < rb.y1 - 1 and x[3] > rb.y0 + 1 and x[0] < tb.x1 and x[2] > tb.x0]
+                if not all(tk in " ".join(fx for _x, fx in inrow) for tk in toks):
+                    continue
+                if any(abs(rb.y0 - a) < 2 and abs(rb.y1 - b) < 2 for a, b in used):
+                    continue
+                used.append((rb.y0, rb.y1))
+                txt = " ".join(x[4] for x, _fx in sorted(inrow, key=lambda z: (round(z[0][1] / 4), z[0][0])))[:400]
+                rowd = {"box": (tb.x0, rb.y0, tb.x1, rb.y1), "table": True, "tbox": (tb.x0, tb.x1),
+                        "hbox": tuple(hb) if hb is not None and hb.y1 <= rb.y0 + 1 else None, "hpage": pi, "text": txt}
+                snap = None
+                try:
+                    snap = self._snapshot(doc, pi, rowd, header=adv.get("header", True), title=False)
+                except Exception as ex:
+                    _log(f"row picture: {ex}")
+                if not snap:
+                    clip = fitz.Rect(tb.x0, rb.y0, tb.x1, rb.y1)
+                    k = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
+                    snap = (pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False).tobytes("png"),
+                            clip.width, clip.height)
+                out.append((snap, txt))
+        for clip, txt in self._row_bands_geo(pg, term):     # rows not in a table the reader sees: cut round the name
+            if any(a - 2 < (clip.y0 + clip.y1) / 2 < b + 2 for a, b in used):
+                continue
+            hr = next((r for r in rows if r.get("box") and r.get("hbox") and r["box"][1] < clip.y1 - 1 and
+                       r["box"][3] > clip.y0 + 1), None) or {}
+            row = {"box": (clip.x0, clip.y0, clip.x1, clip.y1), "table": bool(hr), "tbox": (clip.x0, clip.x1),
+                   "hbox": hr.get("hbox"), "hpage": hr.get("hpage"), "title_box": hr.get("title_box"),
+                   "title_page": hr.get("title_page"), "title": hr.get("title"), "text": txt}
+            snap = None
+            try:
+                snap = self._snapshot(doc, pi, row, header=adv.get("header", True), title=adv.get("title", True))
+            except Exception as ex:
+                _log(f"row picture: {ex}")
+            if not snap:
+                k = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
+                snap = (pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False).tobytes("png"),
+                        clip.width, clip.height)
+            out.append((snap, txt))
+        if not out and len(pg.get_text("words")) < 8:     # scanned: no text on the page itself - show the page
+            k = 1100.0 / max(1.0, pg.rect.width)
+            out.append(((pg.get_pixmap(matrix=fitz.Matrix(k, k), alpha=False).tobytes("png"), pg.rect.width,
+                         pg.rect.height), "(scanned page)"))
+        return out
+
     def _row_bands(self, pg, term):
-        """Pictures of the rows a name is in, exactly as they look: between the table's lines above and below the
-        name (or round its line), across the width of what is on that row. [(png, w, h), row text]."""
+        """[(picture (png, w, h), row text)] of the rows a name is in (without column titles)."""
+        fitz = self.fitz
+        out = []
+        for clip, txt in self._row_bands_geo(pg, term):
+            k = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
+            pix = pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False)
+            out.append(((pix.tobytes("png"), clip.width, clip.height), txt))
+        return out
+
+    def _row_bands_geo(self, pg, term):
+        """Where the rows a name is in are: between the table's lines above and below the name (or round its lines),
+        across the width of what is on that row - the whole name inside (also a name on 2-3 lines)."""
         fitz = self.fitz
         W = pg.rect.width
         hs, boxes = [], []
@@ -47797,13 +47892,33 @@ class App:
                     edges[round(y_ * 2) / 2] = edges.get(round(y_ * 2) / 2, 0) + 1
         hs += [y_ for y_, n_ in edges.items() if n_ >= 3]
         words = pg.get_text("words")
+        fw = [(w, fold(w[4])) for w in words]
+        toks = fold(term).split()
+        if not toks:
+            return []
+        key = max(toks, key=len)
         out, done = [], []
-        for r in pg.search_for(term)[:40]:
+        for w0, f0 in fw:
+            if key not in f0:
+                continue
+            r = fitz.Rect(w0[:4])
             lh = max(6.0, r.height)
             above = [y for y in hs if r.y0 - lh * 4 < y <= r.y0 + 0.5]
             below = [y for y in hs if r.y1 - 0.5 <= y < r.y1 + lh * 4]
             top = max(above) if above else r.y0 - lh * 0.5
             bot = min(below) if below else r.y1 + lh * 0.5
+
+            def band_txt():
+                return " ".join(fx for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1)
+            for _i in range(3):                          # no lines: the rest of the name on the lines around it
+                if all(tk in band_txt() for tk in toks) or (above and below):
+                    break
+                if not below:
+                    bot += lh * 1.25
+                if not above:
+                    top -= lh * 1.25
+            if not all(tk in band_txt() for tk in toks):
+                continue
             if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
                 continue
             done.append((top, bot))
@@ -47815,10 +47930,8 @@ class App:
                              min(pg.rect.height, bot + 1))
             if clip.width < 5 or clip.height < 3:
                 continue
-            k = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
-            pix = pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False)
             txt = " ".join(w[4] for w in sorted(inrow, key=lambda w: (round(w[1] / 4), w[0])))
-            out.append(((pix.tobytes("png"), clip.width, clip.height), txt[:400]))
+            out.append((clip, txt[:400]))
         return out
 
     def _job_person(self, P, job):
@@ -47860,11 +47973,24 @@ class App:
         match, pf = self._matcher(P)
         P["titles"] = True
         out = []
-        for name, folder, rel, page, row in self._walk_rows(P, job, pf):
-            hits = match(row)
-            if hits and self._date_ok(row["text"], P["from"], P["to"]):
-                out.append([", ".join(hits), name, page, row.get("title") or ("Table" if row["table"] else ""),
-                            row["text"]])
+        for name, folder, rel, page, rows, doc, pi in self._walk_pages(P, job, pf):
+            seen_t = set()
+            for row in rows:
+                hits = match(row)
+                if hits and self._date_ok(row["text"], P["from"], P["to"]):
+                    out.append([", ".join(hits), name, page, row.get("title") or ("Table" if row["table"] else ""),
+                                row["text"]])
+                    seen_t.update(hits)
+            missing = [t for t in P["terms"] if t not in seen_t]
+            if missing:                                   # 1.0: a name split over lines / cells: the row round it
+                try:
+                    pg_ = doc.load_page(pi)
+                    for t in missing:
+                        for _clip, txt in self._row_bands_geo(pg_, t):
+                            if self._date_ok(txt, P["from"], P["to"]):
+                                out.append([t, name, page, "Table", txt])
+                except Exception as ex:
+                    _log(f"find rows: {ex}")
         if job["cancel"]:
             return None
         got_ = {(r[1], r[2]) for r in out}
@@ -54532,8 +54658,16 @@ class App:
                 return
             c.delete("ui")
             W, H = max(300, c.winfo_width()), max(260, c.winfo_height())
-            cy = H / 2 - 30
+            cy = H / 2 - 70
             draw_icon(c, "lock", W / 2, cy - 74, ink, s=1.0, w=1.4, tag="ui")
+            st["keys"] = []
+            for i_, ch in enumerate("123456789 0⌫"):           # the figures, very quiet - click them
+                if ch == " ":
+                    continue
+                r_, c_ = divmod(i_, 3)
+                kx, ky = W / 2 + (c_ - 1) * 42, cy + 108 + r_ * 30
+                c.create_text(kx, ky, text=ch, font=(self.family, 11), fill=mix(ink, bgc, 0.5), tags=("ui",))
+                st["keys"].append((kx, ky, ch))
             big = self._text_img(time.strftime("%H:%M"), 46, ink, style="sans_l")
             st["img"] = big[0]
             c.create_image(W / 2, cy - 18, image=big[0], tags=("ui",))
@@ -54622,16 +54756,29 @@ class App:
             return "break"
         self.root.bind("<Key>", key)
         c.bind("<Configure>", lambda e: draw())
-        c.bind("<Button-1>", lambda e: c.focus_set())
+        def click(e):
+            c.focus_set()
+            k_ = next((ch for kx, ky, ch in st.get("keys", []) if abs(e.x - kx) <= 18 and abs(e.y - ky) <= 13), None)
+            if k_ is None or st["busy"] or getattr(self, "_lock", None) is not ov:
+                return
+            if k_ == "⌫":
+                st["v"] = st["v"][:-1]
+            elif len(st["v"]) < 12:
+                st["v"] += k_
+                st["msg"] = ""
+            draw()
+            if len(st["v"]) == n:
+                self.root.after(150, check)
+        c.bind("<Button-1>", click)
         c.focus_set()
         tick()
         flow()
 
     # ---- BookReader: the icons - at the top or on the left band, where you drag them
-    LITE_TOP = ["_lib", "_choose", "_find", "_hl", "_note", "_erase", "_reports"]
+    LITE_TOP = ["_lib", "_choose", "_find", "_hl", "_note", "_erase", "_print", "_reports"]
     LITE_SIDE = ["_light", "_marks", "_cal"]
     LITE_ICONS = {"_lib": "sidebar", "_choose": "folders", "_find": "search", "_hl": "highlighter", "_note": "note",
-                  "_erase": "eraser", "_reports": "report", "_light": "sun", "_read": "openbook", "_marks": "star",
+                  "_erase": "eraser", "_reports": "report", "_print": "printer", "_light": "sun", "_read": "openbook", "_marks": "star",
                   "_cal": "calendar"}
 
     def _lite_keys(self):
