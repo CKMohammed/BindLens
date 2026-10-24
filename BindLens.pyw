@@ -47909,14 +47909,16 @@ class App:
         found = OrderedDict((t, []) for t in P["terms"])
         join = adv.get("join", True)
         for name, folder, rel, page, rows, doc, pi in self._walk_pages(P, job, pf):
-            ow_ = P.get("_ocrw", {}).get((folder, rel, pi)) if LITE else None
-            if ow_ is not None:                          # BookReader, a page that is a picture: the rows read by OCR
-                for t in P["terms"]:
-                    try:
-                        for snap, txt in self._row_pictures_ocr(doc, pi, doc.load_page(pi), t, ow_, adv):
+            if LITE:                                     # BookReader: the whole row, from the lines that part the rows
+                ow_ = P.get("_ocrw", {}).get((folder, rel, pi))
+                try:
+                    pg_ = doc.load_page(pi)
+                    wds_ = ow_ if ow_ is not None else pg_.get_text("words")
+                    for t in P["terms"]:
+                        for snap, txt in self._row_pictures_ocr(doc, pi, pg_, t, wds_, adv):
                             found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
-                    except Exception as ex:
-                        _log(f"row pictures: {ex}")
+                except Exception as ex:
+                    _log(f"row pictures: {ex}")
                 continue
             on_page = OrderedDict()
             for row in rows:
@@ -48067,7 +48069,7 @@ class App:
         k = 1.5
         pix = pg.get_pixmap(matrix=fitz.Matrix(k, k), colorspace=fitz.csGRAY, alpha=False)
         w, h, sm, st_ = pix.width, pix.height, pix.samples, pix.stride
-        tbl = bytes(1 if v < 232 else 0 for v in range(256))
+        tbl = bytes(1 if v < 244 else 0 for v in range(256))     # (light grey fills and lines count too)
         rows = [sm[y * st_:y * st_ + w].translate(tbl) for y in range(h)]
         counts = [r.count(1) for r in rows]
         m = max(counts) if counts else 0
@@ -48075,16 +48077,26 @@ class App:
             return [], 0, pg.rect.width
         best = rows[counts.index(m)]
         x0, x1 = best.find(1), best.rfind(1)
+        tw = max(1, x1 - x0)
         ys, run = [], []
         for y, c in enumerate(counts):
-            if c >= m * 0.9:                             # a line goes right across (text never does)
+            near = max(counts[max(0, y - 3)], counts[min(h - 1, y + 3)])
+            # a line right across (text never is) - or a thin line across half the table or more
+            if c >= m * 0.9 or (c >= 0.45 * tw and c - near >= 0.18 * tw):
                 run.append(y)
             elif run:
-                ys.append(sum(run) / len(run) / k)
+                ys += self._img_run(run, k)
                 run = []
         if run:
-            ys.append(sum(run) / len(run) / k)
-        return ys, x0 / k, x1 / k
+            ys += self._img_run(run, k)
+        return sorted(set(round(y_, 1) for y_ in ys)), x0 / k, x1 / k
+
+    @staticmethod
+    def _img_run(run, k):
+        """A thin run is a line (its middle); a thick one is a coloured row - its two edges part the rows."""
+        if len(run) <= 5:
+            return [sum(run) / len(run) / k]
+        return [run[0] / k, (run[-1] + 1) / k]
 
     def _row_pictures_ocr(self, doc, pi, pg, term, words, adv):
         """Rows as they look on a page that is a picture: the name found by OCR (one letter apart too), the row cut
@@ -48103,12 +48115,34 @@ class App:
                 continue
             r = fitz.Rect(w0[:4])
             lh = max(6.0, r.height)
-            above = [y for y in ys if r.y0 - lh * 5 < y <= r.y0 + 1]
-            below = [y for y in ys if r.y1 - 1 <= y < r.y1 + lh * 5]
+            above = [y for y in ys if r.y0 - lh * 8 < y <= r.y0 + 1]     # the lines that part this row from
+            below = [y for y in ys if r.y1 - 1 <= y < r.y1 + lh * 16]    # the others (a row can be tall)
             top = max(above) if above else r.y0 - lh * 0.6
             bot = min(below) if below else r.y1 + lh * 0.6
-            inrow = [(x, fx) for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1]
-            if not all(tok_in(tk, {fx for _x, fx in inrow}, not exact, True) for tk in toks):
+
+            def row_words():
+                return [(x, fx) for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1]
+
+            def whole():
+                return all(tok_in(tk, {fx for _x, fx in row_words()}, not exact, True) for tk in toks)
+            if not (above and below):                    # a table without lines: the row is its block of lines -
+                tops = sorted({(round(x[1], 1), round(x[3], 1)) for x, _f in fw})    # lines close together
+                lines_ = []
+                for y0_, y1_ in tops:
+                    if lines_ and y0_ < lines_[-1][1] - 1:
+                        lines_[-1] = (lines_[-1][0], max(lines_[-1][1], y1_))
+                    else:
+                        lines_.append((y0_, y1_))
+                i_ = next((j for j, (a_, b_) in enumerate(lines_) if a_ - 1 <= r.y0 and r.y1 <= b_ + 1), None)
+                if i_ is not None:
+                    j0 = j1 = i_
+                    while j0 > 0 and lines_[j0][0] - lines_[j0 - 1][1] < 0.45 * lh:
+                        j0 -= 1
+                    while j1 < len(lines_) - 1 and lines_[j1 + 1][0] - lines_[j1][1] < 0.45 * lh:
+                        j1 += 1
+                    top, bot = lines_[j0][0] - lh * 0.35, lines_[j1][1] + lh * 0.35
+            inrow = row_words()
+            if not whole():
                 continue
             if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
                 continue
