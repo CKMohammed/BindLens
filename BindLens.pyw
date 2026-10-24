@@ -2811,6 +2811,10 @@ ES_TEXT = {
     "As they are written at the top of the columns": "Tal como están escritos arriba de las columnas",
     "Commas for more": "Comas para más",
     "Getting the reading data for pages that are pictures (once)…": "Descargando los datos para leer páginas que son imágenes (una sola vez)…",
+    "Rows as they are": "Filas tal cual",
+    "Each row with the name - a picture of the row exactly as it is, with its column titles": "Cada fila con el nombre: una captura de la fila tal cual, con sus títulos de columna",
+    "Every row and line where a name appears - how many times and in which document": "Cada fila y línea donde aparece un nombre: cuántas veces y en qué documento",
+    "Choose a folder to read": "Elige una carpeta para leer",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -38593,9 +38597,8 @@ class App:
         ttk.Checkbutton(crow, text="In order (1 2 3, 1 2 3…)", variable=B["collate"],
                         command=lambda: refresh()).pack(side="left", padx=(14, 0))
         # size on the paper
-        left_ = tk.Frame(left, bg=BG) if LITE else left  # (BookReader: always fitted to the paper - not shown)
-        section("Size on the paper", parent=left_)
-        srow = tk.Frame(left_, bg=BG)
+        section("Size on the paper")
+        srow = tk.Frame(left, bg=BG)
         srow.pack(fill="x")
         chips(srow, "scale", [("fit", "Fit to the paper"), ("actual", "Actual size (100%)"), ("pct", "Custom")])
         sp2 = tk.Spinbox(srow, from_=10, to=400, increment=5, width=4, textvariable=V["pct"], font=self.F(10),
@@ -42122,7 +42125,7 @@ class App:
                                                 "cols"),
                                     "fields": ("Data to compare", "e.g.  Total, Phone, Date of birth", "fields")}[kind]
                 section(lab)
-                box["var"] = tk.StringVar(value=mem.get(key_, ""))
+                box["var"] = tk.StringVar(value="" if LITE else mem.get(key_, ""))
                 e_ = tk.Entry(opts, textvariable=box["var"], font=self.F(12), relief="flat", bg=T["panel"],
                               fg=T["text"], insertbackground=T["text"], highlightthickness=2,
                               highlightbackground=T["border"], highlightcolor=col)
@@ -51415,11 +51418,13 @@ class App:
         if getattr(self, "_reading", False) or LITE:
             title = self._read_title() if getattr(self, "_reading", False) else ""
             if LITE:
+                x_home = x
                 img_ = self._brand_icon() or self._pic_br(20)
                 if img_ is not None:                     # your institution's logo (or BookReader's)
                     tb.create_image(x + 12, H / 2, image=img_)
                     x += 30
                 x += 4 + _ch_word(tb, x, H / 2, ink, sub, self.F)
+                hits.append((x_home, x, "_home"))            # (the logo and the name: back to the start)
                 if _BRAND.get("name"):                   # your institution, discreet
                     t_ = tb.create_text(x + 2, H / 2, text=_BRAND["name"], anchor="w", font=(self.family, 8), fill=sub)
                     b_ = tb.bbox(t_)
@@ -51555,7 +51560,7 @@ class App:
                "_read": lambda: self.reading_mode(True), "_light": self._lite_light, "_find": self._lite_find,
                "_marks": lambda: self._qp_open("marks"), "_cal": lambda: self._qp_open("calendar"),
                "_note": lambda: (self.set_tool("select" if self.tool == "note" else "note"), self._topband_draw()),
-               "_pin": self.pin_settings, "_lib": self._lite_lib, "_erase": self._lite_er_toggle,
+               "_pin": self.pin_settings, "_lib": self._lite_lib, "_home": lambda: self._lite_home(), "_erase": self._lite_er_toggle,
                "_play": self._slide_toggle}.get(name)
         if act is not None:
             self._tb_hov = None

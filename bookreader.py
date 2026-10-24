@@ -43,11 +43,11 @@ class BookReaderParts:
         self._frame_layout()
         pick_ = {it[0]: it for _g, _c, its in App.REPORT_MENU for it in its}
         ex_ = ("exact", "Only exactly as I write it (no names one letter apart)", False)
-        lite_ = [pick_["snapshot"][:1] + ("A name's rows, as they look", "Each row with the name - a picture of the "
-                                          "row exactly as it is, in this document, this book or all of them")
+        lite_ = [pick_["snapshot"][:1] + ("Rows as they are", "Each row with the name - a picture of the row exactly "
+                                                              "as it is, with its column titles")
                  + pick_["snapshot"][3:4] + ([ex_, ("header", "Column titles on top", True)],) + pick_["snapshot"][5:],
-                 ("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
-                                                   "in which document", "names",
+                 ("find", "Names", "Every row and line where a name appears - how many times and in which document",
+                  "names",
                   [ex_], "search look for where name person people word"),
                  pick_["columns"][:2] + ("One or more columns out of every table, as they are",) + pick_["columns"][3:],
                  pick_["tables"], pick_["pick:Emails"], pick_["pick:Phones"], pick_["contacts"], pick_["marks"]]
@@ -56,11 +56,8 @@ class BookReaderParts:
             self.lib_count.configure(text="")
         except Exception:
             pass
-        rec = [x for x in self.lib.settings.get("recent_docs", []) if x.get("f") in self.lib.folders]
-        if rec:
-            self.root.after(300, lambda: self._go_doc(rec[0]["f"], rec[0]["rel"], rec[0].get("p", 0)))   # where you left off
-        elif self.lib.folders:
-            self.open_folder(next(iter(self.lib.folders)))
+        if self.lib.collections or self.lib.folders:     # always the start: your folders on a shelf (after the PIN)
+            self.root.after(250, self._lite_home)
         else:
             self.set_status(_tr("Add your first folder."))
             self.root.after(700, self._lite_add)         # the first time, in one step: choose your first folder
@@ -89,11 +86,111 @@ class BookReaderParts:
             self.set_status("")
         return dst if os.path.exists(os.path.join(dst, "eng.traineddata")) else None
 
+    def _lite_home(self):
+        """BookReader's start: your institution's logo and colours flowing softly, and your folders on a shelf -
+        click one to read it. The logo at the top comes back here."""
+        old = getattr(self, "_lh", None)
+        if old is not None:
+            try:
+                old.destroy()
+            except Exception:
+                pass
+        if getattr(self, "_reading", False):
+            self.reading_mode(False)
+        cols = self._lite_soft()
+        ink = "#24242C"
+        c = tk.Canvas(self.root, highlightthickness=0, bd=0, bg=mix(cols[0], "#FFFFFF", 0.9), cursor="arrow")
+        c.place(in_=self.paned, x=0, y=0, relwidth=1, relheight=1)
+        c.tk.call("raise", c._w)
+        if getattr(self, "_lock", None) is not None:
+            self._lock.lift()                            # (the PIN first)
+        self._lh = c
+        blobs = self._lava_make(c, cols, 4, 0.74)
+        st = {"hits": [], "hov": None, "t0": time.time(), "sz": None}
+
+        def draw():
+            if getattr(self, "_lh", None) is not c:
+                return
+            c.delete("ui")
+            W, H = max(400, c.winfo_width()), max(300, c.winfo_height())
+            st["sz"] = (W, H)
+            logo = self._pic_brand(56) or self._pic_br(56)
+            if logo is not None:
+                c.create_image(W / 2, 54, image=logo, tags=("ui",))
+            c.create_text(W / 2, 100, text=_BRAND.get("name") or "BookReader", font=self.F(15, "bold"), fill=ink,
+                          tags=("ui",))
+            books = [c_["name"] for c_ in self.lib.collections] or list(self.lib.folders)   # (known before they are read)
+            st["hits"] = []
+            if books:
+                try:
+                    shown = self._hf_lever(c, books, (W * 0.06, 130, W * 0.94, H - 46), 1.0) or []
+                except Exception as ex:
+                    _log(f"bookreader shelf: {ex}")
+                    shown = []
+                c.addtag_withtag("ui", "books")
+                for i, bb, _a in shown:
+                    st["hits"].append((bb[0], bb[1], bb[2], bb[3], books[i]))
+            hv = st["hov"]
+            c.create_text(W / 2, H - 22, text=(self.lib.label(hv) if hv else _tr("Choose a folder to read")),
+                          font=self.F(10, "bold" if hv else "normal"), fill=ink if hv else mix(ink, "#FFFFFF", 0.4),
+                          tags=("ui",))
+            c.create_text(W - 18, H - 22, text="+  " + _tr("Add a folder"), anchor="e", font=self.F(9, "bold"),
+                          fill=self.accent, tags=("ui", "addf"))
+            c.tag_raise("ui")
+
+        def flow():
+            if getattr(self, "_lh", None) is not c:
+                return
+            try:
+                self._lava_step(c, blobs, time.time() - st["t0"])
+                if (c.winfo_width(), c.winfo_height()) != st["sz"]:
+                    draw()
+            except Exception:
+                return
+            self.root.after(90, flow)
+
+        def at(e):
+            return next((h[4] for h in st["hits"] if h[0] <= e.x <= h[2] and h[1] <= e.y <= h[3]), None)
+
+        def motion(e):
+            f = at(e)
+            c.configure(cursor="hand2" if f else "arrow")
+            if f != st["hov"]:
+                st["hov"] = f
+                draw()
+
+        def click(e):
+            if "addf" in c.gettags("current"):
+                return self.root.after(10, self._lite_add)
+            f = at(e)
+            if f is None:
+                return
+            self._lite_home_close()
+            self._read_open(f, "", None)
+            self.root.after(400, lambda: self.reading_mode(True) if self.folder == f else None)
+        c.bind("<Motion>", motion)
+        c.bind("<Button-1>", click)
+        c.bind("<Configure>", lambda e: draw())
+        self.root.bind("<Escape>", lambda e: self._lite_home_close(), add="+")
+        draw()
+        flow()
+        self._topband_draw()
+
+    def _lite_home_close(self):
+        c = getattr(self, "_lh", None)
+        self._lh = None
+        if c is not None:
+            try:
+                c.destroy()
+            except Exception:
+                pass
+
     def _lite_add(self):
         before = set(self.lib.folders)
         self.import_folder()
         new = [f for f in self.lib.folders if f not in before]
         if new:
+            self._lite_home_close()
             if getattr(self, "_reading", False):
                 self._read_open(new[0], "", None)
             else:
