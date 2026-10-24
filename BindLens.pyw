@@ -2794,6 +2794,15 @@ ES_TEXT = {
     "Each row with the name - a picture of the row exactly as it is, in this document, this book or all of them": "Cada fila con el nombre: una captura de la fila tal cual, en este documento, este libro o todos",
     "Lock it with your PIN…": "Bloquearla con tu PIN…",
     "Remove its PIN lock": "Quitarle el PIN",
+    "Only the name exactly as I write it (not Mohamed for Mohammed)": "Solo el nombre tal cual lo escribo (no Mohamed por Mohammed)",
+    "A folder for this folder only (4 to 8 figures):": "Un PIN solo para esta carpeta (de 4 a 8 cifras):",
+    "A PIN for this folder only (4 to 8 figures):": "Un PIN solo para esta carpeta (de 4 a 8 cifras):",
+    "The PIN is 4 to 8 figures.": "El PIN tiene de 4 a 8 cifras.",
+    "The same PIN again:": "El mismo PIN otra vez:",
+    "Remove its PIN": "Quitarle el PIN",
+    "Give it a PIN…": "Ponerle un PIN…",
+    "A folder inside": "Una carpeta dentro de",
+    "One folder": "Una carpeta",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -3928,6 +3937,36 @@ def fold(s):
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
     return s.replace("’", "'").replace("‘", "'").replace("`", "'").lower()
+
+
+def near1(a, b):
+    """1.0: two words one letter apart (Mohamed / Mohammed, Hanna / Hannah) - for names of 4 letters or more."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1 or min(la, lb) < 4:
+        return False
+    i = 0
+    while i < min(la, lb) and a[i] == b[i]:
+        i += 1
+    if la == lb:
+        return a[i + 1:] == b[i + 1:]
+    return a[i + 1:] == b[i:] if la > lb else a[i:] == b[i + 1:]
+
+
+_WORD_RX = re.compile(r"[\w'][\w'\-.]*")
+_SPLIT_RX = re.compile(r"[^\w'\-.]+")
+
+
+def tok_in(tok, words, fuzzy=True, whole=False):
+    """Is this word of a name among these (folded) words: the same, starting so (not when whole), or one letter
+    apart (fuzzy)."""
+    for w0 in words:
+        for w in _SPLIT_RX.split(w0):                    # (OCR glues cells: "name|15h", "name,")
+            w = w.strip(".-'")
+            if w and (w == tok or (not whole and w.startswith(tok)) or (fuzzy and near1(tok, w))):
+                return True
+    return False
 
 
 def fold_search(fitz, page, q, words=None):
@@ -9422,6 +9461,38 @@ def win_devmode(name, base=None, prompt_hwnd=None):
         ws.ClosePrinter(h)
 
 
+def _win_front_dialog(tries=40):
+    """1.0: a window Windows opens for us (the printer's own settings) comes in front of ours, with the keyboard."""
+    try:
+        import ctypes
+        from ctypes import wintypes as W
+        u = ctypes.windll.user32
+        me = os.getpid()
+        PROC = ctypes.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)
+        for _ in range(tries):
+            time.sleep(0.15)
+            found = []
+
+            def cb(h, _l):
+                pid = W.DWORD()
+                u.GetWindowThreadProcessId(h, ctypes.byref(pid))
+                if pid.value == me and u.IsWindowVisible(h):
+                    buf = ctypes.create_unicode_buffer(64)
+                    u.GetClassNameW(h, buf, 64)
+                    if buf.value == "#32770":
+                        found.append(h)
+                return True
+            u.EnumWindows(PROC(cb), 0)
+            if found:
+                h = found[0]
+                u.SetWindowPos(h, -1, 0, 0, 0, 0, 0x0003)      # on top of everything…
+                u.SetWindowPos(h, -2, 0, 0, 0, 0, 0x0003)      # …then normal again, but in front
+                u.SetForegroundWindow(h)
+                return
+    except Exception as ex:
+        _log(f"printer window: {ex}")
+
+
 def win_caps(name, port=""):
     api = _win_api()
     dc = lambda cap: api["ws"].DeviceCapabilitiesW(name, port or None, cap, None, None)
@@ -9543,6 +9614,8 @@ def lp_printers():
 
 def _hop_call(st, msg, progress=None, cancelled=None):
     """Run one of the window's report jobs here (with the texts BindLens already read)."""
+    if msg.get("lite"):                                  # (the helper of BookReader works as BookReader)
+        globals()["LITE"] = True
     if st.ctx is None:
         st.ctx = HelperCtx(st, msg["index"])
     st.ctx.indexer.path = msg["index"]
@@ -22766,7 +22839,7 @@ class App:
                 continue
             n = "!" if self.lib.missing.get(f) and not files else str(len(files))
             iid = "f::" + f
-            t.insert("", "end", iid=iid, text=f"  {self.lib.label(f)}" + ("  🔒" if self._book_locked(f) else ""),
+            t.insert("", "end", iid=iid, text=f"  {self.lib.label(f)}" + ("  🔒" if (self._book_locked(f) or (LITE and f in self.lib.settings.get("locked_books", []))) else ""),
                      image=self._book_icon_small(f),
                      values=(n, "↻"), open=(f == self.folder) or bool(qf), tags=("cur",) if f == self.folder else ())
             counts = {}                                    # files per sub-book, in one pass
@@ -22909,7 +22982,7 @@ class App:
             m.add_command(label=_tr("Rename…"), command=lambda: self.rename_folder(f))
             m.add_command(label=_tr("Its icon and colour…"), command=lambda: self.book_style_dialog(f))
             lk_ = f in self.lib.settings.get("locked_books", [])
-            m.add_command(label=_tr("Remove its PIN lock" if lk_ else "Lock it with your PIN…"),
+            m.add_command(label=_tr("Remove its PIN" if lk_ else "Give it a PIN…"),
                           command=lambda: self.lock_book(f, not lk_))
             m.add_separator()
             m.add_command(label=_tr("Remove from the library (the documents stay where they are)"), command=lambda: self.delete_folder(f))
@@ -38421,7 +38494,7 @@ class App:
                                                                                               padx=(10, 0), pady=(5, 0))
 
         def section(text, parent=left):
-            tk.Label(parent, text=text.upper(), font=self.F(8, "bold"), bg=BG, fg=T["muted"]).pack(anchor="w",
+            tk.Label(parent, text=_tr(text).upper(), font=self.F(8, "bold"), bg=BG, fg=T["muted"]).pack(anchor="w",
                                                                                                  pady=(12, 4))
         chip_sets = {}
 
@@ -38680,7 +38753,17 @@ class App:
                     hwnd = int(d.wm_frame(), 16)
                 except Exception:
                     hwnd = 0
+                try:
+                    d.grab_release()
+                except Exception:
+                    pass
+                threading.Thread(target=_win_front_dialog, daemon=True).start()
                 new = win_devmode(name, base=info["dm"], prompt_hwnd=hwnd)
+                try:
+                    d.grab_set()
+                    d.lift()
+                except Exception:
+                    pass
                 if new is not None:
                     info["dm"] = new
                     try:
@@ -41950,6 +42033,9 @@ class App:
         docs = {"res": [], "lb": None}
 
         def scope_files():
+            if S["scope"] == "sub":
+                self._rep_sub = S.get("sub")
+                return self._scope_files("sub")
             if S["scope"] == "books":
                 self._rep_books = set(S["books"])
                 return self._scope_files("books")
@@ -42494,7 +42580,7 @@ class App:
 
         def paint_chips():
             for k_, lb in chips.items():
-                on = k_ == S["scope"]
+                on = k_ == S["scope"] or (k_ == "books" and S["scope"] == "sub")
                 lb.configure(bg=A if on else T["chip"], fg="#FFFFFF" if on else T["text"],
                              font=self.F(10, "bold") if on else self.F(10))
 
@@ -42518,6 +42604,8 @@ class App:
         chip("library", "All my books")
 
         def other_text():
+            if S["scope"] == "sub" and S.get("sub"):
+                return self._short(S["sub"][1].rstrip("/").split("/")[-1], 16) + "  ▾"
             if S["scope"] == "books" and S["books"]:
                 nm = [self.lib.label(f) for f in self.lib.folders if f in S["books"]]
                 return (self._short(nm[0], 16) if len(nm) == 1 else f"{len(nm)} books") + "  ▾"
@@ -42539,8 +42627,32 @@ class App:
                                         variable=tk.BooleanVar(value=S["scope"] == "books" and f in S["books"]),
                                         command=lambda f=f: choose(f, add=True))
                 m.add_cascade(label="Add or remove a book (look in several)", menu=sub)
+            if LITE:                                     # BookReader: or one folder inside a book (and its folders)
+                first_ = True
+                for f in self.lib.folders:
+                    allp = set()
+                    for rel in self.lib.folders.get(f, []):
+                        parts = rel.split("/")[:-1]
+                        for i_ in range(1, len(parts) + 1):
+                            allp.add("/".join(parts[:i_]))
+                    if not allp:
+                        continue
+                    if first_:
+                        m.add_separator()
+                        first_ = False
+                    sm_ = self._menu(m)
+                    for sp in sorted(allp, key=natural_key):
+                        sm_.add_command(label="    " * sp.count("/") + sp.split("/")[-1],
+                                        command=lambda f=f, sp=sp: choose_sub(f, sp + "/"))
+                    m.add_cascade(label=_tr("A folder inside") + f" {self.lib.label(f)}", menu=sm_)
             lb = chips["books"]
             self._popup(m, x=lb.winfo_rootx(), y=lb.winfo_rooty() + lb.winfo_height())
+
+        def choose_sub(f, sp):
+            S["sub"] = (f, sp)
+            self._rep_sub = (f, sp)
+            chips["books"].configure(text=other_text())
+            set_scope("sub")
 
         def choose(f, add=False):
             if add and S["scope"] == "books":
@@ -43427,6 +43539,9 @@ class App:
         if scope == "file" and self.book and self.book.total:
             f = self.book.files[self.book.pages[self.current_page][0]]
             return [(self.folder, f["rel"], f["path"])]
+        if scope == "sub":                                # one folder inside a book, with all of its folders
+            f, pre = getattr(self, "_rep_sub", None) or (None, "")
+            return [(f, rel, self.lib.file_path(f, rel)) for rel in self.lib.folders.get(f, []) if rel.startswith(pre)]
         if scope == "folder" and self.folder is not None:     # (BookReader: the whole book, all its subfolders)
             return [(self.folder, rel, self.lib.file_path(self.folder, rel))
                     for rel in self.lib.folders.get(self.folder, []) if LITE or rel.startswith(self.prefix or "")]
@@ -43436,6 +43551,8 @@ class App:
         return out
 
     def _scope_title(self, scope):
+        if scope == "sub" and getattr(self, "_rep_sub", None):
+            return self.lib.label(self._rep_sub[0]) + " / " + self._rep_sub[1].rstrip("/")
         if scope == "books":
             names = [self.lib.label(f) for f in self.lib.folders if f in (getattr(self, "_rep_books", None) or ())]
             return ", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else "") or self.lib.title
@@ -43718,6 +43835,13 @@ class App:
         if scope == "books":
             files = [(f, rel, self.lib.file_path(f, rel)) for f in self.lib.folders if f in st.get("books", set())
                      for rel in self.lib.folders.get(f, [])]
+        td_ = None
+        if LITE:                                         # BookReader: pages that are pictures are read too (OCR)
+            td_ = self._tessdata()
+            if td_ is None and not self.lib.settings.get("ocr_no"):
+                td_ = self._get_tessdata()
+                if td_ is None:
+                    self.lib.settings["ocr_no"] = True
         fq = [x.strip().lower() for x in re.split(r"[,;]+", getattr(self, "_rep_fname", None) and
                                                    self._rep_fname.get() or "") if x.strip()]
         if fq and scope != "file":
@@ -43747,7 +43871,7 @@ class App:
                                                                                                 "overview",
                                                                                                 "invoices") or
              (t == "charts" and "status" in ((st.get("extra") or {}).get("charts") or [])) else {},
-             "sig": self._report_sig(st, t)}
+             "sig": self._report_sig(st, t), "td": td_}
         for k, lab, dflt in spec.get("adv", []):
             P["adv"].setdefault(k, dflt)
         P.update(st.get("extra") or {})                  # (the Reports screen: question, kinds, compare files…)
@@ -43790,7 +43914,7 @@ class App:
                     job["error"] = res.get("err") or "The reader stopped."
                 job["done"] = True
             job["_hj"] = self.pool.submit("call", prio=5, timeout=4 * 3600, fn="_job_run", args=[t, P, "__job__"],
-                                          index=self.indexer.path, cb=got, cancel=lambda: job["cancel"])
+                                          index=self.indexer.path, cb=got, cancel=lambda: job["cancel"], lite=LITE)
         self._poll_report(dialog, st)
 
     def _job_run(self, t, P, job):
@@ -47507,7 +47631,9 @@ class App:
                 return
             job["progress"] = f"Reading {k + 1} of {len(files)}  ·  Esc to stop"
             texts = self._page_texts(path)
-            pages = [i for i, tx in enumerate(texts) if page_filter is None or page_filter(tx)]
+            td_ = P.get("td")
+            pages = [i for i, tx in enumerate(texts) if page_filter is None or page_filter(tx) or
+                     (td_ and len((tx or "").strip()) < 25)]         # (a page that is a picture: read it first)
             if not pages:
                 continue
             try:
@@ -47521,6 +47647,26 @@ class App:
                 for pi in pages:
                     if job["cancel"]:
                         return
+                    if td_:                              # 1.0: a page that is a picture (scan, "Print to PDF")
+                        pgs = doc.load_page(pi)
+                        if is_scanned_page(pgs):
+                            job["progress"] = f"Reading {k + 1} of {len(files)}  ·  page {pi + 1} (a picture)  ·  Esc to stop"
+                            try:
+                                ws_ = ocr_page_words(self.fitz, pgs, td_,
+                                                     os.path.join(ocr_dir(), scan_key(path, pgs) + ".json.gz"))
+                            except Exception as ex:
+                                _log(f"report ocr: {ex}")
+                                continue
+                            if page_filter is not None and not page_filter(" ".join(w[4] for w in ws_)):
+                                continue
+                            P.setdefault("_ocrw", {})[(folder, rel, pi)] = ws_
+                            try:
+                                rows_ = page_rows(self.fitz, pgs, {}, words_in=ws_)
+                            except Exception:
+                                rows_ = []
+                            last = -2
+                            yield name, folder, rel, pi + 1, rows_, doc, pi
+                            continue
                     if pi != last + 1:
                         ctx = {}
                         # a table that began on an earlier page: find its column titles (up to 8 pages back),
@@ -47561,6 +47707,9 @@ class App:
         terms = P["terms"] if terms is None else terms
         whole = P["adv"].get("wholeword", False) if whole is None else whole
         # 3.0: accents and apostrophes don't matter (Sean = Seán, O'Brien = O’Brien)
+        exact = bool(P.get("adv", {}).get("exact"))
+        fuzzy = LITE and not exact                        # BookReader: one letter apart too - or exactly as written
+        whole = whole or exact
         wb = (lambda x: r"(?<!\w)" + x + r"(?!\w)") if whole else (lambda x: x)
         pats, toks = {}, {}
         for t in terms:                                   # 1.0: "Ana  Ruiz" = "Ana\nRuiz"; a name on two lines too
@@ -47568,8 +47717,15 @@ class App:
             pats[t] = re.compile(wb(r"\s+".join(re.escape(w) for w in ws)), re.I)
             toks[t] = [re.compile(wb(re.escape(w)), re.I) for w in ws] if len(ws) > 1 else []
 
+        tws = {t: fold(t).split() for t in terms}
+
         def hit(t, txt):
-            return bool(pats[t].search(txt)) or bool(toks[t] and all(p_.search(txt) for p_ in toks[t]))
+            if pats[t].search(txt) or (toks[t] and all(p_.search(txt) for p_ in toks[t])):
+                return True
+            if not fuzzy:
+                return False
+            ws_ = set(_WORD_RX.findall(txt))
+            return all(tok_in(tk, ws_, True, whole) for tk in tws[t])
 
         def match(row):
             hits = []
@@ -47718,7 +47874,8 @@ class App:
             if LITE:                                     # BookReader: every row the name is in, as it looks
                 for t in P["terms"]:
                     try:
-                        for snap, txt in self._row_pictures(doc, pi, t, rows, adv):
+                        for snap, txt in self._row_pictures(doc, pi, t, rows, adv,
+                                                            words=P.get("_ocrw", {}).get((folder, rel, pi))):
                             found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
                     except Exception as ex:
                         _log(f"row pictures: {ex}")
@@ -47784,13 +47941,16 @@ class App:
                 "blocks": blocks, "preview_table": tb, "images": images, "_name": f"Rows of {what[:40]}",
                 "_view": "pictures"}
 
-    def _row_pictures(self, doc, pi, term, rows, adv):
+    def _row_pictures(self, doc, pi, term, rows, adv, words=None):
         """The rows a name is in, as pictures - with the table's column titles (and title) on top when the table
         reader knows them; a scanned page (no text to cut along): the page itself."""
         fitz = self.fitz
         pg = doc.load_page(pi)
         out, used = [], []
         toks = fold(term).split()
+        exact = bool(adv.get("exact"))
+        if words is not None:                            # a page that is a picture: its words come from OCR
+            return self._row_pictures_ocr(doc, pi, pg, term, words, adv)
         words = pg.get_text("words")
         fw = [(w, fold(w[4])) for w in words]
         tabs = []
@@ -47812,7 +47972,8 @@ class App:
                 if hb is not None and rb.y0 < hb.y1 - 1:
                     continue                              # (the column titles themselves)
                 inrow = [(x, fx) for x, fx in fw if x[1] < rb.y1 - 1 and x[3] > rb.y0 + 1 and x[0] < tb.x1 and x[2] > tb.x0]
-                if not all(tk in " ".join(fx for _x, fx in inrow) for tk in toks):
+                rw_ = {fx for _x, fx in inrow}
+                if not all(tok_in(tk, rw_, not exact, exact) for tk in toks):
                     continue
                 if any(abs(rb.y0 - a) < 2 and abs(rb.y1 - b) < 2 for a, b in used):
                     continue
@@ -47831,7 +47992,7 @@ class App:
                     snap = (pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False).tobytes("png"),
                             clip.width, clip.height)
                 out.append((snap, txt))
-        for clip, txt in self._row_bands_geo(pg, term):     # rows not in a table the reader sees: cut round the name
+        for clip, txt in self._row_bands_geo(pg, term, exact=exact):     # rows not in a table the reader sees
             if any(a - 2 < (clip.y0 + clip.y1) / 2 < b + 2 for a, b in used):
                 continue
             hr = next((r for r in rows if r.get("box") and r.get("hbox") and r["box"][1] < clip.y1 - 1 and
@@ -47865,7 +48026,98 @@ class App:
             out.append(((pix.tobytes("png"), clip.width, clip.height), txt))
         return out
 
-    def _row_bands_geo(self, pg, term):
+    def _img_rules(self, pg):
+        """The table's lines in a page that is a picture: (y of each line, left and right of the table)."""
+        fitz = self.fitz
+        k = 1.5
+        pix = pg.get_pixmap(matrix=fitz.Matrix(k, k), colorspace=fitz.csGRAY, alpha=False)
+        w, h, sm, st_ = pix.width, pix.height, pix.samples, pix.stride
+        tbl = bytes(1 if v < 232 else 0 for v in range(256))
+        rows = [sm[y * st_:y * st_ + w].translate(tbl) for y in range(h)]
+        counts = [r.count(1) for r in rows]
+        m = max(counts) if counts else 0
+        if m < w * 0.3:
+            return [], 0, pg.rect.width
+        best = rows[counts.index(m)]
+        x0, x1 = best.find(1), best.rfind(1)
+        ys, run = [], []
+        for y, c in enumerate(counts):
+            if c >= m * 0.9:                             # a line goes right across (text never does)
+                run.append(y)
+            elif run:
+                ys.append(sum(run) / len(run) / k)
+                run = []
+        if run:
+            ys.append(sum(run) / len(run) / k)
+        return ys, x0 / k, x1 / k
+
+    def _row_pictures_ocr(self, doc, pi, pg, term, words, adv):
+        """Rows as they look on a page that is a picture: the name found by OCR (one letter apart too), the row cut
+        between the table's lines seen in the picture, the column titles above it (when the table has them)."""
+        fitz = self.fitz
+        exact = bool(adv.get("exact"))
+        toks = fold(term).split()
+        if not toks:
+            return []
+        key = max(toks, key=len)
+        fw = [(w, fold(w[4])) for w in words]
+        ys, tx0, tx1 = self._img_rules(pg)
+        out, done = [], []
+        for w0, f0 in fw:
+            if not tok_in(key, [f0], not exact, exact):
+                continue
+            r = fitz.Rect(w0[:4])
+            lh = max(6.0, r.height)
+            above = [y for y in ys if r.y0 - lh * 5 < y <= r.y0 + 1]
+            below = [y for y in ys if r.y1 - 1 <= y < r.y1 + lh * 5]
+            top = max(above) if above else r.y0 - lh * 0.6
+            bot = min(below) if below else r.y1 + lh * 0.6
+            inrow = [(x, fx) for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1]
+            if not all(tok_in(tk, {fx for _x, fx in inrow}, not exact, exact) for tk in toks):
+                continue
+            if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
+                continue
+            done.append((top, bot))
+            x0 = tx0 if ys else min([x[0] for x, _f in inrow] + [r.x0]) - 4
+            x1 = tx1 if ys else max([x[2] for x, _f in inrow] + [r.x1]) + 4
+            hbox = None
+            if top in ys and bot in ys:                    # the column titles: the rows above that are not like it
+                hh = bot - top
+
+                def look(a_, b_):
+                    t_ = [x[4] for x, _f in fw if a_ + 1 < (x[1] + x[3]) / 2 < b_ - 1]
+                    return len(t_), (sum(1 for z in t_ if any(ch.isdigit() for ch in z)) / float(len(t_) or 1))
+                i = ys.index(top)
+                a_, b_ = i, ys.index(bot)
+                while a_ > 0 and ys[a_] - ys[a_ - 1] < 4 * hh:          # the table: its lines close together
+                    a_ -= 1
+                while b_ < len(ys) - 1 and ys[b_ + 1] - ys[b_] < 4 * hh:
+                    b_ += 1
+                stats = [look(ys[q], ys[q + 1]) for q in range(a_, b_)]
+                mn = sorted(x_[0] for x_ in stats)[len(stats) // 2]       # most rows are rows of data
+                md = sorted(x_[1] for x_ in stats)[len(stats) // 2]
+                j = a_
+                while j < i and (stats[j - a_][0] < 0.5 * mn or stats[j - a_][1] < 0.5 * md):
+                    j += 1                                               # the titles: not like the rows
+                if j > a_:
+                    hbox = (x0, ys[a_] + 2, x1, ys[j] - 2)
+            txt = " ".join(x[4] for x, _f in sorted(inrow, key=lambda z: (round(z[0][1] / 4), z[0][0])))[:400]
+            rowd = {"box": (x0, top + 2, x1, bot - 2), "table": True, "tbox": (x0, x1), "hbox": hbox, "hpage": pi,
+                    "text": txt}
+            snap = None
+            try:
+                snap = self._snapshot(doc, pi, rowd, header=adv.get("header", True), title=False)
+            except Exception as ex:
+                _log(f"row picture: {ex}")
+            if not snap:
+                clip = fitz.Rect(x0, top, x1, bot)
+                kz = max(1.5, min(3.0, 1400.0 / max(1.0, clip.width)))
+                snap = (pg.get_pixmap(matrix=fitz.Matrix(kz, kz), clip=clip, alpha=False).tobytes("png"),
+                        clip.width, clip.height)
+            out.append((snap, txt))
+        return out
+
+    def _row_bands_geo(self, pg, term, words=None, exact=False):
         """Where the rows a name is in are: between the table's lines above and below the name (or round its lines),
         across the width of what is on that row - the whole name inside (also a name on 2-3 lines)."""
         fitz = self.fitz
@@ -47891,7 +48143,7 @@ class App:
                 for y_ in (b.y0, b.y1):
                     edges[round(y_ * 2) / 2] = edges.get(round(y_ * 2) / 2, 0) + 1
         hs += [y_ for y_, n_ in edges.items() if n_ >= 3]
-        words = pg.get_text("words")
+        words = pg.get_text("words") if words is None else words
         fw = [(w, fold(w[4])) for w in words]
         toks = fold(term).split()
         if not toks:
@@ -47899,7 +48151,7 @@ class App:
         key = max(toks, key=len)
         out, done = [], []
         for w0, f0 in fw:
-            if key not in f0:
+            if not tok_in(key, [f0], not exact and LITE, exact):
                 continue
             r = fitz.Rect(w0[:4])
             lh = max(6.0, r.height)
@@ -47908,16 +48160,17 @@ class App:
             top = max(above) if above else r.y0 - lh * 0.5
             bot = min(below) if below else r.y1 + lh * 0.5
 
-            def band_txt():
-                return " ".join(fx for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1)
+            def band_ok():
+                bw_ = {fx for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1}
+                return all(tok_in(tk, bw_, not exact and LITE, exact) for tk in toks)
             for _i in range(3):                          # no lines: the rest of the name on the lines around it
-                if all(tk in band_txt() for tk in toks) or (above and below):
+                if band_ok() or (above and below):
                     break
                 if not below:
                     bot += lh * 1.25
                 if not above:
                     top -= lh * 1.25
-            if not all(tk in band_txt() for tk in toks):
+            if not band_ok():
                 continue
             if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
                 continue
@@ -47985,8 +48238,9 @@ class App:
             if missing:                                   # 1.0: a name split over lines / cells: the row round it
                 try:
                     pg_ = doc.load_page(pi)
+                    ow_ = P.get("_ocrw", {}).get((folder, rel, pi))
                     for t in missing:
-                        for _clip, txt in self._row_bands_geo(pg_, t):
+                        for _clip, txt in self._row_bands_geo(pg_, t, words=ow_, exact=bool(P["adv"].get("exact"))):
                             if self._date_ok(txt, P["from"], P["to"]):
                                 out.append([t, name, page, "Table", txt])
                 except Exception as ex:
@@ -49426,7 +49680,7 @@ class App:
         self.pool.submit("write", prio=3, timeout=1800, rep=rep, dst=dst, fmt=fmt, accent=self.accent, cb=got)
 
     def _subtitle(self, scope, extra=""):
-        where = {"file": "This file", "folder": "This book", "library": "All my books"}.get(scope, "Chosen books")
+        where = {"file": "This file", "folder": "This book", "library": "All my books", "sub": "One folder"}.get(scope, "Chosen books")
         who_ = "" if (LITE or _BRAND.get("name")) else "BindLens"
         if not who_:                                      # BookReader / your institution: never "BindLens"
             return " · ".join(x_ for x_ in (_tr(where), time.strftime('%d/%m/%Y'), extra) if x_)
@@ -51430,7 +51684,7 @@ class App:
             return
         delay = 70
         try:
-            still = conf["mode"] == "still" or self._fast() or (LITE and getattr(self, "_reading", False))
+            still = conf["mode"] == "still" or self._fast()
             paused = (self.root.state() == "iconic" or time.time() < getattr(self, "_scroll_quiet", 0) or
                       getattr(self, "_idle_win", None) is not None or getattr(self, "_lock", None) is not None)
             if not paused:
@@ -54293,12 +54547,13 @@ class App:
             self._place_side()
         self._frame_layout()
         pick_ = {it[0]: it for _g, _c, its in App.REPORT_MENU for it in its}
+        ex_ = ("exact", "Only the name exactly as I write it (not Mohamed for Mohammed)", False)
         lite_ = [pick_["snapshot"][:1] + ("A name's rows, as they look", "Each row with the name - a picture of the "
                                           "row exactly as it is, in this document, this book or all of them")
-                 + pick_["snapshot"][3:],
+                 + pick_["snapshot"][3:4] + ([ex_, ("header", "Column titles on top", True)],) + pick_["snapshot"][5:],
                  ("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
                                                    "in which document", "names",
-                  [("wholeword", "Whole words only", False)], "search look for where name person people word"),
+                  [ex_], "search look for where name person people word"),
                  pick_["columns"], pick_["tables"], pick_["marks"]]
         self.REPORT_MENU = [("", "#6C63FF", lite_)]
         try:
@@ -54992,7 +55247,7 @@ class App:
             m.add_command(label=_tr("Rename this folder…"), command=lambda: (self.rename_folder(cur), self._topband_draw()))
             m.add_command(label=_tr("Its icon and colour…"), command=lambda: self.book_style_dialog(cur))
             lk_ = cur in self.lib.settings.get("locked_books", [])
-            m.add_command(label=_tr("Remove its PIN lock" if lk_ else "Lock it with your PIN…"),
+            m.add_command(label=_tr("Remove its PIN" if lk_ else "Give it a PIN…"),
                           command=lambda: self.lock_book(cur, not lk_))
             m.add_command(label=_tr("Move it up"), command=lambda: self._lite_move(cur, -1))
             m.add_command(label=_tr("Move it down"), command=lambda: self._lite_move(cur, 1))
@@ -55107,10 +55362,31 @@ class App:
     def _book_locked(self, f):
         """A book locked with the PIN, not opened yet since BindLens started."""
         return f in self.lib.settings.get("locked_books", []) and f not in getattr(self, "_unlocked", set()) and \
-            bool(pin_load())
+            (bool(pin_load()) or f in self.lib.settings.get("book_pins", {}))
+
+    def _book_pin_new(self, f):
+        """BookReader: a PIN of this folder's own (not the app's) - typed twice. True when it is set."""
+        a = simpledialog.askstring("BookReader", _tr("A PIN for this folder only (4 to 8 figures):"), show="•",
+                                   parent=self.root)
+        if not a:
+            return False
+        a = a.strip()
+        if not a.isdigit() or not 4 <= len(a) <= 8:
+            messagebox.showwarning("BookReader", _tr("The PIN is 4 to 8 figures."), parent=self.root)
+            return False
+        b = simpledialog.askstring("BookReader", _tr("The same PIN again:"), show="•", parent=self.root)
+        if (b or "").strip() != a:
+            messagebox.showwarning("BookReader", _tr("The two PINs are not the same."), parent=self.root)
+            return False
+        salt = os.urandom(16).hex()
+        self.lib.settings.setdefault("book_pins", {})[f] = {"salt": salt, "hash": pin_hash(a, salt), "n": len(a)}
+        return True
 
     def lock_book(self, f, on=True):
-        if on and not pin_load():
+        if LITE and on:                                  # BookReader: each folder its own PIN
+            if not self._book_pin_new(f):
+                return
+        elif on and not pin_load():
             if messagebox.askyesno(APP_NAME, "To lock a book, BindLens needs a PIN first. Set one now?"):
                 self.pin_settings()
             return
@@ -55122,6 +55398,7 @@ class App:
                 self.__dict__.setdefault("_unlocked", set()).discard(f)
             elif not on and f in lst:
                 lst.remove(f)
+                self.lib.settings.get("book_pins", {}).pop(f, None)
             self.lib.save_meta()
             self._fill_folders()
             self._draw_rail()
@@ -55136,8 +55413,8 @@ class App:
             self._ask_book_pin(f, done)
 
     def _ask_book_pin(self, f, then):
-        """The PIN for one book (once per time BindLens is open)."""
-        cur = pin_load()
+        """The PIN for one book (once per time BindLens is open) - its own PIN when it has one."""
+        cur = self.lib.settings.get("book_pins", {}).get(f) or pin_load()
         if not cur:
             then()
             return
