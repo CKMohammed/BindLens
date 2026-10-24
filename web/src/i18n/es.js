@@ -2259,5 +2259,8 @@ export default {
  "Colour of the stamp": "Color del sello",
  "Change the words of the stamp": "Cambiar las palabras del sello",
  "The words of the stamp": "Las palabras del sello",
- "Change": "Cambiar"
+ "Change": "Cambiar",
+ "Each row with the name, whole, as a picture exactly as it looks in its file - with the table's column titles over it.": "Cada fila con el nombre, entera, como una captura tal cual se ve en su archivo, con los títulos de columna de la tabla encima.",
+ "The columns you name from every table that has them, row by row, as they are.": "Las columnas que nombres, de cada tabla que las tenga, fila a fila, tal como son.",
+ "Only exactly as I write it (no names one letter apart)": "Solo tal cual lo escribo (sin nombres con una letra de diferencia)"
 };

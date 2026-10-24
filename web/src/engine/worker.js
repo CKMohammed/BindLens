@@ -1829,6 +1829,42 @@ const api = {
     return { __transfer: [u8.buffer], value: u8 };
   },
 
+  // the lines that part the rows of a page's tables (seen in its picture: drawn lines, cell borders, coloured
+  // stripes - also on scans): [y...] in page points, and the table's left and right
+  rowLines(key, page) {
+    const d = get(key);
+    const p = d.doc.loadPage(page);
+    const k = 1.5;
+    const pix = p.toPixmap(mupdf.Matrix.scale(k, k), mupdf.ColorSpace.DeviceGray, false, true);
+    const w = pix.getWidth(), h = pix.getHeight(), px = pix.getPixels(), st = px.length / h;
+    const counts = new Array(h).fill(0);
+    let best = 0, bestY = 0;
+    for (let y = 0; y < h; y++) {
+      let c = 0;
+      for (let x = 0, o = y * st; x < w; x++) if (px[o + x] < 244) c++;
+      counts[y] = c;
+      if (c > best) { best = c; bestY = y; }
+    }
+    if (best < w * 0.3) return { ys: [], x0: 0, x1: w / k };
+    let x0 = 0, x1 = w - 1;
+    for (let x = 0, o = bestY * st; x < w; x++) if (px[o + x] < 244) { x0 = x; break; }
+    for (let x = w - 1, o = bestY * st; x >= 0; x--) if (px[o + x] < 244) { x1 = x; break; }
+    const tw = Math.max(1, x1 - x0), ys = [];
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      if (run.length <= 5) ys.push(run.reduce((a, b) => a + b, 0) / run.length / k);
+      else ys.push(run[0] / k, (run[run.length - 1] + 1) / k);
+      run = [];
+    };
+    for (let y = 0; y < h; y++) {
+      const c = counts[y], near = Math.max(counts[Math.max(0, y - 3)], counts[Math.min(h - 1, y + 3)]);
+      if (c >= best * 0.9 || (c >= 0.45 * tw && c - near >= 0.18 * tw)) run.push(y); else flush();
+    }
+    flush();
+    return { ys: [...new Set(ys.map(y => Math.round(y * 10) / 10))].sort((a, b) => a - b), x0: x0 / k, x1: x1 / k };
+  },
+
   pagePng(key, page, scale) {
     const d = get(key);
     const p = d.doc.loadPage(page);

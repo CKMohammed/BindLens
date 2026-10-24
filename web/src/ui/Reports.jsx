@@ -223,7 +223,7 @@ export function Reports({ compare, pickId, rerun }) {
     setRep(null);
     setBusy({ n: 0, of: list.reduce((a, b) => a + b.files.length, 0), name: "" });
     try {
-      const r = await runReport(id, list, { q: qq.trim(), progress: (n, of, name) => setBusy({ n, of, name }) });
+      const r = await runReport(id, list, { q: qq.trim(), exact: !!settings.value.repExact, progress: (n, of, name) => setBusy({ n, of, name }) });
       const title = def.title + (def.ask ? `: ${qq.trim()}` : "");
       const full = { ...r, title, where, id };
       // what is new since the last time this same report was made
@@ -330,6 +330,12 @@ export function Reports({ compare, pickId, rerun }) {
             <input class="field" autoFocus placeholder={pick.ask} value={q} onInput={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) run(pick.id); }} />
             <button class="btn" disabled={!q.trim()} onClick={() => run(pick.id)}>{_t("Make it")}</button>
           </div>
+        )}
+        {pick && pick.ask && pick.exact && (
+          <label class="chk small" style={{ margin: "-4px 0 12px 4px" }}>
+            <input type="checkbox" checked={!!settings.value.repExact} onChange={(e) => setSetting("repExact", e.target.checked)} />
+            {_t("Only exactly as I write it (no names one letter apart)")}
+          </label>
         )}
         {!filter && (settings.value.repRuns || []).length > 0 && <>
           <div class="rep-sec">{_t("Reports you made")}</div>

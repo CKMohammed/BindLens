@@ -14,9 +14,9 @@ export const REPORTS = [
   { id: "contacts", title: _t("People & contacts"), icon: "people", desc: _t("Everyone with their email, phone and address, from any table or text.") },
   { id: "tables", title: _t("All tables"), icon: "table", desc: _t("Every table exactly as it is, with its column titles - ready for Excel.") },
   { id: "deadlines", title: _t("Deadlines"), icon: "clock", desc: _t("Renewals, due dates, 'valid until', deadlines - and how long is left.") },
-  { id: "rows", title: _t("Rows with a name or value"), icon: "table", desc: _t("Every table row (and line) with the names or values you write, with its own columns and column titles, exactly as it is - one section for each."), ask: _t("Names or values, with commas between them") },
-  { id: "snapshot", title: _t("Rows as they look"), icon: "image", desc: _t("The same rows as pictures, exactly as they look in each file, with the table's column titles over them."), ask: _t("Names or values, with commas between them") },
-  { id: "columns", title: _t("Columns from every table"), icon: "table", desc: _t("The columns you name (e.g. Name, Email) from every table that has them, row by row, as they are."), ask: _t("Column titles, with commas between them") },
+  { id: "rows", exact: true, title: _t("Rows with a name or value"), icon: "table", desc: _t("Every table row (and line) with the names or values you write, with its own columns and column titles, exactly as it is - one section for each."), ask: _t("Names or values, with commas between them") },
+  { id: "snapshot", exact: true, title: _t("Rows as they look"), icon: "image", desc: _t("Each row with the name, whole, as a picture exactly as it looks in its file - with the table's column titles over it."), ask: _t("Names or values, with commas between them") },
+  { id: "columns", title: _t("Columns from every table"), icon: "table", desc: _t("The columns you name from every table that has them, row by row, as they are."), ask: _t("Column titles, with commas between them") },
   { id: "forms", title: _t("Form answers"), icon: "list", desc: _t("Every 'Label: answer' line of your forms and documents, as it is written: one row each.") },
   { id: "status", title: _t("Status of files"), icon: "check", desc: _t("Every file with its status (Pending, Checked, Signed, Done...), book by book.") },
   { id: "privacy", title: _t("Personal data (GDPR)"), icon: "lock", desc: _t("PPS numbers, bank accounts (IBAN), card numbers, dates of birth, emails and phones - each with its line and where it is.") },
@@ -200,7 +200,25 @@ async function findWord(scope, progress, q) {
 
 // rows with a name or value: every table row that has it (its cells and the table's titles), and every line
 function valuesOf(q) { return q.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean); }
-function hasValue(text, v) {
+// names: no accents, any case; a name one letter apart counts too (Mohamed / Mohammed) - unless "exactly as written"
+const fold = (s) => String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[’‘`]/g, "'").toLowerCase();
+function near1(a, b) {
+  if (a === b) return true;
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1 || Math.min(la, lb) < 4) return false;
+  let i = 0;
+  while (i < Math.min(la, lb) && a[i] === b[i]) i++;
+  if (la === lb) return a.slice(i + 1) === b.slice(i + 1);
+  return la > lb ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+const wordsOfText = (t) => fold(t).split(/[^\p{L}\p{N}'.-]+/u).map(w => w.replace(/^[.'-]+|[.'-]+$/g, "")).filter(Boolean);
+function tokIn(tok, words, exact) { return words.some(w => w === tok || (!exact && near1(tok, w))); }
+function nameIn(text, v, exact) {
+  const toks = wordsOfText(v), ws = wordsOfText(text);
+  return toks.length > 0 && toks.every(t => tokIn(t, ws, exact));
+}
+function hasValue(text, v, exact = false) {
+  if (!exact && /[\p{L}]/u.test(v) && nameIn(text, v, false)) return true;     // (a name, one letter apart too)
   const t = (text || "").toLowerCase(), x = v.toLowerCase();
   if (/^[\p{L}\p{N}]/u.test(x) && /[\p{L}\p{N}]$/u.test(x)) {
     const re = new RegExp("(^|[^\\p{L}\\p{N}])" + x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^\\p{L}\\p{N}])", "u");
@@ -208,7 +226,7 @@ function hasValue(text, v) {
   }
   return t.includes(x);
 }
-async function rowsFound(scope, progress, q) {
+async function rowsFound(scope, progress, q, exact = false) {
   const values = valuesOf(q);
   const found = [];   // {v, b, f, page, r, t}
   const list = filesIn(scope);
@@ -217,12 +235,12 @@ async function rowsFound(scope, progress, q) {
     const { pages } = await readFile(f);
     pages.forEach((pg, page) => {
       if (f.kind === "excel") {
-        for (const t of pg.tables) for (const cells of t.rows) for (const v of values) if (cells.some(c => hasValue(c, v))) found.push({ v, b, f, page, cells, header: t.header, sheet: t.sheet });
+        for (const t of pg.tables) for (const cells of t.rows) for (const v of values) if (cells.some(c => hasValue(c, v, exact))) found.push({ v, b, f, page, cells, header: t.header, sheet: t.sheet });
         return;
       }
       for (const r of pg.rows) {
         if (r.isHeader) continue;
-        for (const v of values) if (hasValue(r.text, v)) found.push({ v, b, f, page, r, cells: r.cells || null, header: r.header || null, t: r.table || null });
+        for (const v of values) if (hasValue(r.text, v, exact)) found.push({ v, b, f, page, r, cells: r.cells || null, header: r.header || null, t: r.table || null });
       }
     });
   }
@@ -245,8 +263,8 @@ function totalsRow(header, rows) {
   return tot;
 }
 
-async function rowsWith(scope, progress, q) {
-  const { values, found } = await rowsFound(scope, progress, q);
+async function rowsWith(scope, progress, q, exact) {
+  const { values, found } = await rowsFound(scope, progress, q, exact);
   const tables = [];
   for (const v of values) {
     const mine = found.filter(x => x.v === v);
@@ -272,25 +290,88 @@ async function rowsWith(scope, progress, q) {
   return { tables };
 }
 
-async function rowPictures(scope, progress, q) {
-  const { values, found } = await rowsFound(scope, progress, q);
+// rows as they look: each row with the name, whole - from the line above it to the line below it (drawn lines,
+// cell borders or coloured stripes; a table without lines: its block of lines) - with the column titles on top
+async function rowPictures(scope, progress, q, exact = false) {
+  const values = valuesOf(q);
   const { readOnce, call } = await import("../docs.js");
-  const sections = [];
-  for (const v of values) {
-    const items = [];
-    for (const x of found.filter(y => y.v === v)) {
-      if (!x.r) { items.push({ title: `${docName(x.f)}${x.sheet ? " · " + x.sheet : ""}`, text: x.cells.join("   "), go: where(x.b, x.f, x.page, v) }); continue; }
-      const r = x.r, t = x.t;
-      const X0 = (t ? t.x0 : r.x0) - 6, X1 = (t ? t.x1 : r.x1) + 6;
-      const rects = [];
-      if (t && t.headerRow) rects.push([X0, t.headerRow.y - 3, X1, t.headerRow.y1 + 3]);
-      rects.push([X0, r.y - 3, X1, r.y1 + 3]);
-      try {
-        const png = await readOnce(x.f, (key) => call("clip", key, x.page, rects, 2));
-        items.push({ title: _t("{0} · page {1}", docName(x.f), x.page + 1), png, text: r.text, w: X1 - X0, go: where(x.b, x.f, x.page, v) });
-      } catch (e) { items.push({ title: _t("{0} · page {1}", docName(x.f), x.page + 1), text: r.text, go: where(x.b, x.f, x.page, v) }); }
+  const sections = values.map(v => ({ title: v, items: [] }));
+  const list = filesIn(scope);
+  for (const [n, { b, f }] of list.entries()) {
+    progress(n, list.length, f.name);
+    const { pages } = await readFile(f);
+    for (const [page, pg] of pages.entries()) {
+      if (f.kind === "excel") {
+        for (const t of pg.tables) for (const cells of t.rows) values.forEach((v, i) => {
+          if (cells.some(c => hasValue(c, v, exact))) sections[i].items.push({ title: `${docName(f)}${t.sheet ? " · " + t.sheet : ""}`, text: cells.join("   "), go: where(b, f, page, v) });
+        });
+        continue;
+      }
+      const lines = (pg.rows || []).filter(r => r.y != null && r.y1 != null);
+      if (!lines.length) continue;
+      const sorted = [...lines].sort((a, c) => a.y - c.y);
+      let geo = null;
+      for (const [vi, v] of values.entries()) {
+        const toks = wordsOfText(v);
+        if (!toks.length) continue;
+        const key = toks.reduce((a, c) => (c.length > a.length ? c : a), "");
+        const hits = lines.filter(L => tokIn(key, wordsOfText(L.text), exact));
+        if (!hits.length) continue;
+        if (!geo) {
+          try { geo = await readOnce(f, (k) => call("rowLines", k, page)); } catch (e) { geo = { ys: [], x0: 0, x1: 0 }; }
+        }
+        const ys = geo.ys || [];
+        const done = [];
+        for (const L of hits) {
+          const lh = Math.max(6, L.y1 - L.y);
+          const above = ys.filter(y => y > L.y - lh * 8 && y <= L.y + 1);
+          const below = ys.filter(y => y >= L.y1 - 1 && y < L.y1 + lh * 16);
+          const lined = above.length > 0 && below.length > 0;
+          let top, bot;
+          if (lined) { top = Math.max(...above); bot = Math.min(...below); }
+          else {                                         // no lines: the block of lines close together
+            let j0 = sorted.indexOf(L), j1 = j0;
+            while (j0 > 0 && sorted[j0].y - sorted[j0 - 1].y1 < 0.45 * lh) j0--;
+            while (j1 < sorted.length - 1 && sorted[j1 + 1].y - sorted[j1].y1 < 0.45 * lh) j1++;
+            top = sorted[j0].y - lh * 0.35; bot = sorted[j1].y1 + lh * 0.35;
+          }
+          const inRow = lines.filter(x => x.y < bot - 1 && x.y1 > top + 1);
+          const rowWords = wordsOfText(inRow.map(x => x.text).join(" "));
+          if (!toks.every(t => tokIn(t, rowWords, exact))) continue;
+          if (done.some(([a, c]) => Math.abs(a - top) < 2 && Math.abs(c - bot) < 2)) continue;
+          done.push([top, bot]);
+          const tb = !lined && L.table;                  // a table without lines: its own column titles and width
+          const X0 = lined ? geo.x0 - 2 : Math.min(tb ? tb.x0 : Infinity, ...inRow.map(x => x.x0 ?? 0)) - 6;
+          const X1 = lined ? geo.x1 + 2 : Math.max(tb ? tb.x1 : -Infinity, ...inRow.map(x => x.x1 ?? 0)) + 6;
+          const rects = [];
+          if (tb && tb.headerRow && tb.headerRow.y1 <= top + 1) rects.push([X0, tb.headerRow.y - 3, X1, tb.headerRow.y1 + 3]);
+          if (lined) {                                    // the column titles: the rows above that are not like the rows
+            const hh = bot - top, i = ys.indexOf(top);
+            let a_ = i, b_ = ys.indexOf(bot);
+            while (a_ > 0 && ys[a_] - ys[a_ - 1] < 4 * hh) a_--;
+            while (b_ < ys.length - 1 && ys[b_ + 1] - ys[b_] < 4 * hh) b_++;
+            const stat = (y0, y1) => {
+              const t = lines.filter(x => (x.y + x.y1) / 2 > y0 + 1 && (x.y + x.y1) / 2 < y1 - 1).flatMap(x => x.text.split(/\s+/)).filter(Boolean);
+              return [t.length, t.filter(z => /\d/.test(z)).length / (t.length || 1)];
+            };
+            const st = [];
+            for (let k2 = a_; k2 < b_; k2++) st.push(stat(ys[k2], ys[k2 + 1]));
+            const med = (arr) => [...arr].sort((x, y) => x - y)[Math.floor(arr.length / 2)] || 0;
+            const mn = med(st.map(x => x[0])), md = med(st.map(x => x[1]));
+            let j = a_;
+            while (j < i && (st[j - a_][0] < 0.5 * mn || st[j - a_][1] < 0.5 * md)) j++;
+            if (j > a_) rects.push([X0, ys[a_] - 1, X1, ys[j] + 1]);
+          }
+          rects.push([X0, top - 1, X1, bot + 1]);
+          const text = inRow.map(x => x.text).join("  ");
+          const title = _t("{0} · page {1}", docName(f), page + 1);
+          try {
+            const png = await readOnce(f, (k) => call("clip", k, page, rects, 2));
+            sections[vi].items.push({ title, png, text, w: X1 - X0, go: where(b, f, page, v) });
+          } catch (e) { sections[vi].items.push({ title, text, go: where(b, f, page, v) }); }
+        }
+      }
     }
-    sections.push({ title: v, items });
   }
   return { pictures: sections };
 }
@@ -620,20 +701,20 @@ async function extract(kind, scope, progress) {
   return { columns: [label, _t("The line"), _t("Document"), _t("Page")], rows };
 }
 
-export async function runReport(id, scope, { q = "", progress = () => {} } = {}) {
+export async function runReport(id, scope, { q = "", progress = () => {}, exact = false } = {}) {
   switch (id) {
     case "contacts": return contacts(scope, progress);
     case "tables": return tables(scope, progress);
     case "deadlines": return deadlines(scope, progress);
     case "find": return findWord(scope, progress, q);
-    case "rows": return rowsWith(scope, progress, q);
+    case "rows": return rowsWith(scope, progress, q, exact);
     case "columns": return columnsFrom(scope, progress, q);
     case "forms": return forms(scope, progress);
     case "status": return statusReport(scope);
     case "privacy": return personalData(scope, progress);
     case "health": return health(scope, progress);
     case "duplicates": return duplicates(scope, progress);
-    case "snapshot": return rowPictures(scope, progress, q);
+    case "snapshot": return rowPictures(scope, progress, q, exact);
     case "person": return person(scope, progress, q);
     case "money": return money(scope, progress);
     case "marks": return marks(scope, progress);
