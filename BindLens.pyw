@@ -13470,6 +13470,8 @@ def scan_key(path, page):
         imgs = []
     r = page.rect
     raw = f"{os.path.normcase(os.path.abspath(path))}|{imgs}|{round(r.width)}x{round(r.height)}"
+    if not imgs:                                          # (a page drawn as shapes: its number tells it apart)
+        raw += f"|p{page.number}"
     return "s" + hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:24]
 
 
@@ -13478,7 +13480,10 @@ def is_scanned_page(page):
     try:
         if len(page.get_text("text").strip()) >= 25:
             return False
-        return bool(page.get_images())
+        if page.get_images():
+            return True
+        # 1.0: a page whose letters are drawn as shapes (some "Print to PDF"): nothing to read but its picture
+        return len(page.get_cdrawings()) > 150
     except Exception:
         return False
 
@@ -13486,7 +13491,7 @@ def is_scanned_page(page):
 def ocr_cached_words(path, page):
     """The words BindLens read on a scanned page before - None when it has not read it yet."""
     try:
-        if len(page.get_text("text").strip()) >= 25 or not page.get_images():
+        if not is_scanned_page(page):
             return None
         cache = os.path.join(ocr_dir(), scan_key(path, page) + ".json.gz")
         if not os.path.exists(cache):
