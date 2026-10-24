@@ -44,7 +44,7 @@ jobs:
       - name: Add the files that go with it (licence, source code, guides, licence texts)
         shell: pwsh
         run: |
-          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, BindLens.ico -Destination dist\BindLens\
+          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, bookreader.py, BindLens.ico -Destination dist\BindLens\
           Copy-Item Welcome -Destination dist\BindLens\Welcome -Recurse
           $lic = New-Item -ItemType Directory dist\BindLens\licenses -Force
           Copy-Item "$env:pythonLocation\LICENSE.txt" "$lic\Python-LICENSE.txt" -ErrorAction SilentlyContinue
@@ -105,8 +105,8 @@ jobs:
       - name: Build BookReader by BindLens (only reading - the same program as BookReader.exe)
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --windowed --name BookReader --icon BookReader.ico --collect-all tkinterdnd2 --collect-all pymupdf BindLens.pyw
-          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, BookReader.ico -Destination dist\BookReader\
+          python -m PyInstaller --noconfirm --windowed --name BookReader --icon BookReader.ico --hidden-import bookreader --collect-all tkinterdnd2 --collect-all pymupdf BindLens.pyw
+          Copy-Item LICENSE.txt, NOTICE.txt, PRIVACY.txt, README.txt, BindLens.pyw, bookreader.py, BookReader.ico -Destination dist\BookReader\
           Set-Content -Path dist\BookReader\bookreader.mode -Value "BookReader by BindLens: only reading, its own library (%APPDATA%\BookReader)"
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\BookReader.iss
