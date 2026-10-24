@@ -42,14 +42,15 @@ class BookReaderParts:
             self._place_side()
         self._frame_layout()
         pick_ = {it[0]: it for _g, _c, its in App.REPORT_MENU for it in its}
-        ex_ = ("exact", "Only the name exactly as I write it (not Mohamed for Mohammed)", False)
+        ex_ = ("exact", "Only exactly as I write it (no names one letter apart)", False)
         lite_ = [pick_["snapshot"][:1] + ("A name's rows, as they look", "Each row with the name - a picture of the "
                                           "row exactly as it is, in this document, this book or all of them")
                  + pick_["snapshot"][3:4] + ([ex_, ("header", "Column titles on top", True)],) + pick_["snapshot"][5:],
                  ("find", "Find a name or a word", "Every page, row and line where it appears - how many times and "
                                                    "in which document", "names",
                   [ex_], "search look for where name person people word"),
-                 pick_["columns"], pick_["tables"], pick_["marks"]]
+                 pick_["columns"][:2] + ("One or more columns out of every table, as they are",) + pick_["columns"][3:],
+                 pick_["tables"], pick_["pick:Emails"], pick_["pick:Phones"], pick_["contacts"], pick_["marks"]]
         self.REPORT_MENU = [("", "#6C63FF", lite_)]
         try:
             self.lib_count.configure(text="")
@@ -63,6 +64,30 @@ class BookReaderParts:
         else:
             self.set_status(_tr("Add your first folder."))
             self.root.after(700, self._lite_add)         # the first time, in one step: choose your first folder
+
+    def _lite_td(self):
+        """The reading data for pages that are pictures (English, Spanish) - fetched by itself, once (about 6 MB)."""
+        dst = os.path.join(self.lib.meta_dir, "tessdata")
+        try:
+            import urllib.request
+            os.makedirs(dst, exist_ok=True)
+            self.set_status(_tr("Getting the reading data for pages that are pictures (once)…"))
+            self.root.config(cursor="watch")
+            self.root.update()
+            for lang in ("eng", "spa"):
+                fn = os.path.join(dst, f"{lang}.traineddata")
+                if os.path.exists(fn):
+                    continue
+                url = f"https://github.com/tesseract-ocr/tessdata_fast/raw/main/{lang}.traineddata"
+                with urllib.request.urlopen(url, timeout=60) as r, open(fn + ".part", "wb") as fh:
+                    shutil.copyfileobj(r, fh)
+                os.replace(fn + ".part", fn)
+        except Exception as ex:
+            _log(f"bookreader ocr data: {ex}")
+        finally:
+            self.root.config(cursor="")
+            self.set_status("")
+        return dst if os.path.exists(os.path.join(dst, "eng.traineddata")) else None
 
     def _lite_add(self):
         before = set(self.lib.folders)

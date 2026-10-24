@@ -2804,6 +2804,13 @@ ES_TEXT = {
     "A folder inside": "Una carpeta dentro de",
     "One folder": "Una carpeta",
     "Your folders, ready to read. They stay where they are.": "Tus carpetas, listas para leer. Se quedan donde están.",
+    "Only exactly as I write it (no names one letter apart)": "Solo tal cual lo escribo (sin nombres con una letra de diferencia)",
+    "One or more columns out of every table, as they are": "Una o más columnas de cada tabla, tal como son",
+    "Search the list": "Buscar en la lista",
+    "Separate them with commas": "Sepáralos con comas",
+    "As they are written at the top of the columns": "Tal como están escritos arriba de las columnas",
+    "Commas for more": "Comas para más",
+    "Getting the reading data for pages that are pictures (once)…": "Descargando los datos para leer páginas que son imágenes (una sola vez)…",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -41899,7 +41906,7 @@ class App:
                           highlightthickness=1, highlightbackground=T["border"], highlightcolor=A,
                           insertbackground=T["text"])
             se.pack(fill="x", ipady=6)
-            ph = tk.Label(se, text="Search - e.g.  emails,  rows,  summary,  week 38", font=self.F(10), bg=BG,
+            ph = tk.Label(se, text="Search the list" if LITE else "Search - e.g.  emails,  rows,  summary,  week 38", font=self.F(10), bg=BG,
                           fg=T["muted"], cursor="xterm")
 
             def place_ph(*_a):
@@ -42108,10 +42115,11 @@ class App:
             tk.Label(opts, text=it[2], font=self.F(10), bg=BG, fg=T["muted"]).pack(anchor="w", pady=(6, 0))
             kind = it[3]
             if kind in ("names", "columns", "fields"):
-                lab, hint_, key_ = {"names": ("Names or values", "Separate them with commas - e.g.  Mary Ryan, "
-                                                                 "contract", "terms"),
-                                    "columns": ("Column titles", "As they are written at the top of the columns - "
-                                                                 "e.g.  Phone, Hours", "cols"),
+                lab, hint_, key_ = {"names": ("Names or values", "Separate them with commas" if LITE else
+                                              "Separate them with commas - e.g.  Mary Ryan, contract", "terms"),
+                                    "columns": ("Column titles", "As they are written at the top of the columns" if LITE
+                                                else "As they are written at the top of the columns - e.g.  Phone, Hours",
+                                                "cols"),
                                     "fields": ("Data to compare", "e.g.  Total, Phone, Date of birth", "fields")}[kind]
                 section(lab)
                 box["var"] = tk.StringVar(value=mem.get(key_, ""))
@@ -42529,7 +42537,7 @@ class App:
                               insertbackground=T["text"], highlightthickness=1, highlightbackground=T["border"],
                               highlightcolor=col, width=26)
                 fe.pack(side="left", padx=(8, 6), ipady=3)
-                tk.Label(ff, text="e.g. a name, @gmail, Dublin - commas for more", font=self.F(8), bg=BG,
+                tk.Label(ff, text="Commas for more" if LITE else "e.g. a name, @gmail, Dublin - commas for more", font=self.F(8), bg=BG,
                          fg=T["muted"]).pack(side="left")
                 fv.trace_add("write", lambda *a: S["checks"].__setitem__("only_txt", fv.get()))
                 g2 = tk.Frame(opts, bg=BG)
@@ -43861,11 +43869,7 @@ class App:
                      for rel in self.lib.folders.get(f, [])]
         td_ = None
         if LITE:                                         # BookReader: pages that are pictures are read too (OCR)
-            td_ = self._tessdata()
-            if td_ is None and not self.lib.settings.get("ocr_no"):
-                td_ = self._get_tessdata()
-                if td_ is None:
-                    self.lib.settings["ocr_no"] = True
+            td_ = self._tessdata() or self._lite_td()
         fq = [x.strip().lower() for x in re.split(r"[,;]+", getattr(self, "_rep_fname", None) and
                                                    self._rep_fname.get() or "") if x.strip()]
         if fq and scope != "file":
@@ -47671,15 +47675,17 @@ class App:
                 for pi in pages:
                     if job["cancel"]:
                         return
-                    if td_:                              # 1.0: a page that is a picture (scan, "Print to PDF")
+                    if td_ or LITE:                      # 1.0: a page that is a picture (scan, "Print to PDF")
                         pgs = doc.load_page(pi)
                         if is_scanned_page(pgs):
                             job["progress"] = f"Reading {k + 1} of {len(files)}  ·  page {pi + 1} (a picture)  ·  Esc to stop"
                             try:
-                                ws_ = ocr_page_words(self.fitz, pgs, td_,
-                                                     os.path.join(ocr_dir(), scan_key(path, pgs) + ".json.gz"))
+                                ws_ = ocr_page_words(self.fitz, pgs, td_, os.path.join(
+                                    ocr_dir(), scan_key(path, pgs) + ".json.gz")) if td_ else ocr_cached_words(path, pgs)
                             except Exception as ex:
                                 _log(f"report ocr: {ex}")
+                                continue
+                            if not ws_:
                                 continue
                             if page_filter is not None and not page_filter(" ".join(w[4] for w in ws_)):
                                 continue
@@ -47733,7 +47739,7 @@ class App:
         # 3.0: accents and apostrophes don't matter (Sean = Seán, O'Brien = O’Brien)
         exact = bool(P.get("adv", {}).get("exact"))
         fuzzy = LITE and not exact                        # BookReader: one letter apart too - or exactly as written
-        whole = whole or exact
+        whole = whole or exact or LITE                    # (BookReader: whole words - "Ann" is not "Annual")
         wb = (lambda x: r"(?<!\w)" + x + r"(?!\w)") if whole else (lambda x: x)
         pats, toks = {}, {}
         for t in terms:                                   # 1.0: "Ana  Ruiz" = "Ana\nRuiz"; a name on two lines too
@@ -47895,11 +47901,11 @@ class App:
         found = OrderedDict((t, []) for t in P["terms"])
         join = adv.get("join", True)
         for name, folder, rel, page, rows, doc, pi in self._walk_pages(P, job, pf):
-            if LITE:                                     # BookReader: every row the name is in, as it looks
+            ow_ = P.get("_ocrw", {}).get((folder, rel, pi)) if LITE else None
+            if ow_ is not None:                          # BookReader, a page that is a picture: the rows read by OCR
                 for t in P["terms"]:
                     try:
-                        for snap, txt in self._row_pictures(doc, pi, t, rows, adv,
-                                                            words=P.get("_ocrw", {}).get((folder, rel, pi))):
+                        for snap, txt in self._row_pictures_ocr(doc, pi, doc.load_page(pi), t, ow_, adv):
                             found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
                     except Exception as ex:
                         _log(f"row pictures: {ex}")
@@ -47922,7 +47928,8 @@ class App:
                 if t in seen_:
                     continue
                 try:
-                    for snap, txt in self._row_bands(doc.load_page(pi), t):
+                    got_ = self._row_pictures(doc, pi, t, rows, adv) if LITE else self._row_bands(doc.load_page(pi), t)
+                    for snap, txt in got_:
                         found[t].append((name, folder, rel, page, [{"text": txt, "title": ""}], snap))
                 except Exception as ex:
                     _log(f"row picture: {ex}")
@@ -47997,7 +48004,7 @@ class App:
                     continue                              # (the column titles themselves)
                 inrow = [(x, fx) for x, fx in fw if x[1] < rb.y1 - 1 and x[3] > rb.y0 + 1 and x[0] < tb.x1 and x[2] > tb.x0]
                 rw_ = {fx for _x, fx in inrow}
-                if not all(tok_in(tk, rw_, not exact, exact) for tk in toks):
+                if not all(tok_in(tk, rw_, not exact, True) for tk in toks):
                     continue
                 if any(abs(rb.y0 - a) < 2 and abs(rb.y1 - b) < 2 for a, b in used):
                     continue
@@ -48034,10 +48041,6 @@ class App:
                 snap = (pg.get_pixmap(matrix=fitz.Matrix(k, k), clip=clip, alpha=False).tobytes("png"),
                         clip.width, clip.height)
             out.append((snap, txt))
-        if not out and len(pg.get_text("words")) < 8:     # scanned: no text on the page itself - show the page
-            k = 1100.0 / max(1.0, pg.rect.width)
-            out.append(((pg.get_pixmap(matrix=fitz.Matrix(k, k), alpha=False).tobytes("png"), pg.rect.width,
-                         pg.rect.height), "(scanned page)"))
         return out
 
     def _row_bands(self, pg, term):
@@ -48088,7 +48091,7 @@ class App:
         ys, tx0, tx1 = self._img_rules(pg)
         out, done = [], []
         for w0, f0 in fw:
-            if not tok_in(key, [f0], not exact, exact):
+            if not tok_in(key, [f0], not exact, True):
                 continue
             r = fitz.Rect(w0[:4])
             lh = max(6.0, r.height)
@@ -48097,7 +48100,7 @@ class App:
             top = max(above) if above else r.y0 - lh * 0.6
             bot = min(below) if below else r.y1 + lh * 0.6
             inrow = [(x, fx) for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1]
-            if not all(tok_in(tk, {fx for _x, fx in inrow}, not exact, exact) for tk in toks):
+            if not all(tok_in(tk, {fx for _x, fx in inrow}, not exact, True) for tk in toks):
                 continue
             if any(abs(top - a) < 2 and abs(bot - b) < 2 for a, b in done):
                 continue
@@ -48175,7 +48178,7 @@ class App:
         key = max(toks, key=len)
         out, done = [], []
         for w0, f0 in fw:
-            if not tok_in(key, [f0], not exact and LITE, exact):
+            if not tok_in(key, [f0], not exact and LITE, exact or LITE):
                 continue
             r = fitz.Rect(w0[:4])
             lh = max(6.0, r.height)
@@ -48186,7 +48189,7 @@ class App:
 
             def band_ok():
                 bw_ = {fx for x, fx in fw if x[1] < bot - 1 and x[3] > top + 1}
-                return all(tok_in(tk, bw_, not exact and LITE, exact) for tk in toks)
+                return all(tok_in(tk, bw_, not exact and LITE, exact or LITE) for tk in toks)
             for _i in range(3):                          # no lines: the rest of the name on the lines around it
                 if band_ok() or (above and below):
                     break
