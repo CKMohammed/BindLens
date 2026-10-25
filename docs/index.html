@@ -5,75 +5,187 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BindLens</title>
 <meta name="description" content="BindLens turns your folders into books you can read, mark, search and report on - in your browser with your own Google Drive, or on Windows.">
+<meta name="theme-color" content="#FFFEF2">
 <link rel="icon" href="img/icon.png">
 <link rel="alternate" hreflang="en" href="https://bindlens.com/">
 <link rel="alternate" hreflang="es" href="https://bindlens.com/es/">
 <link rel="alternate" hreflang="x-default" href="https://bindlens.com/">
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <script>
 /* Spanish browsers see the Spanish page the first time; a choice made with the language link is kept (the app uses the same choice) */
 (function(){try{var c=localStorage.getItem("bl_lang");var l=(navigator.languages&&navigator.languages[0])||navigator.language||"";
 if(c==="es"||(!c&&/^es/i.test(l)))location.replace("/es/"+location.hash)}catch(e){}})();
 </script>
 <style>
-/* the fonts are on this site (no font service is asked for anything) - SIL Open Font License, see fonts/ */
-@font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage-grotesque-latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
-@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
-@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
-/* minimal and quiet: paper, ink, the logo's pink and gold - and the thin frame of the app */
-:root{--paper:#FAF9F6;--ink:#16161D;--muted:#6B6878;--line:#E7E4DD;--pink:#C2337A;--gold:#E0A82E}
+/* the font is on this site (no font service is asked for anything) - SIL Open Font License, see fonts/ */
+@font-face{font-family:"Inter";src:url(fonts/inter-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap}
+:root{--paper:#FFFEF2;--ink:#1C1B18;--muted:#6B675B;--soft:#F4F1E2;--line:rgba(28,27,24,.1);--accent:#B0624A}
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:400 16px/1.55 "Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-body{border:6px solid transparent;border-image:linear-gradient(135deg,#111218,#FF85C2 45%,#FFC83D) 1;min-height:100vh}
-a{color:inherit}
-.wrap{max-width:880px;margin:0 auto;padding:28px 20px 40px}
-header{display:flex;align-items:center;gap:10px}
-header img{width:30px;height:30px;border-radius:7px}
-header b{font:600 17px "Bricolage Grotesque",sans-serif;letter-spacing:-.01em} header b span{color:var(--pink)}
-header .sp{flex:1} header a{font-size:14px;color:var(--muted);text-decoration:none} header a:hover{color:var(--ink)}
-.hero{padding:72px 0 40px;text-align:center}
-h1{font:500 46px/1.08 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:0 0 14px}
-.sub{color:var(--muted);font-size:18px;max-width:560px;margin:0 auto 30px}
-.cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:999px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid var(--line);background:#fff}
-.btn.main{background:var(--ink);color:#fff;border-color:var(--ink)}
-.btn:hover{border-color:var(--ink)}
-.small{font-size:13px;color:var(--muted);margin-top:12px} .small a{color:var(--muted)}
-.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;border-top:1px solid var(--line);padding-top:32px;margin-top:34px}
-.feats b{display:block;font:600 16px "Bricolage Grotesque",sans-serif;margin-bottom:4px} .feats b::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold);margin-right:8px;vertical-align:2px}
-.feats p{margin:0;color:var(--muted);font-size:14.5px}
-.win+.win{margin-top:12px}
-.win{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid var(--line);border-radius:18px;background:#fff;padding:20px 22px;margin-top:40px}
-.win b{font:600 17px "Bricolage Grotesque",sans-serif} .win p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
-footer{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:44px;font-size:13px;color:var(--muted)} footer a{color:var(--muted)}
-@media (max-width:700px){h1{font-size:34px} .hero{padding:44px 0 28px} .feats{grid-template-columns:1fr;gap:18px}}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.5 Inter,-apple-system,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:inherit;text-decoration:none}
+img,video{display:block;max-width:100%}
+h1,h2,h3{font-weight:600;letter-spacing:-.045em;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+/* bar */
+nav{position:sticky;top:0;z-index:9;background:rgba(255,254,242,.78);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-bottom:1px solid var(--line)}
+nav .wrap{height:52px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.brand img{width:26px;height:26px;border-radius:7px}
+.links{flex:1;display:flex;justify-content:center;gap:30px;font-size:13px;color:#4A4840}
+.links a:hover,.lang:hover{color:var(--ink)}
+.lang{font-size:13px;color:#4A4840}
+.pill{display:inline-flex;align-items:center;justify-content:center;background:var(--ink);color:var(--paper);font-weight:600;border-radius:999px;transition:transform .2s,background .2s}
+.pill:hover{background:#000;transform:translateY(-1px)}
+nav .pill{font-size:13px;padding:8px 16px}
+.more{font-weight:600;color:var(--accent)}
+.more:hover{text-decoration:underline}
+/* hero */
+.hero{text-align:center;padding:120px 24px 72px;animation:up .9s cubic-bezier(.2,.7,.2,1) both}
+.hero img{width:84px;height:84px;margin:0 auto 28px;border-radius:20px}
+.hero h1{max-width:1040px;margin:0 auto;font-size:clamp(46px,7.4vw,108px);line-height:1}
+.hero p{margin:26px auto 0;max-width:620px;font-size:clamp(19px,2vw,24px);line-height:1.4;color:var(--muted)}
+.cta{margin-top:36px;display:flex;gap:26px;justify-content:center;align-items:center;flex-wrap:wrap}
+.cta .pill{font-size:16px;padding:14px 28px}
+.cta .more{font-size:16px}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+/* film: plays by itself, nothing to press */
+.film{background:var(--ink);overflow:hidden;pointer-events:none;transform-origin:50% 0}
+.film video{width:100%;height:auto;aspect-ratio:1.6;object-fit:cover}
+/* doors */
+.doors{padding:72px 24px 0;display:flex;justify-content:center;gap:64px;flex-wrap:wrap}
+.door{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;width:180px}
+.door .ic{position:relative;width:100px;height:100px;border-radius:27px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 24px 40px -24px rgba(40,30,10,.55),inset 0 0 0 1px rgba(0,0,0,.05);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+.door:hover .ic{transform:translateY(-4px) scale(1.03);box-shadow:0 30px 50px -24px rgba(40,30,10,.6),inset 0 0 0 1px rgba(0,0,0,.05)}
+.door .ic img{width:72px;height:72px;border-radius:16px}
+.door .bd{position:absolute;right:-8px;bottom:-8px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--paper)}
+.door .bd svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.door b{font-weight:600;font-size:17px;letter-spacing:-.01em;margin-top:8px}
+.door span.more{font-size:14px}
+.note{text-align:center;font-size:13px;color:var(--muted);max-width:560px;margin:34px auto 0;padding:0 24px 120px}
+/* one idea per screen */
+.ch{min-height:100vh;padding:120px 0 0;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center}
+.k{margin:0 0 14px;font-size:15px;font-weight:600;color:var(--accent)}
+.ch h2,.dark h2{font-size:clamp(54px,9vw,128px);line-height:.95;padding:0 24px}
+.ch p.l,.dark p.l,.big p.l{margin:22px auto 0;padding:0 24px;max-width:580px;font-size:21px;line-height:1.45;color:var(--muted)}
+.shot{margin-top:64px;width:min(1180px,92%);border-radius:22px 22px 0 0;overflow:hidden;background:#fff;box-shadow:0 -30px 80px -50px rgba(40,30,10,.6)}
+.shot img{width:100%;height:auto}
+/* the one dark screen */
+.dark{background:#0E0E0D;color:#F5F3EA;padding:130px 24px 120px;text-align:center;overflow:hidden}
+.dark h2{font-size:clamp(50px,7.6vw,110px)}
+.dark p.l{color:#A9A495}
+.dark .shot{margin:70px auto 0;max-width:1120px;width:100%;border-radius:20px;box-shadow:0 60px 120px -40px #000,0 0 0 1px rgba(255,255,255,.06)}
+.stats{margin:56px auto 0;display:flex;justify-content:center;gap:56px;flex-wrap:wrap;font-size:15px;color:#A9A495}
+.stats b{display:block;font-weight:600;font-size:26px;color:#F5F3EA;letter-spacing:-.02em}
+/* institution */
+.inst{min-height:90vh;padding:130px 24px;display:flex;align-items:center}
+.inst .wrap{width:100%;display:flex;gap:72px;align-items:center;flex-wrap:wrap}
+.inst .t{flex:1 1 400px;min-width:0}
+.inst h2,.big h2{font-size:clamp(46px,6vw,88px);line-height:.98}
+.inst p.l{margin:24px 0 0;max-width:440px;font-size:21px;line-height:1.45;color:var(--muted)}
+.card{flex:1 1 460px;min-width:0;max-width:520px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 40px 80px -50px rgba(40,30,10,.55),inset 0 0 0 1px rgba(0,0,0,.05)}
+.card .top{height:10px;background:var(--accent)}
+.card .in{padding:30px 32px 36px}
+.card .hd{display:flex;align-items:center;gap:14px}
+.card .lg{width:52px;height:52px;border-radius:14px;border:1.5px dashed #CFCABA;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8F8A7C}
+.bar{height:7px;border-radius:3px;background:#E3DFD1}
+.card .tb{margin-top:26px;border-radius:10px;overflow:hidden;border:1px solid #EFEBDD}
+.card .th{height:30px;background:rgba(176,98,74,.16)}
+.card .rows{padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.dots{margin-top:22px;display:flex;gap:10px}.dots i{width:26px;height:26px;border-radius:50%}
+/* private */
+.big{min-height:80vh;background:var(--soft);display:flex;align-items:center;justify-content:center;padding:120px 24px;text-align:center}
+.big svg{width:40px;height:40px;margin:0 auto 30px;display:block;fill:none;stroke:var(--ink);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* download */
+.dl{padding:130px 24px}
+.dl h2{text-align:center;margin-bottom:56px;font-size:clamp(42px,5.6vw,80px);line-height:1}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.prod{background:#fff;border-radius:26px;padding:44px 32px 40px;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.prod img{width:68px;height:68px;border-radius:16px}
+.prod h3{margin-top:12px;font-size:24px;letter-spacing:-.02em}
+.prod p{margin:0;font-size:16px;color:var(--muted);max-width:280px}
+.prod small{font-size:13px;color:#8F8A7C}
+.prod .pill{margin-top:14px;font-size:15px;padding:12px 24px}
+footer{border-top:1px solid var(--line)}
+footer .wrap{padding-top:40px;padding-bottom:40px;display:flex;gap:28px 40px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+footer .fl{flex:1;display:flex;gap:24px;flex-wrap:wrap}
+footer a:hover{color:var(--ink)}
+/* Apple-style reveal while scrolling, where the browser can */
+@keyframes rise{from{opacity:0;transform:translateY(70px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scale(.88);border-radius:40px}to{transform:none;border-radius:0}}
+@supports (animation-timeline:view()){
+.rise{animation:rise linear both;animation-timeline:view();animation-range:entry 5% cover 35%}
+.film{animation:grow linear both;animation-timeline:view();animation-range:entry 0% cover 45%}
+}
+@media (prefers-reduced-motion:reduce){.rise,.film,.hero{animation:none}}
+@media (max-width:760px){
+.links{display:none}nav .wrap{gap:16px;justify-content:space-between}
+.hero{padding:72px 20px 48px}.doors{gap:28px 18px;padding-top:48px}.door{width:150px}
+.ch{min-height:0;padding-top:88px}.shot{margin-top:44px}.dark{padding:90px 20px}.stats{gap:28px}
+.inst,.big{min-height:0;padding:90px 20px}.dl{padding:90px 20px}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header><img src="img/icon.png" alt=""><b>Bind<span>Lens</span></b><span class="sp"></span>
-    <a href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a></header>
-  <section class="hero">
-    <h1>Your documents, bound into books.</h1>
-    <p class="sub">Read, mark and find anything in your folders. Everything stays in your own Google Drive - or on your computer.</p>
-    <div class="cta">
-      <a class="btn main" href="/app/?start=google">Sign in with Google</a>
-      <a class="btn" href="/app/?demo=1">Try the example library</a>
-    </div>
-  </section>
-  <section class="feats">
-    <div><b>Read and mark</b><p>Highlight, write, sign. Marks are saved in your PDFs.</p></div>
-    <div><b>Find</b><p>Any word in any document, in a moment.</p></div>
-    <div><b>Reports</b><p>Names, dates and amounts out of your documents, as PDF or Excel.</p></div>
-  </section>
-  <section class="win">
-    <div><b>BindLens · Windows</b><p>Windows 10 and 11 · free</p><p>If Windows says it protected your PC: More info, then Run anyway.</p></div>
-    <a class="btn main" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">Download for Windows</a>
-  </section>
-  <section class="win">
-    <div style="display:flex;gap:14px;align-items:center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="48" height="48" aria-hidden="true" style="flex:none"><rect x="4" y="4" width="120" height="120" rx="28" fill="#17151F"/><rect x="30" y="22" width="56" height="84" rx="6" fill="#FFFFFF"/><path d="M42 22v84" stroke="#17151F" stroke-width="2.5" stroke-opacity="0.18"/><circle cx="36" cy="40" r="3.6" fill="#EF6FA6"/><circle cx="36" cy="64" r="3.6" fill="#EF6FA6"/><circle cx="36" cy="88" r="3.6" fill="#EF6FA6"/><path d="M50 92h22M50 84h16" stroke="#17151F" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.25"/><circle cx="82" cy="62" r="18" fill="none" stroke="#F2B33D" stroke-width="7"/><path d="M95 75l13 13" stroke="#F2B33D" stroke-width="8" stroke-linecap="round"/></svg><div><b>BookReader <small style="font-weight:400;font-size:11px;color:#B9B5C4">by BindLens</small></b><p>Only reading, very simple: your folders, the highlighter, reports, your institution's logo and colours, a PIN.</p><p>Windows 10 and 11 · free</p></div></div>
-    <a class="btn" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe">Download BookReader</a>
-  </section>
-  <footer><span>BindLens 1.0 · Mohammed Chahboune Kadi</span><a href="/app/privacy.html">Privacy</a><a href="/app/terms.html">Terms</a><a href="https://github.com/CKMohammed/BindLens">Source code</a></footer>
+<nav aria-label="BindLens"><div class="wrap">
+<a class="brand" href="#"><img src="img/icon.png" alt="">BindLens</a>
+<div class="links"><a href="#read">Read</a><a href="#mark">Mark</a><a href="#find">Find</a><a href="#private">Privacy</a><a href="#download">Download</a></div>
+<a class="lang" href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a>
+<a class="pill" href="/app/?start=google">Start free</a>
+</div></nav>
+
+<header class="hero">
+<img src="img/icon.png" alt="BindLens">
+<h1>Your documents, bound into books.</h1>
+<p>Read, mark and find anything.</p>
+<div class="cta"><a class="pill" href="/app/?start=google">Start free</a><a class="more" href="/app/?demo=1">See an example ›</a></div>
+</header>
+
+<div class="film" aria-hidden="true"><video src="img/tour.mp4" poster="img/tour-poster.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback tabindex="-1"></video></div>
+
+<section class="doors" aria-label="Download">
+<a class="door" href="/app/"><span class="ic"><img src="img/icon.png" alt=""><span class="bd" style="background:#1C1B18"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span><b>BindLens Web</b><span class="more">Open ›</span></a>
+<a class="door" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe"><span class="ic"><img src="img/icon.png" alt=""><span class="bd" style="background:#C04F86"><svg viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span></span><b>BindLens for Windows</b><span class="more">Download ›</span></a>
+<a class="door" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe"><span class="ic"><img src="img/bookreader.svg" alt=""><span class="bd" style="background:#C9922E"><svg viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span></span><b>BookReader</b><span class="more">Download ›</span></a>
+</section>
+<p class="note">Windows 10 and 11 · free. If Windows says it protected your PC: More info, then Run anyway.</p>
+
+<section class="ch" id="read"><p class="k">The library</p><h2>Read.</h2><p class="l">Every folder is a book. All your papers, arranged like a library.</p><div class="shot rise"><img src="img/s-read.webp" alt="The BindLens shelf, with folders as books" loading="lazy" width="1600" height="1000"></div></section>
+<section class="ch" id="mark"><p class="k">On the original</p><h2>Mark.</h2><p class="l">Highlight, write and sign. Saved inside the PDF itself.</p><div class="shot rise"><img src="img/s-mark.webp" alt="A document with a highlighted sentence" loading="lazy" width="1320" height="820"></div></section>
+
+<section class="dark" id="find"><p class="k">Reports</p><h2>Find anything.</h2><p class="l">Type a name. Out comes the whole row, exactly as it is. Across the whole folder.</p>
+<div class="shot rise"><img src="img/s-find.webp" alt="A report with the rows of a table, as they are" loading="lazy" width="1520" height="700"></div>
+<div class="stats"><span><b>Rows</b>as they are</span><span><b>Names</b>even one letter off</span><span><b>Emails</b>and phones</span><span><b>Scans</b>too</span></div>
+</section>
+
+<section class="inst"><div class="wrap">
+<div class="t"><h2>Your institution.</h2><p class="l">Your logo and colours, on the frame and on every report you print.</p></div>
+<div class="card rise" aria-hidden="true"><div class="top"></div><div class="in">
+<div class="hd"><div class="lg">Logo</div><div style="flex:1"><div class="bar" style="height:10px;width:55%;background:#1C1B18"></div><div class="bar" style="width:35%;margin-top:9px"></div></div></div>
+<div class="tb"><div class="th"></div><div class="rows"><div class="bar" style="width:92%"></div><div class="bar" style="width:78%"></div><div class="bar" style="width:86%"></div></div></div>
+<div class="dots"><i style="background:var(--accent)"></i><i style="background:#1C1B18"></i><i style="background:#E3DFD1"></i></div>
+</div></div>
+</div></section>
+
+<section class="big" id="private"><div>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11V8a6 6 0 0 1 12 0v3M5 11h14v10H5z"/></svg>
+<h2>Private.</h2><p class="l">Your documents stay in your Google Drive or on your computer. No servers. No copies. And a PIN to read.</p>
+</div></section>
+
+<section class="dl" id="download"><div class="wrap">
+<h2>Choose how to read.</h2>
+<div class="grid">
+<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens Web</h3><p>In your browser, with your Google Drive folders.</p><small>Free · Chrome, Edge, Safari</small><a class="pill" href="/app/">Open the web app</a></div>
+<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens for Windows</h3><p>Every feature, offline, with your folders.</p><small>Free · Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">Download</a></div>
+<div class="prod"><img src="img/bookreader.svg" alt=""><h3>BookReader</h3><p>Just read, mark and make reports. With a PIN.</p><small>Free · Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe">Download</a></div>
 </div>
+<p class="note" style="padding-bottom:0">Windows 10 and 11 · free. If Windows says it protected your PC: More info, then Run anyway.</p>
+</div></section>
+
+<footer><div class="wrap">
+<a class="brand" href="#"><img src="img/icon.png" alt="">BindLens</a>
+<div class="fl"><a href="/app/privacy.html">Privacy</a><a href="/app/terms.html">Terms</a><a href="https://github.com/CKMohammed/BindLens">Source code</a><a href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a></div>
+<span>BindLens 1.0 · © 2026 Mohammed Chahboune Kadi</span>
+</div></footer>
 </body>
 </html>
