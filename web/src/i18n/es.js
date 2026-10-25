@@ -2265,5 +2265,7 @@ export default {
  "Only exactly as I write it (no names one letter apart)": "Solo tal cual lo escribo (sin nombres con una letra de diferencia)",
  "Into": "En",
  "A new PDF": "Un PDF nuevo",
- "At the end of \"{0}\"": "Al final de «{0}»"
+ "At the end of \"{0}\"": "Al final de «{0}»",
+ "Opening the photo...": "Abriendo la foto...",
+ "This photo could not be opened. Try again, or choose it from your photos.": "No se pudo abrir esta foto. Prueba otra vez o elígela de tus fotos."
 };

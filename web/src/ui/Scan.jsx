@@ -10,9 +10,39 @@ import { fmtDate, uniqueName, cleanName } from "../util.js";
 import { readScannedDoc } from "../ocr.js";
 import { _t, _n } from "../i18n.js";
 
+// a photo -> a bitmap, never bigger than 3200 px (phone cameras of 50 MP and more are too big to decode whole).
+// Some phones hand the photo over before it is fully written, or as HEIC: then BindLens waits a moment and tries again.
 async function loadBitmap(file) {
-  try { return await createImageBitmap(file, { imageOrientation: "from-image" }); }
-  catch (e) { return createImageBitmap(file); }
+  const MAX = 3200;
+  const shrink = async (src, w, h) => {
+    const k = Math.min(1, MAX / Math.max(w, h));
+    if (k >= 1 && typeof ImageBitmap !== "undefined" && src instanceof ImageBitmap) return src;
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+    try { src.close && src.close(); } catch (e) {}
+    return createImageBitmap(c);
+  };
+  const viaImg = (blob) => new Promise((ok, bad) => {
+    const u = URL.createObjectURL(blob), im = new Image();
+    im.onload = () => { URL.revokeObjectURL(u); ok(im); };
+    im.onerror = () => { URL.revokeObjectURL(u); bad(new Error("decode")); };
+    im.src = u;
+  });
+  const tries = async (blob) => {
+    try { const bm = await createImageBitmap(blob, { imageOrientation: "from-image" }); return await shrink(bm, bm.width, bm.height); } catch (e) {}
+    const im = await viaImg(blob);
+    return shrink(im, im.naturalWidth, im.naturalHeight);
+  };
+  try { return await tries(file); } catch (e) {}
+  await new Promise(r => setTimeout(r, 800));
+  const buf = await file.arrayBuffer();
+  const head = new TextDecoder().decode(new Uint8Array(buf.slice(4, 12)));
+  if (/ftyp(heic|heix|hevc|hevx|mif1|msf1)/.test(head) || /\.(heic|heif)$/i.test(file.name || "") || /hei[cf]/i.test(file.type || "")) {
+    const { fromHeic } = await import("../heic.js");
+    return tries(await fromHeic(new File([buf], (file.name || "photo").replace(/\.\w+$/, "") + ".heic", { type: "image/heic" })));
+  }
+  return tries(new Blob([buf], { type: /^image\//.test(file.type || "") ? file.type : "image/jpeg" }));
 }
 
 function findCorners(bmp) {
@@ -78,8 +108,12 @@ export function Scan({ book: bid, into, at }) {
     await startOn(first);
   };
   const startOn = async (file) => {
-    const bmp = await loadBitmap(file);
-    setCur({ bmp, file, pts: findCorners(bmp) });
+    setBusy(_t("Opening the photo..."));
+    try {
+      const bmp = await loadBitmap(file);
+      setCur({ bmp, file, pts: findCorners(bmp) });
+    } catch (e) { console.warn(e); toast(_t("This photo could not be opened. Try again, or choose it from your photos."), "bad"); }
+    setBusy("");
   };
 
   useEffect(() => {
