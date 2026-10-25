@@ -20,7 +20,7 @@ const ACTIONS = [
   { label: _t("Fast: nothing moves"), icon: "bolt", words: _t("fast animations motion still quick"), run: async () => { const st = await import("../state.js"); st.setSetting("fast", !st.settings.value.fast); } },
   { label: _t("Reports"), icon: "reports", words: _t("reports contacts emails phones tables excel data extract"), run: () => openPanel("reports") },
   { label: _t("Write a new document"), icon: "edit", words: _t("write new document letter page template notes invoice"), run: () => openPanel("write") },
-  { label: _t("Scan pages"), icon: "camera", words: _t("scan camera photo phone paper"), run: () => openPanel("scan") },
+  { label: _t("Scan pages"), icon: "scan", words: _t("scan camera photo phone paper"), run: () => openPanel("scan") },
   { label: _t("Study cards (my highlights)"), icon: "star", words: _t("study cards flashcards review revise learn exam highlights"), run: () => openPanel("study") },
   { label: _t("Photos as a gallery"), icon: "image", words: _t("photos gallery pictures slideshow"), run: () => openPanel("gallery") },
   { label: _t("Print"), icon: "print", words: _t("print printer paper"), run: () => openPanel("print") },

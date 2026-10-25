@@ -240,6 +240,7 @@ export function App() {
         {!ready ? <Start /> : shut ? null : view.value === "book" ? <BookView /> : <Home />}
       </div>
       {open && !consult.value && <FrameBar />}
+      {open && !consult.value && <button class="fabscan" title={_t("Scan paper")} aria-label={_t("Scan paper")} onClick={() => openPanel("scan", {})}><Icon n="scan" size={24} /></button>}
       {open && panel.value && <Panels />}
       {open && <Pip />}
       {open && <UploadPanel />}

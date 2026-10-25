@@ -98,7 +98,7 @@ export function toolMenus(book, side) {
     store.value.canPick && { label: _t("A whole folder from my Drive (a new book)..."), icon: "drive", run: () => addFolderFromDrive() },
     "-",
     { label: _t("Write a new document..."), icon: "edit", run: () => openPanel("write", { book: book.id }) },
-    { label: _t("Scan pages (camera or photos)..."), icon: "camera", run: () => openPanel("scan", { book: book.id }) },
+    { label: _t("Scan pages (camera or photos)..."), icon: "scan", run: () => openPanel("scan", { book: book.id }) },
     store.value.kind === "drive" && { label: _t("Write it in Google Docs..."), icon: "word", run: () => openPanel("addpages", { book: book.id, tab: "google" }) },
   ]);
   return { colorMenu, shapeMenu, stampMenu, hlMenu, noteMenu, addMenu };

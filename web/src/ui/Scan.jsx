@@ -65,7 +65,10 @@ export function Scan({ book: bid, into, at }) {
   const canvas = useRef();
   const [box, setBox] = useState(null);
   const close = () => { panel.value = null; };
-  const target = into ? fileFor(into) : null;
+  // where the pages go: a new PDF in a book, or the end of one of its documents
+  const [dest, setDest] = useState({ book: bid || currentBook.value?.id || books.value[0]?.id || "", file: into || "" });
+  const target = dest.file ? fileFor(dest.file) : null;
+  const destBook = books.value.find(x => x.id === dest.book);
 
   const take = async (camera) => {
     const fs = await pickFiles({ accept: "image/*,.heic,.heif", multiple: !camera, capture: camera ? "environment" : null });
@@ -146,11 +149,13 @@ export function Scan({ book: bid, into, at }) {
       const bytes = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
       let file;
       if (target) {
-        await pageOp(target, "insertPages", at ?? 0, bytes);
+        let pos = at ?? 0;
+        if (dest.file !== into) { const d = await getDoc(target); pos = d.pages.length; }
+        await pageOp(target, "insertPages", pos, bytes);
         file = target;
         toast(_t("{0} page{1} added to \"{2}\".", pages.length, pages.length > 1 ? "s" : "", target.name), "ok");
       } else {
-        const b = books.value.find(x => x.id === bid) || currentBook.value || books.value[0];
+        const b = destBook || books.value.find(x => x.id === bid) || currentBook.value || books.value[0];
         if (!b) { toast(_t("Make a book first.")); setBusy(""); return; }
         // a name from the words of the first page: "Invoice 2026-10-14 - Harbour Cafe"
         let value = _t("Scan ") + fmtDate(new Date()), named = false;
@@ -182,13 +187,13 @@ export function Scan({ book: bid, into, at }) {
         if (n) toast(_t("{0} words read: Find and Reports can use them now.", n), "ok");
       }
       close();
-      scrollTo.value = { fileId: file.id, page: target ? at ?? 0 : 0 };
+      scrollTo.value = { fileId: file.id, page: target && dest.file === into ? at ?? 0 : 0 };
     } catch (e) { toast(_t("Could not save the scan: ") + e.message, "bad"); }
     setBusy("");
   };
 
   return (
-    <Dialog title={target ? _t("Scan pages into \"{0}\"", target.name) : _t("Scan")} icon="camera" onClose={close} cls="mid"
+    <Dialog title={target ? _t("Scan pages into \"{0}\"", target.name) : _t("Scan")} icon="scan" onClose={close} cls="mid"
       foot={<>
         <label class="chk small"><input type="checkbox" checked={clean} onChange={(e) => setClean(e.target.checked)} />{_t("Clean (black on white)")}</label>
         <label class="chk small"><input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} />{_t("Read the words")}</label>
@@ -196,6 +201,18 @@ export function Scan({ book: bid, into, at }) {
         {cur && <button class="btn" disabled={!!busy} onClick={addPage}><Icon n="check" size={17} />{_t("Use this page")}</button>}
         {!cur && pages.length > 0 && <button class="btn" disabled={!!busy} onClick={finish}>{target ? _t("Add the pages") : _t("Make the PDF ({0})", pages.length)}</button>}
       </>}>
+      {!into && books.value.length > 0 && !busy && (
+        <div class="row wrap" style={{ gap: 8, marginBottom: 10, alignItems: "center" }}>
+          <span class="small muted">{_t("Into")}</span>
+          <select value={dest.book} onChange={(e) => setDest({ book: e.target.value, file: "" })}>
+            {books.value.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select value={dest.file} onChange={(e) => setDest({ ...dest, file: e.target.value })}>
+            <option value="">{_t("A new PDF")}</option>
+            {(destBook?.files || []).filter(f => f.kind === "pdf").map(f => <option key={f.id} value={f.id}>{_t("At the end of \"{0}\"", f.name)}</option>)}
+          </select>
+        </div>
+      )}
       {busy && <div style={{ textAlign: "center" }}><div class="spinner" /><p class="small muted">{busy}</p></div>}
       {!busy && !cur && (
         <div style={{ textAlign: "center", padding: "10px 0" }}>

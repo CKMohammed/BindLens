@@ -21,7 +21,7 @@ export const QB = {
   aloud: { icon: "speaker", label: _t("Read aloud (Ctrl+U)"), book: true, on: () => aloud.value.on, run: () => toggleAloud(), ok: () => canSpeak },
   comments: { icon: "comment", label: _t("Comments"), book: true, on: () => !!commentsOpen.value, run: () => { commentsOpen.value = commentsOpen.value ? null : {}; } },
   tasks: { icon: "task", label: _t("Tasks"), run: () => openPanel("tasks") },
-  scan: { icon: "camera", label: _t("Scan paper"), run: () => openPanel("scan", currentBook.value ? { book: currentBook.value.id } : {}) },
+  scan: { icon: "scan", label: _t("Scan paper"), run: () => openPanel("scan", currentBook.value ? { book: currentBook.value.id } : {}) },
   write: { icon: "edit", label: _t("Write a document"), run: () => openPanel("write", currentBook.value ? { book: currentBook.value.id } : {}) },
   study: { icon: "star", label: _t("Study cards (Ctrl+B)"), run: needBook(() => openPanel("study")) },
   gallery: { icon: "image", label: _t("Photos as a gallery"), run: () => openPanel("gallery") },
@@ -40,8 +40,8 @@ export const QB = {
   inst: { icon: "book", label: _t("Your institution: name, logo and colours on the reports"), img: () => (settings.value.brand || {}).on && (settings.value.brand || {}).logo, run: () => openPanel("settings", { group: "inst" }) },
 };
 export const QB_DEFAULT = ["aloud", "comments", "share", "print", "tasks", "scan", "write", "study", "gallery", "inst"];
-// Share and Print are always on the bar
-const qbList = () => { const l = [...(settings.value.quickBar || QB_DEFAULT)]; for (const k of ["print", "share"]) if (!l.includes(k)) l.splice(Math.min(2, l.length), 0, k); return (l.includes("inst") || settings.value.qbInstOff ? l : [...l, "inst"]).filter(k => QB[k] && (!QB[k].ok || QB[k].ok())); };
+// Scan, Share and Print are always on the bar
+const qbList = () => { const l = [...(settings.value.quickBar || QB_DEFAULT)]; for (const k of ["scan", "print", "share"]) if (!l.includes(k)) l.splice(Math.min(2, l.length), 0, k); return (l.includes("inst") || settings.value.qbInstOff ? l : [...l, "inst"]).filter(k => QB[k] && (!QB[k].ok || QB[k].ok())); };
 
 export function FrameBar() {
   const [h, setH] = useState(typeof window !== "undefined" ? window.innerHeight : 900);

@@ -1239,7 +1239,7 @@ function EmptyButtons({ book }) {
     <div class="row wrap" style={{ justifyContent: "center", marginTop: 14 }}>
       <button class="btn" onClick={async () => mod.uploadFiles(book, await mod.pickFiles())}><Icon n="upload" />{_t("Add files")}</button>
       {store.value.canPick && <button class="btn ghost" onClick={() => mod.addFromDrive(book)}><Icon n="drive" />{_t("From my Drive")}</button>}
-      <button class="btn ghost" onClick={() => openPanel("scan", { book: book.id })}><Icon n="camera" />{_t("Scan")}</button>
+      <button class="btn ghost" onClick={() => openPanel("scan", { book: book.id })}><Icon n="scan" />{_t("Scan")}</button>
       <button class="btn ghost" onClick={() => openPanel("write", { book: book.id })}><Icon n="edit" />{_t("Write")}</button>
     </div>
   );

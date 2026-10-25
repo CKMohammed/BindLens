@@ -68,6 +68,7 @@ const P = {
   bell: "M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4",
   lock: "M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3",
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 1 0-8 4 4 0 0 1 0 8z",
+  scan: "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M3 12h18M8 8.5h8M8 15.5h5",
   download: "M12 4v12M7 11l5 5 5-5M4 20h16",
   drive: "M8.5 4h7l6 10.5-3.5 6h-12L2.5 14.5zM8.5 4l6.5 11M15.5 4L9 15M2.5 14.5h19",
   check: "M5 12l5 5 9-10",

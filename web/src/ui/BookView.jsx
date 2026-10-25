@@ -513,7 +513,7 @@ function PageBar({ book }) {
       pdf && { label: _t("Move it down"), icon: "down", run: () => pageOp(f, "movePage", pageNo.value, pageNo.value + 1).then(() => { pageNo.value++; }) },
       pdf && { label: _t("A blank page after it"), icon: "addpage", run: addBlankPage },
       pdf && { label: _t("Write a page after it..."), icon: "edit", run: () => openPanel("write", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
-      pdf && { label: _t("Scan pages after it..."), icon: "camera", run: () => openPanel("scan", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
+      pdf && { label: _t("Scan pages after it..."), icon: "scan", run: () => openPanel("scan", { book: book.id, into: f.id, at: pageNo.value + 1 }) },
       pdf && { label: _t("Add pages from another PDF..."), icon: "addpage", run: () => FT.addPagesFromPdf(f, pageNo.value + 1) },
       pdf && { label: _t("Edit this written page..."), icon: "edit", run: () => editWritten(f, pageNo.value) },
       pdf && { label: _t("Crop..."), icon: "fit", run: () => { tool.value = "crop"; toast(_t("Drag a box round the part of the page to keep.")); } },
@@ -569,7 +569,7 @@ function RRail() {
       <button class="ib" title={_t("Reading mode")} onClick={() => { readMode.value = !readMode.value; }}><Icon n="read" /></button>
       <button class="ib" title={_t("Reports")} onClick={() => openPanel("reports")}><Icon n="table" /></button>
       <button class="ib" title={_t("Photos as a gallery")} onClick={() => openPanel("gallery")}><Icon n="image" /></button>
-      <button class="ib" title={_t("Scan")} onClick={() => openPanel("scan")}><Icon n="camera" /></button>
+      <button class="ib" title={_t("Scan")} onClick={() => openPanel("scan")}><Icon n="scan" /></button>
       <button class="ib" title={_t("Write")} onClick={() => openPanel("write")}><Icon n="edit" /></button>
       <button class="ib" title={_t("Study cards (your highlights)")} onClick={() => openPanel("study")}><Icon n="star" /></button>
       <span class="grow" />

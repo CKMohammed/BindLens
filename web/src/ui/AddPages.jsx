@@ -261,7 +261,7 @@ export function AddPages({ book: bid, tab: firstTab, at: atGiven }) {
           <span class="ap-ico"><Icon n="upload" size={22} /></span><span><b>{_t("From a file")}</b><small>{_t("PDF, photos, Word, Excel, PowerPoint, text")}</small></span>
         </button>
         <button class="ap-card" onClick={() => { close(); panel.value = { type: "scan", book: book.id, into: tf && !needsCopy ? tf.id : undefined, at: tf && isCur ? pageNo.value + 1 : undefined }; }} disabled={!!busy}>
-          <span class="ap-ico"><Icon n="camera" size={22} /></span><span><b>{_t("Scan paper")}</b><small>{_t("The camera of your phone, or photos")}</small></span>
+          <span class="ap-ico"><Icon n="scan" size={22} /></span><span><b>{_t("Scan paper")}</b><small>{_t("The camera of your phone, or photos")}</small></span>
         </button>
         <button class="ap-card" onClick={() => { close(); panel.value = { type: "write", book: book.id, into: tf && !needsCopy ? tf.id : undefined, at: tf && isCur ? pageNo.value + 1 : undefined }; }} disabled={!!busy}>
           <span class="ap-ico"><Icon n="edit" size={22} /></span><span><b>{_t("Write a page here")}</b><small>{_t("A letter, notes, a table, in BindLens")}</small></span>
