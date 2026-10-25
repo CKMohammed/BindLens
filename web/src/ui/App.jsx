@@ -229,7 +229,7 @@ export function App() {
   const ready = phase.value === "ready";
   // with a PIN, nothing of the library is on the screen (or in the page) before the four digits
   const shut = ready && locked.value, open = ready && !locked.value;
-  const lava = !ready;                        // 1.0 calm: the soft colours only on the sign-in page
+  const lava = true;                         // the soft lava is always behind the window, moving slowly
   const still = !!(settings.value.frame || {}).still;
   return (
     <div class={"shell" + (ready && frameBarOn() ? " withbar" : "") + (ready && !narrow.value ? " withtop" : "") + (saving.value.n > 0 ? " saving" : "") + (framePulse.value ? " pulse" : "")} style={frameVars()}>
