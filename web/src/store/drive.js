@@ -506,9 +506,17 @@ export class DriveStore {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body,
       });
     } else {
-      const f = await this.create(this.settingsHidden || this.appData ? "appDataFolder" : (this.rootId || null), SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
+      // never a new visible file in your Drive: without the app's hidden space the settings stay in this browser
+      if (!(this.settingsHidden || this.appData)) return;
+      const f = await this.create("appDataFolder", SETTINGS_NAME, new TextEncoder().encode(body).buffer, "application/json");
       this.settingsId = f.id;
     }
+  }
+
+  // a Google Doc / Sheet in another format (a Sheet as Excel, so the reports read its real cells)
+  async exportAs(file, mime) {
+    const r = await this.fetch(`${API}/files/${file.id}/export?mimeType=${encodeURIComponent(mime)}`);
+    return r.arrayBuffer();
   }
 
   webLink(file) { return `https://drive.google.com/file/d/${file.id}/view`; }

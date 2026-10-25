@@ -1164,9 +1164,10 @@ export function Viewer({ book }) {
       <div class={"pages-in" + (grid ? " grid" : "") + (spread ? " spread" : "")} style={{ "--pw": maxW + "px" }}>
         {files.map((f) => (
           <div key={f.id} style={{ display: "contents" }}>
-            {files.length > 1 && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
+            {(files.length > 1 || f.kind === "gdoc") && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
               <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
               {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} {_t("page")}{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
+              {f.kind === "gdoc" && store.value?.editLink && <button class="btn soft small" style={{ marginLeft: 8 }} onClick={() => import("./AddPages.jsx").then(m => m.openBeside(store.value.editLink(/spreadsheet/.test(f.mime || "") ? "sheet" : /presentation/.test(f.mime || "") ? "slides" : "doc", f.id)))}><Icon n="edit" size={15} />{_t("Edit it in Google")}</button>}
             </div>}
             <DocBlock book={book} file={f} k={k} maxW={maxW} grid={grid} />
           </div>

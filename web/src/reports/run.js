@@ -39,15 +39,17 @@ export const REPORTS = [
 
 // ---- reading a file into pages of rows and tables
 const cache = new Map();
+const isSheet = (f) => f.kind === "excel" || (f.kind === "gdoc" && /spreadsheet/.test(f.mime || ""));
 
 async function readFile(file) {
   const key = file.id + ":" + (file.md5 || file.modified);
   if (cache.has(key)) return cache.get(key);
   let out;
-  if (file.kind === "excel") {
-    // a spreadsheet: its rows exactly as they are, each sheet a table
-    const buf = await store.value.read(file);
-    const sheets = await sheetRows(buf, file.name);
+  if (isSheet(file)) {
+    // a spreadsheet (Excel, or a Google Sheet read as Excel): its rows exactly as they are, each sheet a table
+    const gs = file.kind === "gdoc";
+    const buf = gs && store.value.exportAs ? await store.value.exportAs(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") : await store.value.read(file);
+    const sheets = await sheetRows(buf, gs ? file.name + ".xlsx" : file.name);
     out = { pages: sheets.map(s => {
       const [header, ...rows] = s.rows;
       const r = s.rows.map(cells => ({ text: cells.filter(c => String(c).trim()).join("   "), cells: cells.map(String), header }));
@@ -234,7 +236,7 @@ async function rowsFound(scope, progress, q, exact = false) {
     progress(n, list.length, f.name);
     const { pages } = await readFile(f);
     pages.forEach((pg, page) => {
-      if (f.kind === "excel") {
+      if (isSheet(f)) {
         for (const t of pg.tables) for (const cells of t.rows) for (const v of values) if (cells.some(c => hasValue(c, v, exact))) found.push({ v, b, f, page, cells, header: t.header, sheet: t.sheet });
         return;
       }
@@ -301,7 +303,7 @@ async function rowPictures(scope, progress, q, exact = false) {
     progress(n, list.length, f.name);
     const { pages } = await readFile(f);
     for (const [page, pg] of pages.entries()) {
-      if (f.kind === "excel") {
+      if (isSheet(f)) {
         for (const t of pg.tables) for (const cells of t.rows) values.forEach((v, i) => {
           if (cells.some(c => hasValue(c, v, exact))) sections[i].items.push({ title: `${docName(f)}${t.sheet ? " · " + t.sheet : ""}`, text: cells.join("   "), go: where(b, f, page, v) });
         });
