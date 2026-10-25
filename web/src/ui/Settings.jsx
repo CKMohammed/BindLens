@@ -222,7 +222,7 @@ export function Settings() {
       <Doing />
 
       <h3 style={{ margin: "22px 0 8px", font: "700 16px var(--f-display)" }}>{_t("About")}</h3>
-      <p class="small muted" style={{ margin: 0 }}>{_t("BindLens Web 1.0 · made by Mohammed Chahboune Kadi. Free software under the GNU AGPL 3.0: the source is at")} <a href="https://github.com/CKMohammed/BindLens" target="_blank" rel="noopener">{_t("github.com/CKMohammed/BindLens")}</a>{_t(". Pages are drawn with MuPDF (Artifex, AGPL).")}</p>
+      <p class="small muted" style={{ margin: 0 }}>BindLens Web 1.0 · © 2026 M. Chahboune Kadi</p>
       <div class="row wrap" style={{ marginTop: 8 }}>
         <button class="btn plain small" onClick={() => { panel.value = { type: "legal" }; }}><Icon n="info" size={16} />{_t("Licence, privacy and legal")}</button>
         <button class="btn plain small" onClick={() => { panel.value = { type: "welcome" }; }}><Icon n="sparkle" size={16} />{_t("Show the tour again")}</button>
