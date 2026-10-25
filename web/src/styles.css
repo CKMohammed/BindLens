@@ -1423,3 +1423,8 @@ table.rows tr.new:hover td{background:#E5EEFF}
 /* scanning on a phone: one round button, always there */
 .fabscan{display:none}
 @media (max-width:760px){.fabscan{display:flex;position:fixed;right:14px;bottom:76px;z-index:30;width:54px;height:54px;border-radius:50%;border:0;align-items:center;justify-content:center;background:var(--accent,#C2337A);color:#fff;box-shadow:0 12px 26px -10px rgba(0,0,0,.45)}}
+
+/* the icons of the right bar can be dragged to a new place */
+.framebar .fb[data-k]{touch-action:none;cursor:grab}
+.framebar .fb.dragging{opacity:.55;cursor:grabbing;transform:scale(1.08)}
+.framebar .fb.dragging .fbtip{display:none}

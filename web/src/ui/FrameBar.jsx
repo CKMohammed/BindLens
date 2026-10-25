@@ -1,6 +1,6 @@
 // The quick bar on the right of the frame, as in the Windows app: your favourite things one click away. Right-click
 // it (or More > Choose what is here) to choose them and their order. A word comes when you point at an icon.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { readMode, view, settings, setSetting, books, openBook, toast, narrow, currentBook, commentsOpen, aloud, panel } from "../state.js";
 import { Icon } from "./icons.jsx";
 import { openMenu, Dialog } from "./dialogs.jsx";
@@ -45,16 +45,42 @@ const qbList = () => { const l = [...(settings.value.quickBar || QB_DEFAULT)]; f
 
 export function FrameBar() {
   const [h, setH] = useState(typeof window !== "undefined" ? window.innerHeight : 900);
+  const [dragK, setDragK] = useState(null);
+  const dragged = useRef(null);
   useEffect(() => { const f = () => setH(window.innerHeight); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   if (!frameBarOn()) return null;
   const inBook = view.value === "book";
   const all = qbList().filter(k => inBook || !QB[k].book);
   const fit = Math.max(3, Math.floor((h - 150) / 38));          // what does not fit goes under More
   const shown = all.slice(0, fit), rest = all.slice(fit);
+  // drag an icon up or down to put it somewhere else on the bar
+  const startDrag = (k) => (e) => {
+    if (e.button !== 0) return;
+    const st = { k, y: e.clientY, moved: false };
+    dragged.current = st;
+    const move = (ev) => {
+      if (!st.moved && Math.abs(ev.clientY - st.y) < 6) return;
+      if (!st.moved) { st.moved = true; setDragK(k); }
+      ev.preventDefault();
+      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".framebar .fb[data-k]");
+      const t = over && over.dataset.k;
+      if (!t || t === st.k) return;
+      const l = qbList(), from = l.indexOf(st.k), to = l.indexOf(t);
+      if (from < 0 || to < 0) return;
+      l.splice(from, 1); l.splice(to, 0, st.k);
+      setSetting("quickBar", l);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+      setDragK(null); setTimeout(() => { if (dragged.current === st) dragged.current = null; }, 250);
+    };
+    window.addEventListener("pointermove", move, { passive: false }); window.addEventListener("pointerup", up);
+  };
   const B = ({ k }) => {
     const it = QB[k];
     const img = it.img && it.img();
-    return <button class={"fb" + (it.on && it.on() ? " on" : "") + (img ? " withimg" : "")} aria-label={it.label} onClick={it.run}>{img ? <img src={img} alt="" /> : <Icon n={it.icon} size={17} />}<span class="fbtip">{it.label}</span></button>;
+    return <button data-k={k} class={"fb" + (it.on && it.on() ? " on" : "") + (img ? " withimg" : "") + (dragK === k ? " dragging" : "")} aria-label={it.label}
+      onPointerDown={startDrag(k)} onClick={(e) => { if (dragged.current && dragged.current.moved) return; it.run(e); }}>{img ? <img src={img} alt="" /> : <Icon n={it.icon} size={17} />}<span class="fbtip">{it.label}</span></button>;
   };
   const choose = () => { panel.value = { type: "quickbar" }; };
   return (
@@ -81,7 +107,7 @@ export function QuickBarChoose() {
   return (
     <Dialog title={_t("The quick bar")} icon="settings" onClose={close} cls="mid"
       foot={<><button class="btn plain" onClick={() => set(QB_DEFAULT)}>{_t("Back to the first choice")}</button><span class="grow" /><button class="btn" onClick={close}>{_t("Done")}</button></>}>
-      <p class="small muted" style={{ marginTop: 0 }}>{_t("The icons on the right of the frame. Tick the ones you want; the arrows change their order. What does not fit goes under More.")}</p>
+      <p class="small muted" style={{ marginTop: 0 }}>{_t("The icons on the right of the frame. Tick the ones you want; the arrows change their order (or drag the icons on the bar). What does not fit goes under More.")}</p>
       <div class="qbl">
         {keys.map(k => {
           const on = cur.includes(k), i = cur.indexOf(k);
