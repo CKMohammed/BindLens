@@ -31,7 +31,7 @@ export function Keys() {
 }
 
 // where feedback goes: an email address once BindLens has one; GitHub (public) always
-export const FEEDBACK_EMAIL = "";
+export const FEEDBACK_EMAIL = "support@bindlens.com";
 const REPO = "https://github.com/CKMohammed/BindLens";
 
 export function Feedback() {
@@ -60,8 +60,8 @@ export function Feedback() {
       foot={<>
         <button class="btn plain" onClick={copy} disabled={!text.trim()}><Icon n="copy" size={16} />{_t("Copy")}</button>
         <span class="grow" />
-        {FEEDBACK_EMAIL && <button class="btn ghost" onClick={mail} disabled={!text.trim()}><Icon n="mail" size={16} />{_t("Send by email")}</button>}
-        <button class="btn" onClick={github} disabled={!text.trim()}><Icon n="share" size={16} />{_t("Post it on GitHub")}</button>
+        {FEEDBACK_EMAIL ? <button class="btn" onClick={mail} disabled={!text.trim()}><Icon n="mail" size={16} />{_t("Send by email")}</button>
+          : <button class="btn" onClick={github} disabled={!text.trim()}><Icon n="share" size={16} />{_t("Post it on GitHub")}</button>}
       </>}>
       <div class="seg" style={{ display: "inline-flex", flexWrap: "wrap", marginBottom: 10 }}>
         {KINDS.map(([k, l]) => <button key={k} class={kind === k ? "on" : ""} onClick={() => setKind(k)}>{l}</button>)}
@@ -70,7 +70,7 @@ export function Feedback() {
         placeholder={kind === "bug" ? _t("What did you do, what happened, and what did you expect? e.g. I added a page after page 3 and it went to the end.") : _t("Tell us in a few words.")} />
       <label class="chk small" style={{ marginTop: 8 }}><input type="checkbox" checked={tech} onChange={(e) => setTech(e.target.checked)} />{_t("Add the technical details (browser, screen, Home or a book) - never your documents or their names")}</label>
       {tech && <pre class="fb-tech">{details()}</pre>}
-      <p class="tiny muted" style={{ marginBottom: 0 }}>{_t("BindLens has no servers, so your feedback goes where you choose. GitHub is public: do not write private data there.")}{FEEDBACK_EMAIL ? "" : _t(" An email address for feedback is coming.")}</p>
+      <p class="tiny muted" style={{ marginBottom: 0 }}>{FEEDBACK_EMAIL ? _t("It opens in your own email, addressed to {0}. We answer from there.", FEEDBACK_EMAIL) : _t("BindLens has no servers, so your feedback goes where you choose. GitHub is public: do not write private data there.")}</p>
     </Dialog>
   );
 }
