@@ -3,7 +3,7 @@
 // you left off, reminders...) are in "BindLens library.json" in that same folder. BindLens asks only for the
 // "drive.file" permission: it sees only the files it made, or the ones the user gives it.
 import { idb } from "../idb.js";
-import { mimeOf } from "../util.js";
+import { mimeOf, shortName } from "../util.js";
 import { _t } from "../i18n.js";
 
 export const CLIENT_ID = "537962235577-p6sgr9cnbqvvv0v75a7jbpla1op629n7.apps.googleusercontent.com";
@@ -75,7 +75,7 @@ export class DriveStore {
     });
     if (!this.user) {
       const about = await this.json(`${API}/about?fields=user(displayName,emailAddress,photoLink)`);
-      this.user = { name: about.user.displayName, email: about.user.emailAddress, photo: about.user.photoLink };
+      this.user = { name: shortName(about.user.displayName), email: about.user.emailAddress, photo: about.user.photoLink };
       try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); localStorage.setItem("bl_cloud", "drive"); localStorage.setItem("bl_user", JSON.stringify(this.user)); } catch (e) {}
     }
   }
@@ -383,6 +383,7 @@ export class DriveStore {
   startOffline() {
     this.offline = true;
     this.user = JSON.parse(localStorage.getItem("bl_user"));
+    if (this.user) this.user.name = shortName(this.user.name);
     { const r0 = localStorage.getItem("bl_root"); this.rootId = r0 && r0 !== "-" ? r0 : null; this.myRoot = localStorage.getItem("bl_myroot") || null; }
   }
 

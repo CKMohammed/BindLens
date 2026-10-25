@@ -31,7 +31,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.045em;margin:0}
 nav{position:sticky;top:0;z-index:9;background:rgba(255,250,252,.78);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-bottom:1px solid var(--line)}
 nav .wrap{height:52px;display:flex;align-items:center;gap:28px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em}
-.brand img{width:26px;height:26px;border-radius:7px}.brand b{font-weight:600}.brand span,.hero h1 span{color:var(--accent)}
+.brand img{width:26px;height:26px;border-radius:7px}.brand b{font-weight:600}.brand span,.hero h1 .wm span{color:var(--accent)}
 .links{flex:1;display:flex;justify-content:center;gap:30px;font-size:13px;color:#4E4A5A}
 .links a:hover,.lang:hover{color:var(--ink)}
 .lang{font-size:13px;color:#4E4A5A}
@@ -41,27 +41,27 @@ nav .pill{font-size:13px;padding:8px 16px}
 .more{font-weight:600;color:var(--accent)}
 .more:hover{text-decoration:underline}
 /* hero */
-.top{background:linear-gradient(180deg,#FFF1F7 0%,#FFF7EC 62%,var(--paper) 100%)}.hero{text-align:center;padding:64px 24px 52px;animation:up .9s cubic-bezier(.2,.7,.2,1) both}
-.hero img{width:72px;height:72px;margin:0 auto 18px;border-radius:17px;box-shadow:0 16px 30px -14px rgba(194,51,122,.5)}
+.top{background:linear-gradient(180deg,#FFF1F7 0%,#FFF7EC 62%,var(--paper) 100%)}.hero{text-align:center;padding:34px 24px 26px;animation:up .9s cubic-bezier(.2,.7,.2,1) both}
+.hero h1{display:inline-flex;align-items:center;gap:16px}.hero img{width:56px;height:56px;margin:0;border-radius:14px;box-shadow:0 16px 30px -14px rgba(194,51,122,.5)}
 .hero h1{margin:0 auto;font-size:clamp(40px,4.8vw,64px);line-height:1.05;letter-spacing:-.035em}
 .hero p{margin:10px auto 0;max-width:640px;font-size:clamp(20px,2.2vw,28px);line-height:1.3;color:var(--ink);letter-spacing:-.01em}
-.cta{margin-top:28px;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
-.cta .pill{font-size:16px;padding:12px 24px;min-width:150px}
+.cta{margin-top:22px;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
+.cta .pill{font-size:15px;padding:10px 22px;min-width:140px}
 .cta .more{font-size:16px}
 @keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 /* film: plays by itself, nothing to press */
 .film{width:min(900px,88%);margin:0 auto;border-radius:20px;background:var(--ink);overflow:hidden;pointer-events:none;box-shadow:0 40px 80px -40px rgba(40,30,10,.55),0 0 0 1px rgba(0,0,0,.06)}
 .film video{width:100%;height:auto;aspect-ratio:1.6;object-fit:cover}
 /* doors */
-.doors{padding:64px 24px 0;display:flex;justify-content:center;gap:56px;flex-wrap:wrap}
-.door{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;width:180px}
-.door .ic{position:relative;width:84px;height:84px;border-radius:23px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 24px 40px -24px rgba(40,30,10,.55),inset 0 0 0 1px rgba(0,0,0,.05);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+.doors{padding:14px 24px 0;display:flex;justify-content:center;gap:48px;flex-wrap:wrap}
+.door{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;width:170px}
+.door .ic{position:relative;width:66px;height:66px;border-radius:19px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 24px 40px -24px rgba(40,30,10,.55),inset 0 0 0 1px rgba(0,0,0,.05);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
 .door:hover .ic{transform:translateY(-4px) scale(1.03);box-shadow:0 30px 50px -24px rgba(40,30,10,.6),inset 0 0 0 1px rgba(0,0,0,.05)}
-.door .ic img{width:60px;height:60px;border-radius:14px}
-.door .bd{position:absolute;right:-7px;bottom:-7px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--paper)}
+.door .ic img{width:48px;height:48px;border-radius:12px}
+.door .bd{position:absolute;right:-7px;bottom:-7px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--paper)}
 .door .bd svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.door b{font-weight:600;font-size:15px;letter-spacing:-.01em;margin-top:8px}
-.door span.more{font-size:13.5px}
+.door b{font-weight:600;font-size:14px;letter-spacing:-.01em;margin-top:6px}
+.door span.more{font-size:13px}
 .note{text-align:center;font-size:12.5px;color:var(--muted);max-width:560px;margin:30px auto 0;padding:0 24px 72px}
 /* one idea per screen */
 .ch{padding:120px 0;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -113,16 +113,16 @@ footer .fl{flex:1;display:flex;gap:24px;flex-wrap:wrap}
 footer a:hover{color:var(--ink)}
 /* a tablet held up, floating a little: the app full screen inside */
 .stage{perspective:1600px;padding:6px 0 0;pointer-events:none}
-.tablet{position:relative;width:min(720px,82%);margin:0 auto;padding:15px;border-radius:34px;background:linear-gradient(160deg,#26252c,#0c0c0f 40%);box-shadow:0 0 0 1.5px #c9c6ce,0 0 0 3px #8e8a96,0 60px 90px -45px rgba(23,21,31,.6),0 30px 70px -35px rgba(194,51,122,.35);animation:float 7s ease-in-out infinite;transform:rotateX(5deg)}
+.tablet{position:relative;width:min(560px,80%);width:min(600px,80%,max(320px,calc((100svh - 505px)*1.6)));margin:0 auto;padding:12px;border-radius:28px;background:linear-gradient(160deg,#26252c,#0c0c0f 40%);box-shadow:0 0 0 1.5px #c9c6ce,0 0 0 3px #8e8a96,0 60px 90px -45px rgba(23,21,31,.6),0 30px 70px -35px rgba(194,51,122,.35);animation:float 7s ease-in-out infinite;transform:rotateX(5deg)}
 .tablet::before{content:"";position:absolute;top:6px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#34333b}
-.tablet::after{content:"";position:absolute;inset:15px;border-radius:20px;background:linear-gradient(118deg,rgba(255,255,255,.14),rgba(255,255,255,0) 38%);pointer-events:none}
-.scr{border-radius:20px;overflow:hidden;background:#000}
+.tablet::after{content:"";position:absolute;inset:12px;border-radius:17px;background:linear-gradient(118deg,rgba(255,255,255,.14),rgba(255,255,255,0) 38%);pointer-events:none}
+.scr{border-radius:17px;overflow:hidden;background:#000}
 .scr video{width:100%;height:auto;aspect-ratio:1.6;object-fit:cover}
-.stage::after{content:"";display:block;width:58%;height:26px;margin:22px auto 0;background:radial-gradient(closest-side,rgba(23,21,31,.28),transparent);animation:shade 7s ease-in-out infinite}
-@keyframes float{0%,100%{transform:rotateX(5deg) rotateY(0) translateY(0)}50%{transform:rotateX(2deg) rotateY(-3deg) translateY(-10px)}}
+.stage::after{content:"";display:block;width:58%;height:16px;margin:8px auto 0;background:radial-gradient(closest-side,rgba(23,21,31,.28),transparent);animation:shade 7s ease-in-out infinite}
+@keyframes float{0%,100%{transform:rotateX(5deg) rotateY(0) translateY(0)}50%{transform:rotateX(2deg) rotateY(-3deg) translateY(-5px)}}
 @keyframes shade{0%,100%{transform:scaleX(1);opacity:1}50%{transform:scaleX(.9);opacity:.7}}
 /* privacy: lifted up and framed with the app's own colours */
-.big{padding:0 24px 104px;text-align:center;background:none}
+.big{padding:84px 24px 104px;text-align:center;background:none}
 .pv{max-width:980px;margin:0 auto;border-radius:30px;padding:56px 32px 52px;border:3px solid transparent;background:linear-gradient(180deg,#FFFDFB,#FFF7EC) padding-box,linear-gradient(120deg,#17151F,#FF85C2 52%,#FFC83D) border-box;box-shadow:0 40px 80px -50px rgba(194,51,122,.5)}
 .pv .ico{width:64px;height:64px;border-radius:20px;background:#17151F}.pv .ico svg{stroke:#FFC83D;width:30px;height:30px}
 .badges{margin-top:26px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
@@ -138,7 +138,7 @@ footer a:hover{color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.rise,.film,.hero,.tablet,.stage::after{animation:none}}
 @media (max-width:760px){
 .links{display:none}nav .wrap{gap:16px;justify-content:space-between}
-.hero{padding:44px 20px 36px}.doors{gap:28px 18px;padding-top:48px}.door{width:150px}
+.hero{padding:28px 20px 24px}.hero h1{gap:12px}.hero img{width:44px;height:44px}.doors{gap:28px 18px;padding-top:48px}.door{width:150px}
 .ch{padding:88px 0}.shot{margin-top:44px}.dark{padding:90px 20px}.stats{gap:28px}
 .inst{min-height:0;padding:90px 20px}.big{padding:0 16px 72px}.pv{padding:40px 20px}.tablet{padding:8px;border-radius:20px}.tablet::after{inset:8px;border-radius:13px}.scr{border-radius:13px}.dl{padding:90px 20px}
 }
@@ -149,15 +149,14 @@ footer a:hover{color:var(--ink)}
 <a class="brand" href="#"><img src="img/icon.png" alt=""><b>Bind<span>Lens</span></b></a>
 <div class="links"><a href="#read">Read</a><a href="#mark">Mark</a><a href="#find">Find</a><a href="#private">Privacy</a><a href="#download">Download</a></div>
 <a class="lang" href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a>
-<a class="pill" href="/app/?start=google">Start free</a>
+<a class="pill" href="/app/?start=google">Start</a>
 </div></nav>
 
 <div class="top">
 <header class="hero">
-<img src="img/icon.png" alt="BindLens">
-<h1>Bind<span>Lens</span></h1>
+<h1><img src="img/icon.png" alt=""><span class="wm">Bind<span>Lens</span></span></h1>
 <p>Your documents, bound into books.</p>
-<div class="cta"><a class="pill" href="/app/?start=google">Start free</a><a class="pill ghost" href="/app/?demo=1">See an example</a></div>
+<div class="cta"><a class="pill" href="/app/?start=google">Start</a><a class="pill ghost" href="/app/?demo=1">See an example</a></div>
 </header>
 
 <div class="stage" aria-hidden="true"><div class="tablet"><div class="scr"><video src="img/tour.mp4" poster="img/tour-poster.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback tabindex="-1"></video></div></div></div>
@@ -167,7 +166,6 @@ footer a:hover{color:var(--ink)}
 <a class="door" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe"><span class="ic"><img src="img/icon.png" alt=""><span class="bd" style="background:#C04F86"><svg viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span></span><b>BindLens for Windows</b><span class="more">Download ›</span></a>
 <a class="door" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe"><span class="ic"><img src="img/bookreader.svg" alt=""><span class="bd" style="background:#C9922E"><svg viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span></span><b>BookReader</b><span class="more">Download ›</span></a>
 </section>
-<p class="note">Windows 10 and 11 · free. If Windows says it protected your PC: More info, then Run anyway.</p>
 </div>
 
 <section class="big" id="private"><div class="pv">
@@ -197,11 +195,11 @@ footer a:hover{color:var(--ink)}
 <section class="dl" id="download"><div class="wrap">
 <h2>Choose how to read.</h2>
 <div class="grid">
-<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens Web</h3><p>In your browser, with your Google Drive folders.</p><small>Free · Chrome, Edge, Safari</small><a class="pill" href="/app/">Open the web app</a></div>
-<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens for Windows</h3><p>Every feature, offline, with your folders.</p><small>Free · Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">Download</a></div>
-<div class="prod"><img src="img/bookreader.svg" alt=""><h3>BookReader</h3><p>Just read, mark and make reports. With a PIN.</p><small>Free · Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe">Download</a></div>
+<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens Web</h3><p>In your browser, with your Google Drive folders.</p><small>Chrome, Edge, Safari</small><a class="pill" href="/app/">Open the web app</a></div>
+<div class="prod"><img src="img/icon.png" alt=""><h3>BindLens for Windows</h3><p>Every feature, offline, with your folders.</p><small>Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BindLens.Setup.exe">Download</a></div>
+<div class="prod"><img src="img/bookreader.svg" alt=""><h3>BookReader</h3><p>Just read, mark and make reports. With a PIN.</p><small>Windows 10 and 11</small><a class="pill" href="https://github.com/CKMohammed/BindLens/releases/latest/download/BookReader.Setup.exe">Download</a></div>
 </div>
-<p class="note" style="padding-bottom:0">Windows 10 and 11 · free. If Windows says it protected your PC: More info, then Run anyway.</p>
+<p class="note" style="padding-bottom:0">Windows 10 and 11. If Windows says it protected your PC: More info, then Run anyway.</p>
 </div></section>
 
 <footer><div class="wrap">

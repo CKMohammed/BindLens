@@ -9,6 +9,13 @@ export function colorFor(name) {
   return BOOK_COLORS[h % BOOK_COLORS.length];
 }
 
+// a person's name as it is shown: the first name as an initial ("M. Chahboune Kadi"); full names stay in authorship and legal texts
+export function shortName(n) {
+  const w = String(n || "").trim().split(/\s+/);
+  if (w.length < 2 || /@/.test(n) || /\.$/.test(w[0])) return String(n || "").trim();
+  return w[0][0].toUpperCase() + ". " + w.slice(1).join(" ");
+}
+
 export function initials(name) {
   const words = (name || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
   if (!words.length) return "?";

@@ -2,7 +2,7 @@
 // Each book is a folder there, each document a file. BindLens asks only for "Files.ReadWrite.AppFolder": it sees
 // nothing else of the user's OneDrive. Sign-in: Microsoft's own page in a small window (OAuth with PKCE), no library.
 import { idb } from "../idb.js";
-import { mimeOf } from "../util.js";
+import { mimeOf, shortName } from "../util.js";
 import { _t } from "../i18n.js";
 
 // the "Application (client) ID" of the BindLens app in Microsoft Entra (web/.env: VITE_MS_CLIENT_ID=...); empty = no OneDrive button
@@ -81,7 +81,7 @@ export class OneDriveStore {
 
   async loadUser() {
     const me = await this.json(`${G}/me?$select=displayName,mail,userPrincipalName`);
-    this.user = { name: me.displayName || "", email: me.mail || me.userPrincipalName || "" };
+    this.user = { name: shortName(me.displayName || ""), email: me.mail || me.userPrincipalName || "" };
     try { localStorage.setItem("bl_email", this.user.email); localStorage.setItem("bl_signed_in", "1"); localStorage.setItem("bl_cloud", "onedrive"); } catch (e) {}
   }
 

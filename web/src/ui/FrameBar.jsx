@@ -39,8 +39,9 @@ export const QB = {
   // 1.0: your institution (its name, logo and colours on the reports) - its own logo shows here when there is one
   inst: { icon: "book", label: _t("Your institution: name, logo and colours on the reports"), img: () => (settings.value.brand || {}).on && (settings.value.brand || {}).logo, run: () => openPanel("settings", { group: "inst" }) },
 };
-export const QB_DEFAULT = ["aloud", "comments", "tasks", "scan", "write", "study", "gallery", "inst"];
-const qbList = () => { const l = settings.value.quickBar || QB_DEFAULT; return (l.includes("inst") || settings.value.qbInstOff ? l : [...l, "inst"]).filter(k => QB[k] && (!QB[k].ok || QB[k].ok())); };
+export const QB_DEFAULT = ["aloud", "comments", "share", "print", "tasks", "scan", "write", "study", "gallery", "inst"];
+// Share and Print are always on the bar
+const qbList = () => { const l = [...(settings.value.quickBar || QB_DEFAULT)]; for (const k of ["print", "share"]) if (!l.includes(k)) l.splice(Math.min(2, l.length), 0, k); return (l.includes("inst") || settings.value.qbInstOff ? l : [...l, "inst"]).filter(k => QB[k] && (!QB[k].ok || QB[k].ok())); };
 
 export function FrameBar() {
   const [h, setH] = useState(typeof window !== "undefined" ? window.innerHeight : 900);
