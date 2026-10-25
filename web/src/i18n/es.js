@@ -2268,5 +2268,6 @@ export default {
  "At the end of \"{0}\"": "Al final de «{0}»",
  "Opening the photo...": "Abriendo la foto...",
  "This photo could not be opened. Try again, or choose it from your photos.": "No se pudo abrir esta foto. Prueba otra vez o elígela de tus fotos.",
- "The icons on the right of the frame. Tick the ones you want; the arrows change their order (or drag the icons on the bar). What does not fit goes under More.": "Los iconos a la derecha del marco. Marca los que quieras; las flechas cambian su orden (o arrastra los iconos en la barra). Lo que no cabe va en Más."
+ "The icons on the right of the frame. Tick the ones you want; the arrows change their order (or drag the icons on the bar). What does not fit goes under More.": "Los iconos a la derecha del marco. Marca los que quieras; las flechas cambian su orden (o arrastra los iconos en la barra). Lo que no cabe va en Más.",
+ "Take the photo": "Hacer la foto"
 };

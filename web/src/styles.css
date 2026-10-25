@@ -1432,3 +1432,9 @@ table.rows tr.new:hover td{background:#E5EEFF}
 /* books can be dragged to a new place (shelf, Library list, rail) */
 body.bkdrag,body.bkdrag *{cursor:grabbing!important;user-select:none}
 [data-bk].bkdragging{opacity:.55;filter:saturate(1.2);transition:none}
+
+/* the camera inside the scan window */
+.scanlive{text-align:center}
+.scanlive video{width:100%;max-height:62vh;border-radius:12px;background:#000;object-fit:contain;display:block}
+.shutter{width:66px;height:66px;border-radius:50%;border:4px solid #fff;background:var(--accent,#C2337A);box-shadow:0 0 0 2px var(--accent,#C2337A),0 8px 18px -8px rgba(0,0,0,.5);cursor:pointer}
+.shutter:active{transform:scale(.94)}

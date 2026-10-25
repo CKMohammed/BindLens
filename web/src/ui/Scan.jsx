@@ -100,7 +100,32 @@ export function Scan({ book: bid, into, at }) {
   const target = dest.file ? fileFor(dest.file) : null;
   const destBook = books.value.find(x => x.id === dest.book);
 
+  // the camera inside the page (no other app, no photo file to decode); the phone's camera app only when this cannot be used
+  const [live, setLive] = useState(null);
+  const liveRef = useRef(null), video = useRef();
+  const stopLive = () => { const st = liveRef.current; if (st) st.getTracks().forEach(t => t.stop()); liveRef.current = null; setLive(null); };
+  useEffect(() => () => { const st = liveRef.current; if (st) st.getTracks().forEach(t => t.stop()); }, []);
+  useEffect(() => { if (live && video.current) { video.current.srcObject = live; video.current.play().catch(() => {}); } }, [live]);
+  const openCamera = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+      liveRef.current = st; setLive(st); return true;
+    } catch (e) { console.warn(e); return false; }
+  };
+  const shoot = async () => {
+    const v = video.current;
+    if (!v || !v.videoWidth) return;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext("2d").drawImage(v, 0, 0);
+    stopLive();
+    const bmp = await createImageBitmap(c);
+    setCur({ bmp, file: null, pts: findCorners(bmp) });
+  };
+
   const take = async (camera) => {
+    if (camera && await openCamera()) return;
     const fs = await pickFiles({ accept: "image/*,.heic,.heif", multiple: !camera, capture: camera ? "environment" : null });
     if (!fs.length) return;
     const [first, ...rest] = fs;
@@ -248,7 +273,17 @@ export function Scan({ book: bid, into, at }) {
         </div>
       )}
       {busy && <div style={{ textAlign: "center" }}><div class="spinner" /><p class="small muted">{busy}</p></div>}
-      {!busy && !cur && (
+      {!busy && !cur && live && (
+        <div class="scanlive">
+          <video ref={video} playsInline muted autoPlay />
+          <div class="row" style={{ justifyContent: "center", alignItems: "center", gap: 18, marginTop: 10 }}>
+            <button class="btn ghost" onClick={stopLive}>{_t("Cancel")}</button>
+            <button class="shutter" onClick={shoot} aria-label={_t("Take the photo")} title={_t("Take the photo")} />
+            <span style={{ width: 80 }} />
+          </div>
+        </div>
+      )}
+      {!busy && !cur && !live && (
         <div style={{ textAlign: "center", padding: "10px 0" }}>
           <p class="muted" style={{ marginTop: 0 }}>{pages.length ? _t("Another page?") : _t("Put the paper on a dark table, with light on it, and take a photo from above.")}</p>
           <div class="row wrap" style={{ justifyContent: "center" }}>
