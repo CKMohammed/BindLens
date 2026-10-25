@@ -9,7 +9,7 @@ import { Viewer, docState, scrollTo, selectedMark, searchHits, toolLock } from "
 import { undo, redo, allMarks, fileFor, pageOp, getDoc, call, afterEdit } from "../docs.js";
 import { uploadFiles, pickFiles, newBook, renameBook, deleteBook, renameFile, deleteFile, moveFileTo, moveFileInBook,
   openPanel, addFromDrive, addFolderFromDrive, refresh, setBookColor, toggleBookLock, newSubBook, renameSub, deleteSub, moveFileToSub,
-  addFolder, releaseBook, releaseFile } from "../actions.js";
+  addFolder, releaseBook, releaseFile, bookDragStart, bookWasDragged } from "../actions.js";
 import * as FT from "../filetools.js";
 import { initials, isPaged, fmtDate, rgbToHex, BOOK_COLORS, isPhone } from "../util.js";
 import { AccountButton } from "./Home.jsx";
@@ -156,8 +156,8 @@ function Rail({ book }) {
   return (
     <div class="rail">
       {books.value.map(b => (
-        <button key={b.id} class={"tab" + (b.id === book.id ? " on" : "")} title={b.name}
-          onClick={() => openBook(b.id)} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={{ ...bookMeta(b.id), tstyle: "flat" }} size={34} /></button>
+        <button key={b.id} data-bk={b.id} onPointerDown={(e) => bookDragStart(e, b.id)} class={"tab" + (b.id === book.id ? " on" : "")} title={b.name}
+          onClick={() => { if (!bookWasDragged()) openBook(b.id); }} onContextMenu={(e) => { e.preventDefault(); openPanel("bookstyle", { id: b.id }); }}><BookTile book={b} meta={{ ...bookMeta(b.id), tstyle: "flat" }} size={34} /></button>
       ))}
       <button class="ib" title={_t("New book")} onClick={() => newBook().then(b => b && openBook(b.id))}><Icon n="plus" /></button>
     </div>
@@ -425,7 +425,7 @@ function Side({ book }) {
       </div>
       <div class="books">
         {books.value.map(b => (
-          <button key={b.id} class={"bookrow" + (b.id === book.id ? " on" : "")} onClick={() => openBook(b.id)}
+          <button key={b.id} data-bk={b.id} onPointerDown={(e) => bookDragStart(e, b.id)} class={"bookrow" + (b.id === book.id ? " on" : "")} onClick={() => { if (!bookWasDragged()) openBook(b.id); }}
             onContextMenu={(e) => { e.preventDefault(); bookMenu(e, b); }}>
             <span class="chip"><BookTile book={b} meta={bookMeta(b.id)} size={28} /></span>
             <span class="grow ellipsis">{b.name}</span><span class="n">{b.files.length}</span>

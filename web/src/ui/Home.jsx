@@ -5,7 +5,7 @@ import { books, settings, setSetting, store, openBook, toast, bookMeta, setBookM
 import { greeting, fmtDate, mix, initials, daysBetween, isoDate, uid } from "../util.js";
 import { Icon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
-import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, openPanel, continueReading,
+import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, bookDragStart, bookWasDragged, openPanel, continueReading,
   addFromDrive, addFolderFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook, addSharedBook, bringNewFiles } from "../actions.js";
 import { needsCount, needsNow, status } from "../reports/dates.js";
 import { openItem, addCountdown } from "./needs.js";
@@ -99,7 +99,8 @@ function Spine({ b, h, onHover, lean }) {
       style={{ height: h + "px", width: w + "px", "--sc": c, "--h": h + "px", "--ms": Math.round(w * 0.62) + "px",
         background: `linear-gradient(90deg, ${mix(c, "#000000", 0.28)} 0%, ${c} 7%, ${mix(c, "#ffffff", 0.06)} 50%, ${c} 93%, ${mix(c, "#000000", 0.3)} 100%)`,
         outline: drop ? "3px solid var(--accent)" : "" }}
-      onClick={open}
+      data-bk={b.id} onPointerDown={(e) => bookDragStart(e, b.id)}
+      onClick={() => { if (!bookWasDragged()) open(); }}
       onMouseEnter={() => onHover(b)} onFocus={() => onHover(b)} onMouseLeave={() => onHover(null)}
       onContextMenu={(e) => { e.preventDefault(); openMenu({ clientX: e.clientX, clientY: e.clientY, preventDefault() {}, stopPropagation() {} }, menuItems()); }}
       onDragOver={(e) => { e.preventDefault(); setDrop(true); }} onDragLeave={() => setDrop(false)}
@@ -135,7 +136,7 @@ function BookList({ all }) {
           const m = bookMeta(b.id);
           const t = latest(b);
           return (
-            <div class="bl-row" key={b.id} onClick={() => openBook(b.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openBook(b.id); }}>
+            <div class="bl-row" key={b.id} data-bk={b.id} onPointerDown={(e) => bookDragStart(e, b.id)} onClick={() => { if (!bookWasDragged()) openBook(b.id); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openBook(b.id); }}>
               <span class="bl-name"><BookTile book={b} meta={m} size={30} /><b>{b.name}</b>{m.locked ? <Icon n="lock" size={13} /> : null}</span>
               <span class="muted">{b.files.length}</span>
               <span class="muted">{t ? fmtDate(new Date(t)) : "-"}</span>

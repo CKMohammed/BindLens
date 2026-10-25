@@ -1428,3 +1428,7 @@ table.rows tr.new:hover td{background:#E5EEFF}
 .framebar .fb[data-k]{touch-action:none;cursor:grab}
 .framebar .fb.dragging{opacity:.55;cursor:grabbing;transform:scale(1.08)}
 .framebar .fb.dragging .fbtip{display:none}
+
+/* books can be dragged to a new place (shelf, Library list, rail) */
+body.bkdrag,body.bkdrag *{cursor:grabbing!important;user-select:none}
+[data-bk].bkdragging{opacity:.55;filter:saturate(1.2);transition:none}

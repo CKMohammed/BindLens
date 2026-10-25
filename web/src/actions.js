@@ -180,6 +180,44 @@ export function setBookColor(book, color) {
   books.value = books.value.map(b => b.id === book.id ? { ...b, color } : b);
 }
 
+// drag a book (on the shelf, in the Library list or the rail) onto another one to put it there - mouse or pen;
+// on a phone, a long press opens the menu with Move left / Move right
+let bookDragged = null;
+export const bookWasDragged = () => !!(bookDragged && bookDragged.moved);
+export function moveBookTo(id, targetId) {
+  const list = [...books.value];
+  const i = list.findIndex(b => b.id === id), j = list.findIndex(b => b.id === targetId);
+  if (i < 0 || j < 0 || i === j) return;
+  const [x] = list.splice(i, 1);
+  list.splice(j, 0, x);
+  books.value = list;
+  setSetting("bookOrder", list.map(b => b.id));
+}
+export function bookDragStart(e, id) {
+  if (e.button !== 0 || e.pointerType === "touch") return;
+  const st = { id, x: e.clientX, y: e.clientY, moved: false };
+  bookDragged = st;
+  const el = e.currentTarget;
+  const move = (ev) => {
+    if (!st.moved && Math.hypot(ev.clientX - st.x, ev.clientY - st.y) < 8) return;
+    if (!st.moved) { st.moved = true; document.body.classList.add("bkdrag"); }
+    ev.preventDefault();
+    document.querySelectorAll("[data-bk].bkdragging").forEach(x => x.classList.remove("bkdragging"));
+    document.querySelectorAll(`[data-bk="${CSS.escape(id)}"]`).forEach(x => x.classList.add("bkdragging"));
+    const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("[data-bk]");
+    const t = over && over.dataset.bk;
+    if (t && t !== id) moveBookTo(id, t);
+  };
+  const up = () => {
+    window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    document.body.classList.remove("bkdrag");
+    document.querySelectorAll("[data-bk].bkdragging").forEach(x => x.classList.remove("bkdragging"));
+    setTimeout(() => { if (bookDragged === st) bookDragged = null; }, 250);
+  };
+  window.addEventListener("pointermove", move, { passive: false });
+  window.addEventListener("pointerup", up);
+}
+
 export function moveBook(book, by) {
   const list = [...books.value];
   const i = list.findIndex(b => b.id === book.id);
