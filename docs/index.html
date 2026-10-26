@@ -41,7 +41,8 @@ nav .pill{font-size:13px;padding:8px 16px}
 .more{font-weight:600;color:var(--accent)}
 .more:hover{text-decoration:underline}
 /* hero */
-.top{background:linear-gradient(180deg,#FFF1F7 0%,#FFF7EC 62%,var(--paper) 100%)}.feats{margin:18px auto 0;max-width:1120px;display:flex;justify-content:center;gap:22px;flex-wrap:wrap}.feat{display:flex;flex-direction:column;align-items:center;gap:7px;width:62px;animation:up .6s cubic-bezier(.2,.7,.2,1) both}.feat i{width:50px;height:50px;border-radius:15px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 20px -14px rgba(23,21,31,.45),inset 0 0 0 1px rgba(0,0,0,.04);transition:transform .25s}.feat:hover i{transform:translateY(-3px)}.feat svg{width:23px;height:23px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.feat span{font-size:12px;font-weight:600;color:#4E4A5A}
+.top{background:linear-gradient(180deg,#FFF1F7 0%,#FFF7EC 62%,var(--paper) 100%)}.feats{margin:16px auto 0;max-width:1120px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap}.feat{display:flex;flex-direction:column;align-items:center;gap:6px;width:56px;animation:up .6s cubic-bezier(.2,.7,.2,1) both}.feat i{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 20px -14px rgba(23,21,31,.45),inset 0 0 0 1px rgba(0,0,0,.04);transition:transform .25s}.feat:hover i{transform:translateY(-3px)}.feat svg{width:20px;height:20px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.feat.clip{cursor:pointer}.feat.on i{transform:translateY(-3px);box-shadow:0 0 0 2px var(--accent),0 12px 22px -12px rgba(194,51,122,.6)}.feat.on span{color:var(--accent)}
+.feat span{font-size:11.5px;font-weight:600;color:#4E4A5A}
 .hero{text-align:center;padding:24px 24px 20px;animation:up .9s cubic-bezier(.2,.7,.2,1) both}
 .hero h1{display:inline-flex;align-items:center;gap:12px}.hero img{width:36px;height:36px;margin:0;border-radius:10px;box-shadow:0 16px 30px -14px rgba(194,51,122,.5)}
 .hero h1{margin:0 auto;font-size:clamp(30px,2.9vw,38px);line-height:1.05;letter-spacing:-.035em}
@@ -215,5 +216,14 @@ footer a:hover{color:var(--ink)}
 <div class="fl"><a href="mailto:support@bindlens.com">support@bindlens.com</a><a href="/app/privacy.html">Privacy</a><a href="/app/terms.html">Terms</a><a href="/es/" onclick="try{localStorage.setItem('bl_lang','es')}catch(e){}">Español</a></div>
 <span>BindLens 1.0 · © 2026 M. Chahboune Kadi</span>
 </div></footer>
+<script>
+/* tap a function: the film in the tablet shows it (and repeats it); tap it again for the whole tour */
+(function(){var v=document.querySelector('.scr video');if(!v)return;
+var S={0:[20,30.2],1:[4,9.1],3:[9.2,14.7],4:[17.1,19.4],5:[14.8,17],6:[0,3.3]},cur=null,fs=document.querySelectorAll('.feat');
+fs.forEach(function(f,i){if(!S[i])return;f.classList.add('clip');f.setAttribute('role','button');f.tabIndex=0;
+function go(){fs.forEach(function(x){x.classList.remove('on')});if(cur===i){cur=null;return}cur=i;f.classList.add('on');try{v.currentTime=S[i][0];var p=v.play();if(p&&p.catch)p.catch(function(){})}catch(e){}}
+f.addEventListener('click',go);f.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}})});
+v.addEventListener('timeupdate',function(){if(cur!==null&&(v.currentTime>=S[cur][1]||v.currentTime<S[cur][0]-0.5))v.currentTime=S[cur][0]})})();
+</script>
 </body>
 </html>
