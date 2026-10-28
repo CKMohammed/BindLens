@@ -2270,5 +2270,16 @@ export default {
  "This photo could not be opened. Try again, or choose it from your photos.": "No se pudo abrir esta foto. Prueba otra vez o elígela de tus fotos.",
  "The icons on the right of the frame. Tick the ones you want; the arrows change their order (or drag the icons on the bar). What does not fit goes under More.": "Los iconos a la derecha del marco. Marca los que quieras; las flechas cambian su orden (o arrastra los iconos en la barra). Lo que no cabe va en Más.",
  "Take the photo": "Hacer la foto",
- "It opens in your own email, addressed to {0}. We answer from there.": "Se abre en tu propio correo, dirigido a {0}. Te contestamos desde ahí."
+ "It opens in your own email, addressed to {0}. We answer from there.": "Se abre en tu propio correo, dirigido a {0}. Te contestamos desde ahí.",
+ "Expiry date": "Caducidad",
+ "What expires?": "¿Qué caduca?",
+ "e.g. Car insurance, Passport, Contract": "p. ej. Seguro del coche, Pasaporte, Contrato",
+ "When does it expire?": "¿Cuándo caduca?",
+ "The date, e.g. 2027-06-24": "La fecha, p. ej. 2027-06-24",
+ "Remind me how many days before?": "¿Cuántos días antes te aviso?",
+ "Days, e.g. 30": "Días, p. ej. 30",
+ "I will remind you {0} days before.": "Te avisaré {0} días antes.",
+ "expired": "caducado",
+ "Attention: \"{0}\" expires on {1} ({2})": "Atención: «{0}» caduca el {1} ({2})",
+ "Add an expiry date...": "Añadir fecha de caducidad..."
 };

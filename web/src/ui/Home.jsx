@@ -8,7 +8,7 @@ import { openMenu, ask } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, bookDragStart, bookWasDragged, openPanel, continueReading,
   addFromDrive, addFolderFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook, addSharedBook, bringNewFiles } from "../actions.js";
 import { needsCount, needsNow, status } from "../reports/dates.js";
-import { openItem, addCountdown } from "./needs.js";
+import { openItem, addCountdown, addExpiry, daysLeft, expiriesDue } from "./needs.js";
 import { indexLibrary, indexed } from "../docs.js";
 import { BookTile } from "./bookicons.jsx";
 import { Logo } from "./Logo.jsx";
@@ -172,6 +172,15 @@ function NeedsCard() {
     : setSetting("notes", notes.map(x => x.id === n.id ? { ...x, done: !x.done } : x));
   const drop = (n) => n.rem ? setSetting("reminders", (st.reminders || []).filter(x => x.id !== n.id)) : setSetting("notes", notes.filter(x => x.id !== n.id));
   const when = (d) => d === today ? _t("today") : new Date(d + "T00:00").toLocaleDateString(loc, { day: "numeric", month: "short" });
+  const exps = (st.expiries || []).map(e => ({ ...e, left: daysLeft(e) })).sort((a, b) => a.left - b.left);
+  const expWhen = (e) => e.left < 0 ? _t("expired") : e.left === 0 ? _t("today") : _t("in {0} days", e.left);
+  // once a day, a warning for what expires soon
+  useEffect(() => {
+    const due = expiriesDue(); if (!due.length) return;
+    const k = "bl-exp-" + isoDate(new Date());
+    try { if (localStorage.getItem(k)) return; localStorage.setItem(k, "1"); } catch (e) {}
+    due.slice(0, 3).forEach(e => toast(_t("Attention: \"{0}\" expires on {1} ({2})", e.text, fmtDate(new Date(e.date + "T00:00")), daysLeft(e) < 0 ? _t("expired") : _t("in {0} days", daysLeft(e))), "bad"));
+  }, []);
   const cds = (st.countdowns || []).map(c => ({ ...c, days: daysBetween(new Date(), new Date(c.date + "T00:00")) })).filter(c => c.days >= 0).sort((a, b) => a.days - b.days);
   return (
     <aside class="needcard notecard">
@@ -190,9 +199,18 @@ function NeedsCard() {
           <button class="nt-x" aria-label={_t("Delete")} onClick={() => drop(n)}><Icon n="close" size={12} /></button>
         </div>
       ))}
+      {exps.slice(0, 3).map(e => (
+        <div key={e.id} class={"nt exp" + (e.left <= (e.before ?? 30) ? " late" : "")} title={_t("Attention: \"{0}\" expires on {1} ({2})", e.text, fmtDate(new Date(e.date + "T00:00")), expWhen(e))}>
+          <Icon n="calendar" size={13} />
+          <span class="grow ellipsis" onClick={() => { if (e.bookId) openItem({ ...e, mine: true, page: 0 }); }}>{e.text}</span>
+          <small class="nt-when">{expWhen(e)}</small>
+          <button class="nt-x" aria-label={_t("Delete")} onClick={() => setSetting("expiries", (st.expiries || []).filter(x => x.id !== e.id))}><Icon n="close" size={12} /></button>
+        </div>
+      ))}
       {cds.slice(0, 2).map(c => <div key={c.id} class="nt cd"><b class="nt-big">{c.days}</b><span class="grow ellipsis">{c.text}</span><small class="nt-when">{_t("days")}</small></div>)}
       <div class="nc-foot">
         <button class="btn plain small" onClick={() => addCountdown()}><Icon n="hourglass" size={15} />{_t("Count down")}</button>
+        <button class="btn plain small" onClick={() => addExpiry()}><Icon n="calendar" size={15} />{_t("Expiry date")}</button>
         <button class="btn plain small" onClick={() => openPanel("inbox")}><Icon n="download" size={15} />{_t("Inbox")}</button>
         <button class="btn plain small" onClick={() => openPanel("tasks")}><Icon n="task" size={15} />{_t("Tasks")}</button>
       </div>

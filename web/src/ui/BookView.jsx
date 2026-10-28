@@ -288,6 +288,7 @@ function fileMenu(e, book, f) {
       ...books.value.filter(b2 => b2.id !== book.id && b2.files.some(x => isPaged(x.kind) && x.kind !== "image")).map(b2 => ({ label: b2.name, swatch: b2.color, sub: b2.files.filter(x => isPaged(x.kind) && x.kind !== "image").map(x => ({ label: x.name, icon: fileIcon(x.kind), run: () => openPanel("reports", { compare: { a: f.id, b: x.id } }) })) })),
     ] },
     { label: _t("Print..."), icon: "print", run: () => { fileId.value = f.id; openPanel("print"); } },
+    { label: _t("Add an expiry date..."), icon: "calendar", run: () => import("./needs.js").then(m => m.addExpiry({ text: f.name.replace(/\.[^.]+$/, ""), bookId: book.id, fileId: f.id, file: f.name, book: book.name })) },
     { label: _t("Send by email..."), icon: "mail", run: () => FT.sendFile(f) },
     { label: _t("Download a copy"), icon: "download", run: async () => { const buf = await store.value.read(f); const { download } = await import("../util.js"); download(buf, f.name, f.mime); } },
     f.kind === "gdoc" && store.value.editLink && { label: _t("Edit it in Google"), icon: "edit", run: () => openBeside(store.value.editLink(/spreadsheet/.test(f.mime) ? "sheet" : /presentation/.test(f.mime) ? "slides" : "doc", f.id)) },

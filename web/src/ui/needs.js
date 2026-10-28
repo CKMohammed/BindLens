@@ -34,3 +34,20 @@ export async function addCountdown(preset) {
   toast(_t("It counts down on Home."), "ok");
 }
 
+
+// expiry dates you add yourself (a document, a policy, a passport...): BindLens warns you some days before (30 by default)
+export async function addExpiry(preset = {}) {
+  const text = await ask(_t("Expiry date"), { label: _t("What expires?"), value: preset.text || "", placeholder: _t("e.g. Car insurance, Passport, Contract"), ok: _t("Next") });
+  if (!text) return;
+  const d = await ask(_t("When does it expire?"), { label: _t("The date, e.g. 2027-06-24"), value: isoDate(new Date(Date.now() + 365 * 86400000)), ok: _t("Next") });
+  if (!d || isNaN(new Date(d + "T00:00"))) { if (d) toast(_t("Write the date like this: 2026-12-18")); return; }
+  const b = await ask(_t("Remind me how many days before?"), { label: _t("Days, e.g. 30"), value: "30", ok: _t("Save") });
+  if (b === null || b === undefined) return;
+  const before = Math.max(0, Math.min(365, parseInt(b, 10) || 30));
+  setSetting("expiries", [...(settings.value.expiries || []), { id: uid(), text: text.slice(0, 80), date: d, before,
+    bookId: preset.bookId || "", fileId: preset.fileId || "", file: preset.file || "", book: preset.book || "" }]);
+  toast(_t("I will remind you {0} days before.", before), "ok");
+}
+export function daysLeft(e) { return Math.round((new Date(e.date + "T00:00") - new Date(isoDate(new Date()) + "T00:00")) / 86400000); }
+// the ones to warn about now: inside their warning days, or already expired
+export function expiriesDue() { return (settings.value.expiries || []).filter(e => daysLeft(e) <= (e.before ?? 30)).sort((a, b) => a.date.localeCompare(b.date)); }
