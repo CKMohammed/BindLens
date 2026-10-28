@@ -2281,5 +2281,10 @@ export default {
  "I will remind you {0} days before.": "Te avisaré {0} días antes.",
  "expired": "caducado",
  "Attention: \"{0}\" expires on {1} ({2})": "Atención: «{0}» caduca el {1} ({2})",
- "Add an expiry date...": "Añadir fecha de caducidad..."
+ "Add an expiry date...": "Añadir fecha de caducidad...",
+ "Where do they go?": "¿Dónde los pongo?",
+ "Into \"{0}\"": "En «{0}»",
+ "As its own book": "Como un libro propio",
+ "Each one as its own book": "Cada uno como un libro propio",
+ "A new book with them": "Un libro nuevo con ellos"
 };

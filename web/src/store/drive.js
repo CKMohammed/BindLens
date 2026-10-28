@@ -545,6 +545,8 @@ export class DriveStore {
       // folders: only folders are shown, and a folder can be chosen; or the files inside one folder
       let view;
       if (opts.shared) view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER).setOwnedByMe(false);
+      // folders and files together (a folder, a Google Sheet, a PDF...), any of them can be chosen
+      else if (opts.both) view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true);
       else if (opts.folders) view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER);
       else {
         view = new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);

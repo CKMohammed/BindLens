@@ -2,7 +2,7 @@
 import { batch } from "@preact/signals";
 import { store, books, settings, setSetting, setBookMeta, toast, openBook, bookId, fileId, pageNo, view, panel,
   addFileToBook, removeFile, reloadLibrary, currentBook, logChange } from "./state.js";
-import { ask, confirm } from "./ui/dialogs.jsx";
+import { ask, confirm, choose } from "./ui/dialogs.jsx";
 import { cleanName, uniqueName, mimeOf, kindOf, colorFor } from "./util.js";
 import { saveAll } from "./docs.js";
 import { _t, loc } from "./i18n.js";
@@ -76,11 +76,26 @@ export function linkBook(fo, own = true) {
 export async function addFromDrive(book) {
   if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add the files from your computer (Add files).") : _t("Sign in with Google to add files from your Drive.")); return; }
   try {
-    const picked = await store.value.pick(true, { folders: true });
+    const picked = await store.value.pick(true, { both: true });
     if (!picked.length) return;
     if (picked.every(x => x.mime === "application/vnd.google-apps.folder")) { for (const p of picked) await importDriveFolder(p); return; }
-    book = book || currentBook.value || books.value[0] || await newBook();
-    if (!book) return;
+    // files (a Google Sheet, PDFs...): into a book you choose, a new book with them, or each one as its own book
+    let each = false;
+    if (!book) {
+      const files = picked.filter(x => x.mime !== "application/vnd.google-apps.folder");
+      const cur = currentBook.value;
+      const where = await choose(_t("Where do they go?"), files.length === 1 ? files[0].name : _t("{0} files", files.length), [
+        cur && { key: cur.id, label: _t("Into \"{0}\"", cur.name), icon: "book" },
+        { key: "__each", label: files.length === 1 ? _t("As its own book") : _t("Each one as its own book"), icon: "book" },
+        files.length > 1 && { key: "__new", label: _t("A new book with them"), icon: "plus" },
+        ...books.value.filter(b => !cur || b.id !== cur.id).slice(0, 8).map(b => ({ key: b.id, label: _t("Into \"{0}\"", b.name), icon: "book" })),
+      ].filter(Boolean));
+      if (!where) return;
+      if (where === "__each") each = true;
+      else if (where === "__new") book = await newBook();
+      else book = books.value.find(b => b.id === where);
+      if (!each && !book) return;
+    }
     // 1.0: nothing is copied. A folder becomes a book as it is; a file stays where it is - if it is not in the book's
     // folder, the book shows it through a shortcut (the original is the one you read and mark)
     let n = 0;
@@ -88,6 +103,7 @@ export async function addFromDrive(book) {
     for (const p of picked) {
       if (p.mime === "application/vnd.google-apps.folder") continue;
       const meta = await store.value.meta(p.id);
+      if (each) { book = await newBook(meta.name.replace(/\.[^.]+$/, ""), { quiet: true }); if (!book) continue; }
       const inBook = (meta.parents || []).some(x => x === book.id || (book.subs || []).some(sb => sb.id === x));
       if (!inBook) await store.value.createShortcut(p.id, book.id, meta.name);
       logChange(_t("Added from your Drive (the original, not a copy)"), meta.name, book.name);

@@ -51936,7 +51936,48 @@ class App:
                 if rr.contains(pt):
                     if best is None or r.get_area() < self.fitz.Rect(best["bbox"]).get_area():
                         best = ln
+        if best is not None:
+            best = self._et_whole_line(d, best)
         return best, page
+
+    def _et_whole_line(self, d, best):
+        """1.0: a line of a PDF is often cut into pieces (spaced-out words, justified text); the pieces on the same
+        baseline, next to each other, are one line for the eye - they are changed together."""
+        try:
+            bb = best["bbox"]
+            h = bb[3] - bb[1]
+            cy = (bb[1] + bb[3]) / 2
+            sz = max([sp_.get("size", h) for sp_ in best.get("spans", [])] or [h])
+            row = []
+            for b in d.get("blocks", []):
+                for ln in b.get("lines", []):
+                    if not any(sp_.get("text", "").strip() for sp_ in ln.get("spans", [])):
+                        continue
+                    if tuple(map(round, ln.get("dir", (1, 0)))) != tuple(map(round, best.get("dir", (1, 0)))):
+                        continue
+                    lb = ln["bbox"]
+                    if abs((lb[1] + lb[3]) / 2 - cy) < max(2, h * 0.35) and abs((lb[3] - lb[1]) - h) < h * 0.6:
+                        row.append(ln)
+            row.sort(key=lambda ln: ln["bbox"][0])
+            i = next(k for k, ln in enumerate(row) if ln is best)
+            lo = hi = i
+            while lo > 0 and row[lo]["bbox"][0] - row[lo - 1]["bbox"][2] < sz * 2.2:
+                lo -= 1
+            while hi < len(row) - 1 and row[hi + 1]["bbox"][0] - row[hi]["bbox"][2] < sz * 2.2:
+                hi += 1
+            if hi == lo:
+                return best
+            part = row[lo:hi + 1]
+            spans = []
+            for k, ln in enumerate(part):
+                if k and ln["bbox"][0] - part[k - 1]["bbox"][2] > sz * 0.2 and spans:
+                    sp0 = dict(spans[-1]); sp0["text"] = " "; spans.append(sp0)
+                spans.extend(ln.get("spans", []))
+            box = (part[0]["bbox"][0], min(ln["bbox"][1] for ln in part), max(ln["bbox"][2] for ln in part),
+                   max(ln["bbox"][3] for ln in part))
+            return dict(best, bbox=box, spans=spans)
+        except Exception:
+            return best
 
     def _et_hover(self, e):
         c = self.canvas
@@ -52426,6 +52467,12 @@ class App:
                 page.apply_redactions(images=0, graphics=0, text=0)       # only the letters - pictures stay
             except TypeError:
                 page.apply_redactions(images=0)
+            # 1.0: some PDFs keep their letters through a redaction - any still there are covered in white
+            try:
+                if page.get_text("text", clip=cut).strip():
+                    page.draw_rect(fz.Rect(r.x0 - 0.5, r.y0, r.x1 + 0.5, r.y1), color=None, fill=(1, 1, 1), overlay=True)
+            except Exception:
+                pass
             if fbuf:
                 page.insert_font(fontname=fname, fontbuffer=fbuf)
                 ffile = None

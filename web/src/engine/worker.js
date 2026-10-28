@@ -884,6 +884,25 @@ const api = {
       }
     }
     if (!best) return null;
+    // a line of a PDF is often cut into pieces (words spaced out, justified text): the pieces on the same baseline,
+    // next to each other, are one line for the eye - change them together
+    {
+      const cy = (l) => l.bbox.y + l.bbox.h / 2, sz = (best.font && best.font.size) || best.bbox.h;
+      const row = [];
+      for (const bl of js.blocks) if (bl.type === "text") for (const l of bl.lines)
+        if (Math.abs(cy(l) - cy(best)) < Math.max(2, best.bbox.h * 0.35) && Math.abs(l.bbox.h - best.bbox.h) < best.bbox.h * 0.6) row.push(l);
+      row.sort((u, v) => u.bbox.x - v.bbox.x);
+      let i = row.indexOf(best), lo = i, hi = i;
+      while (lo > 0 && row[lo].bbox.x - (row[lo - 1].bbox.x + row[lo - 1].bbox.w) < sz * 2.2) lo--;
+      while (hi < row.length - 1 && row[hi + 1].bbox.x - (row[hi].bbox.x + row[hi].bbox.w) < sz * 2.2) hi++;
+      if (hi > lo) {
+        const part = row.slice(lo, hi + 1);
+        let text = "";
+        part.forEach((l, k) => { if (k) { const gap = l.bbox.x - (part[k - 1].bbox.x + part[k - 1].bbox.w); text += gap > sz * 0.2 && !/\s$/.test(text) && !/^\s/.test(l.text) ? " " : ""; } text += l.text; });
+        const x0 = part[0].bbox.x, y0 = Math.min(...part.map(l => l.bbox.y)), x1 = Math.max(...part.map(l => l.bbox.x + l.bbox.w)), y1 = Math.max(...part.map(l => l.bbox.y + l.bbox.h));
+        best = { ...part[0], font: best.font, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, text, x: part[0].x, y: best.y };
+      }
+    }
     // the colour of its letters
     let color = [0, 0, 0];
     try {
@@ -1283,6 +1302,14 @@ const api = {
       r.setRect(rect);
       r.update();
       p.applyRedactions(false, 0, 0, 0);
+      // some PDFs keep their letters through a redaction: if any are still there, they are covered in the paper's colour
+      if (!cover) {
+        try {
+          const left = stextOf(p).blocks.some(bl => bl.type === "text" && bl.lines.some(l => l.text.trim() &&
+            l.bbox.x < rect[2] - 1 && l.bbox.x + l.bbox.w > rect[0] + 1 && l.bbox.y < rect[3] - 1 && l.bbox.y + l.bbox.h > rect[1] + 1));
+          if (left) cover = { rect: [rect[0] - 1, rect[1] - 1, rect[2] + 1, rect[3] + 1], color: [1, 1, 1] };
+        } catch (e) {}
+      }
       addTextToPage(d, page, items, cover);
       p.update();
       d.st = null;
