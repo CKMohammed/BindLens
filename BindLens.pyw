@@ -146,7 +146,7 @@ def _tr(s):
             if len(_TR_CACHE) < 50000:
                 _TR_CACHE[s] = hit
     if LITE and "BindLens" in hit and "by BindLens" not in hit:    # BookReader: its own name everywhere
-        hit = hit.replace("BindLens", "BookReader")
+        hit = hit.replace("BindLens", "AZBook Reader")
     return hit
 
 
@@ -2780,7 +2780,7 @@ ES_TEXT = {
     "Background: dark": "Fondo: oscuro",
     "Remove from the library (the documents stay where they are)": "Quitar de la biblioteca (los documentos se quedan donde están)",
     "My highlights and notes": "Mis resaltados y notas",
-    "A newer BookReader is on bindlens.com.": "Hay una versión nueva de BookReader en bindlens.com.",
+    "A newer AZBook Reader is on bindlens.com.": "Hay una versión nueva de AZBook Reader en bindlens.com.",
     "Deleted - Ctrl+Z brings it back.": "Borrado. Ctrl+Z lo recupera.",
     "Click a highlight or a note to delete it.": "Haz clic en un resaltado o una nota para borrarlo.",
     "Your recovery code (the one you saved when you chose the PIN):": "Tu código de recuperación (el que guardaste al elegir el PIN):",
@@ -4131,7 +4131,7 @@ def logo_colors(fitz, path, n=3):
 
 def _ch_word(c, x, cy, ink, sub, F):
     """BookReader, and small "by BindLens" after it - drawn on a canvas; returns its width."""
-    a = c.create_text(x, cy, text="BookReader", anchor="w", font=F(10, "bold"), fill=ink)
+    a = c.create_text(x, cy, text="AZBook Reader", anchor="w", font=F(10, "bold"), fill=ink)
     b_ = c.bbox(a)
     return ((b_[2] - b_[0]) if b_ else 80) + 8
 
@@ -19828,7 +19828,7 @@ class App:
         self._index_job = None
         self._icons = {}
 
-        root.title("BookReader" if LITE else APP_NAME)
+        root.title("AZBook Reader" if LITE else APP_NAME)
         # 1.0: BindLens opens with about 1 cm free all round (it fills the screen only when you maximise it)
         try:
             cm = int(round(root.winfo_fpixels("1c")))
@@ -25327,7 +25327,7 @@ class App:
                 im_ = self._pic_br(84)
                 if im_ is not None:
                     c.create_image(cx_, cy_ - 96, image=im_)
-                c.create_text(cx_, cy_ - 26, text="BookReader", font=self.F(20, "bold"), fill=T["text"])
+                c.create_text(cx_, cy_ - 26, text="AZBook Reader", font=self.F(20, "bold"), fill=T["text"])
                 c.create_text(cx_, cy_ + 6, text=_tr("Your folders, ready to read. They stay where they are."),
                               font=self.F(10), fill=T["muted"])
                 round_rect(c, cx_ - 92, cy_ + 36, cx_ + 92, cy_ + 76, 20, fill=self.accent, outline="", tags=("addf",))
@@ -54882,17 +54882,17 @@ class App:
 
     def _book_pin_new(self, f):
         """BookReader: a PIN of this folder's own (not the app's) - typed twice. True when it is set."""
-        a = simpledialog.askstring("BookReader", _tr("A PIN for this folder only (4 to 8 figures):"), show="•",
+        a = simpledialog.askstring("AZBook Reader", _tr("A PIN for this folder only (4 to 8 figures):"), show="•",
                                    parent=self.root)
         if not a:
             return False
         a = a.strip()
         if not a.isdigit() or not 4 <= len(a) <= 8:
-            messagebox.showwarning("BookReader", _tr("The PIN is 4 to 8 figures."), parent=self.root)
+            messagebox.showwarning("AZBook Reader", _tr("The PIN is 4 to 8 figures."), parent=self.root)
             return False
-        b = simpledialog.askstring("BookReader", _tr("The same PIN again:"), show="•", parent=self.root)
+        b = simpledialog.askstring("AZBook Reader", _tr("The same PIN again:"), show="•", parent=self.root)
         if (b or "").strip() != a:
-            messagebox.showwarning("BookReader", _tr("The two PINs are not the same."), parent=self.root)
+            messagebox.showwarning("AZBook Reader", _tr("The two PINs are not the same."), parent=self.root)
             return False
         salt = os.urandom(16).hex()
         self.lib.settings.setdefault("book_pins", {})[f] = {"salt": salt, "hash": pin_hash(a, salt), "n": len(a)}

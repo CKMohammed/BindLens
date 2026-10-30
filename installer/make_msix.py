@@ -1,16 +1,22 @@
 """The Microsoft Store package of BindLens (MSIX): the program built by PyInstaller, a manifest and its tiles.
 Microsoft signs it when it is published in the Store - no certificate needed here.
-usage: python installer/make_msix.py <dist folder> <out folder> <version a.b.c.0>"""
+usage: python installer/make_msix.py <dist folder> <out folder> <version a.b.c.0> [reader]
+  reader: AZBook Reader (BookReader.exe) instead of BindLens"""
 import os, shutil, sys
 from PIL import Image
 
 dist, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+READER = len(sys.argv) > 4 and sys.argv[4] == "reader"
+ID, NAME, EXE, APPID = (("BindLens.AZBookReader", "AZBook Reader", "BookReader.exe", "AZBookReader") if READER
+                        else ("BindLens.BindLens", "BindLens", "BindLens.exe", "BindLens"))
+DESC = "Read, organise and find anything in your documents." if READER else "Your documents, bound into books."
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if os.path.exists(out):
     shutil.rmtree(out)
 shutil.copytree(dist, out)
 os.makedirs(os.path.join(out, "Assets"), exist_ok=True)
-src = Image.open(os.path.join(root, "docs", "app", "icon-512.png")).convert("RGBA")
+src = (Image.open(os.path.join(root, "BookReader.ico")) if READER else
+       Image.open(os.path.join(root, "docs", "app", "icon-512.png"))).convert("RGBA")
 
 
 def tile(name, w, h, pad=0.12):
@@ -30,9 +36,9 @@ manifest = f"""<?xml version="1.0" encoding="utf-8"?>
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
-  <Identity Name="BindLens.BindLens" Publisher="CN=050E3A31-542B-4D98-A9A9-D2F2AD57FF8F" Version="{ver}" ProcessorArchitecture="x64"/>
+  <Identity Name="{ID}" Publisher="CN=050E3A31-542B-4D98-A9A9-D2F2AD57FF8F" Version="{ver}" ProcessorArchitecture="x64"/>
   <Properties>
-    <DisplayName>BindLens</DisplayName>
+    <DisplayName>{NAME}</DisplayName>
     <PublisherDisplayName>BindLens</PublisherDisplayName>
     <Logo>Assets\\StoreLogo.png</Logo>
   </Properties>
@@ -44,8 +50,8 @@ manifest = f"""<?xml version="1.0" encoding="utf-8"?>
     <Resource Language="es-es"/>
   </Resources>
   <Applications>
-    <Application Id="BindLens" Executable="BindLens.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="BindLens" Description="Your documents, bound into books." BackgroundColor="transparent"
+    <Application Id="{APPID}" Executable="{EXE}" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="{NAME}" Description="{DESC}" BackgroundColor="transparent"
         Square150x150Logo="Assets\\Square150x150Logo.png" Square44x44Logo="Assets\\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\\Wide310x150Logo.png"/>
       </uap:VisualElements>

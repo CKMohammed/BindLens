@@ -117,7 +117,7 @@ class BookReaderParts:
             logo = self._pic_brand(56) or self._pic_br(56)
             if logo is not None:
                 c.create_image(W / 2, 54, image=logo, tags=("ui",))
-            c.create_text(W / 2, 100, text=_BRAND.get("name") or "BookReader", font=self.F(15, "bold"), fill=ink,
+            c.create_text(W / 2, 100, text=_BRAND.get("name") or "AZBook Reader", font=self.F(15, "bold"), fill=ink,
                           tags=("ui",))
             books = [c_["name"] for c_ in self.lib.collections] or list(self.lib.folders)   # (known before they are read)
             st["hits"] = []
@@ -522,7 +522,7 @@ class BookReaderParts:
             draw()
 
         def forgot():
-            code = simpledialog.askstring("BookReader", _tr("Your recovery code (the one you saved when you chose the PIN):"),
+            code = simpledialog.askstring("AZBook Reader", _tr("Your recovery code (the one you saved when you chose the PIN):"),
                                           parent=self.root)
             if not code:
                 return
@@ -754,16 +754,17 @@ class BookReaderParts:
         try:
             import urllib.request
             import calendar as _cal
-            if not FROZEN:
+            if not FROZEN or STORE:              # (the Store updates its own version)
                 return
             with urllib.request.urlopen("https://api.github.com/repos/CKMohammed/BindLens/releases/latest", timeout=8) as r:
                 data = json.loads(r.read().decode("utf-8"))
-            a = next((x for x in data.get("assets", []) if x.get("name", "").lower().startswith("bookreader")), None)
+            a = next((x for x in data.get("assets", []) if x.get("name", "").lower().startswith("azbook")), None) or \
+                next((x for x in data.get("assets", []) if x.get("name", "").lower().startswith("bookreader")), None)
             if not a:
                 return
             t = _cal.timegm(time.strptime(a["updated_at"], "%Y-%m-%dT%H:%M:%SZ"))
             if t > os.path.getmtime(sys.executable) + 6 * 3600:
-                self.root.after(0, lambda: self.set_status(_tr("A newer BookReader is on bindlens.com.")))
+                self.root.after(0, lambda: self.set_status(_tr("A newer AZBook Reader is on bindlens.com.")))
         except Exception:
             pass
 

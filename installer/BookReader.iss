@@ -8,23 +8,23 @@
 
 [Setup]
 AppId={{9B1D4C2E-6A7F-4E3B-8C5D-2F1A0E9D7B64}
-AppName=BookReader
+AppName=AZBook Reader
 AppVersion={#AppVer}
-AppVerName=BookReader {#AppVer}
+AppVerName=AZBook Reader {#AppVer}
 AppPublisher=Mohammed Chahboune Kadi
 AppPublisherURL=https://bindlens.com
 AppSupportURL=https://github.com/CKMohammed/BindLens
 AppCopyright=Copyright (C) 2026 Mohammed Chahboune Kadi - GNU AGPL v3
 DefaultDirName={localappdata}\Programs\BookReader
-DefaultGroupName=BookReader
+DefaultGroupName=AZBook Reader
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=lowest
 OutputDir=..\Output
-OutputBaseFilename=BookReader Setup
+OutputBaseFilename=AZBook Reader Setup
 SetupIconFile=..\BookReader.ico
 UninstallDisplayIcon={app}\BookReader.exe
-UninstallDisplayName=BookReader
+UninstallDisplayName=AZBook Reader
 LicenseFile=..\LICENSE.txt
 Compression=lzma2/max
 SolidCompression=yes
@@ -44,12 +44,17 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\dist\BookReader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; the shortcuts of before, when it was called BookReader
+Type: files; Name: "{autoprograms}\BookReader.lnk"
+Type: files; Name: "{autodesktop}\BookReader.lnk"
+
 [Icons]
-Name: "{autoprograms}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"
-Name: "{autodesktop}\BookReader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"; Tasks: desktopicon
+Name: "{autoprograms}\AZBook Reader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"
+Name: "{autodesktop}\AZBook Reader"; Filename: "{app}\BookReader.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BookReader.ico"; Comment: "BookReader - read your folders"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\BookReader.exe"; Description: "{cm:LaunchProgram,BookReader}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\BookReader.exe"; Description: "{cm:LaunchProgram,AZBook Reader}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; files BindLens makes next to itself (logo icons, its log) - not your books, not your settings
