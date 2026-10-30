@@ -3328,6 +3328,7 @@ os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")     # 4.0: no inst
 FROZEN = bool(getattr(sys, "frozen", False))     # 4.5: the Windows program (BindLens.exe, made by PyInstaller)
 # where BindLens lives: next to BindLens.exe (the program), or next to BindLens.pyw (the Python file)
 APP_DIR = os.path.dirname(os.path.abspath(sys.executable if FROZEN else __file__))
+STORE = FROZEN and (os.sep + "WindowsApps" + os.sep).lower() in APP_DIR.lower()   # 1.0: the Microsoft Store version (MSIX)
 META_DIR_NAME = ".bindlens"
 
 
@@ -21096,9 +21097,10 @@ class App:
         h.add_command(label="What BindLens changed in my folders…", command=self.changes_dialog)
         h.add_command(label="Show the tour again", command=lambda: self.show_tour(force=True))
         h.add_command(label="What's new", command=lambda: self.whats_new(force=True))
-        h.add_command(label="Update from a zip…", command=lambda: self.update_from_zip())
-        h.add_command(label="Go back to the version before…", command=lambda: self.go_back_version())
-        if os.name == "nt":
+        if not STORE:                                   # the Store updates the Store version by itself
+            h.add_command(label="Update from a zip…", command=lambda: self.update_from_zip())
+            h.add_command(label="Go back to the version before…", command=lambda: self.go_back_version())
+        if os.name == "nt" and not STORE:
             h.add_command(label="Create desktop shortcut", command=make_shortcut)
         h.add_command(label="Send feedback (email)…", command=lambda: self.send_feedback())
         h.add_command(label="Licence, privacy and legal…", command=lambda: self.legal_dialog())
