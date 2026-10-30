@@ -2815,6 +2815,22 @@ ES_TEXT = {
     "Each row with the name - a picture of the row exactly as it is, with its column titles": "Cada fila con el nombre: una captura de la fila tal cual, con sus títulos de columna",
     "Every row and line where a name appears - how many times and in which document": "Cada fila y línea donde aparece un nombre: cuántas veces y en qué documento",
     "Choose a folder to read": "Elige una carpeta para leer",
+    "Share - send by email": "Compartir: enviar por email",
+    "Send feedback (email)…": "Enviar comentarios (email)…",
+    "Expiry dates…": "Fechas de caducidad…",
+    "Expiry dates": "Fechas de caducidad",
+    "Coming up: what expires soon": "Atención: lo que caduca pronto",
+    "BindLens warns you some days before (30 by default).": "BindLens te avisa unos días antes (30 por defecto).",
+    "Nothing yet. Add what expires below.": "Aún no hay nada. Añade abajo lo que caduca.",
+    "expired": "caducado",
+    "in {0} days": "en {0} días",
+    "What expires?": "¿Qué caduca?",
+    "Date (YYYY-MM-DD)": "Fecha (AAAA-MM-DD)",
+    "Days before": "Días antes",
+    "Write the date like this: 2027-06-24": "Escribe la fecha así: 2027-06-24",
+    "I will remind you {0} days before.": "Te avisaré {0} días antes.",
+    "Your email app is open - write to support@bindlens.com.": "Tu app de correo está abierta: escribe a support@bindlens.com.",
+    "Type part of its name": "Escribe parte de su nombre",
 }
 ES_PATTERNS = {
     "Automatic install failed. Run 'Install.bat', or type in a command prompt:\n\n    pip install pymupdf tkinterdnd2\n\nDetails: {}": "La instalación automática falló. Ejecuta 'Install.bat', o escribe en un símbolo del sistema:\n\n    pip install pymupdf tkinterdnd2\n\nDetalles: {0}",
@@ -10648,6 +10664,7 @@ def draw_icon(c, name, cx, cy, col, s=1.0, w=1.7, tag=None):
         L(-9, -7, 9, -7, 9, 7, -9, 7, -9, -7); L(-9, 5, -4, -1, 0, 3, 3, 0, 9, 5); O(2, -5, 6, -1)
     elif name == "scan":
         L(-9, -4, -9, -9, -4, -9); L(4, -9, 9, -9, 9, -4); L(9, 4, 9, 9, 4, 9); L(-4, 9, -9, 9, -9, 4); L(-9, 0, 9, 0)
+        L(-4, -4.5, 4, -4.5); L(-4, 4.5, 1, 4.5)
     elif name == "policy":
         L(-7, -9, 5, -9, 5, -3); L(-7, -9, -7, 9, -1, 9); L(-4, -5, 2, -5); L(-4, -1, -1, -1)
         L(5, -1, 9, 1, 9, 4, 5, 9, 1, 4, 1, 1, 5, -1)
@@ -18022,6 +18039,8 @@ QB_ITEMS = OrderedDict([
     ("read", ("speaker", "Read aloud", "Ctrl+U", "panel")),
     ("edittext", ("textedit", "Edit the PDF's own text", "Ctrl+E", "act")),
     ("scan", ("scan", "Scan and add (scanner, camera, phone photos)", "", "act")),
+    ("print", ("printer", "Print", "Ctrl+P", "act")),
+    ("share", ("mail", "Share - send by email", "", "act")),
     ("marks", ("highlighter", "My highlights and notes here", "", "panel")),
     ("calendar", ("calendar", "Calendar and coming up", "", "panel")),
     ("reminders", ("bell", "Reminders", "", "act")),
@@ -21002,6 +21021,7 @@ class App:
         m.add_separator()
         m.add_command(label="Reports…", command=self.simple_reports, accelerator="Ctrl+R")
         m.add_command(label="Reminders…", command=lambda: self.reminders_dialog())
+        m.add_command(label="Expiry dates…", command=lambda: self.expiries_dialog())
         m.add_command(label="Personalise…", command=lambda: self.personalise_dialog())
         m.add_command(label="Settings…", command=self.settings_dialog, accelerator="Ctrl+,")
         m.add_command(label="Lock with a PIN…", command=lambda: self.pin_settings())
@@ -21080,6 +21100,7 @@ class App:
         h.add_command(label="Go back to the version before…", command=lambda: self.go_back_version())
         if os.name == "nt":
             h.add_command(label="Create desktop shortcut", command=make_shortcut)
+        h.add_command(label="Send feedback (email)…", command=lambda: self.send_feedback())
         h.add_command(label="Licence, privacy and legal…", command=lambda: self.legal_dialog())
         h.add_command(label=f"About {APP_NAME}", command=self.about)
         mb.add_cascade(label="Help", menu=h)
@@ -21509,8 +21530,7 @@ class App:
                 "Windows' own - " + getattr(self, "_ownbar_why", "the frame starts under it")
             tk.Label(d, text=f"Title bar: {bar_}\nRunning from: {APP_DIR}", font=self.F(8), bg=T["panel"],
                      fg=T["muted"], wraplength=380, justify="center").pack(padx=30, pady=(8, 0))
-        tk.Label(d, text=f"© 2026 {APP_AUTHOR}\nFree software under the {APP_LICENSE}.\nThe source code is included "
-                         "(BindLens.pyw). It comes with no warranty.", font=self.F(8), bg=T["panel"], fg=T["muted"],
+        tk.Label(d, text="© 2026 M. Chahboune Kadi", font=self.F(8), bg=T["panel"], fg=T["muted"],
                  justify="center", wraplength=380).pack(padx=30, pady=(12, 0))
         web = tk.Label(d, text="bindlens.com", font=self.F(9, "bold"), bg=T["panel"], fg=self.accent, cursor="hand2")
         web.pack(pady=(10, 0))                          # 1.0: the website (and BindLens Web, in your browser)
@@ -30832,7 +30852,9 @@ class App:
         c.bind("<Configure>", lambda e: self._home_draw())
         c.bind("<Motion>", self._home_motion)
         c.bind("<Leave>", lambda e: self._home_set_hover(None))
-        c.bind("<Button-1>", self._home_click)
+        c.bind("<Button-1>", self._home_press)
+        c.bind("<B1-Motion>", self._home_bdrag)
+        c.bind("<ButtonRelease-1>", self._home_release)
         c.bind("<MouseWheel>", lambda e: self._home_spin(-1 if e.delta > 0 else 1))
         c.bind("<Button-4>", lambda e: self._home_spin(-1))
         c.bind("<Button-5>", lambda e: self._home_spin(1))
@@ -30973,6 +30995,45 @@ class App:
         key, fn = self._home_hit(e)
         self._home_c.configure(cursor="hand2" if fn else "")
         self._home_set_hover(key)
+
+    # 1.0: drag a book on Home onto another one to put it there (a click still opens it)
+    def _home_press(self, e):
+        key, fn = self._home_hit(e)
+        f = getattr(self, "_home_hitf", {}).get(key) if key else None
+        self._home_dragb = {"f": f, "x": e.x, "y": e.y, "on": False, "last": None}
+
+    def _home_bdrag(self, e):
+        d = getattr(self, "_home_dragb", None)
+        if not d or not d["f"]:
+            return
+        if not d["on"] and abs(e.x - d["x"]) + abs(e.y - d["y"]) > 10:
+            d["on"] = True
+            self._home_c.configure(cursor="fleur")
+        if not d["on"]:
+            return
+        key, _fn = self._home_hit(e)
+        t = getattr(self, "_home_hitf", {}).get(key) if key else None
+        names = list(self.lib.folders)
+        if t and t != d["f"] and t != d["last"] and t in names and d["f"] in names:
+            d["last"] = t
+            self.lib.move_collection(d["f"], names.index(t))
+            try:
+                self._home_books_draw()
+            except Exception:
+                self._home_draw()
+
+    def _home_release(self, e):
+        d = getattr(self, "_home_dragb", None)
+        self._home_dragb = None
+        if d and d["on"]:
+            self._home_c.configure(cursor="")
+            self.set_status(f"{self.lib.label(d['f'])} moved.")
+            try:
+                self._fill_folders()
+            except Exception:
+                pass
+            return
+        self._home_click(e)
 
     def _home_click(self, e):
         if getattr(self, "_home_pull", None) is not None:
@@ -31232,6 +31293,7 @@ class App:
         lay = hc.get("books", "circle")
         c.delete("books")
         hits = self._home_bhits = []
+        self._home_hitf = {}
         books = self._home_books()
         x0, y0, x1, y1 = self._home_box
         hov = getattr(self, "_home_hover", None)
@@ -31295,6 +31357,7 @@ class App:
                 ly = by + (18 if lay == "shelf" else 12)
                 c.create_text(cx, ly, text=lab, font=self.F(8, "bold"), fill=A if on else ink, tags="books")
             hits.append((bx0, by0, bx0 + bw, by, key, lambda f=f: self._home_open_book(f)))
+            self._home_hitf[key] = f
         # the name of the book in front (circle, cover flow) - or the one under the mouse
         show = None
         if hov and hov.startswith("bk"):
@@ -31447,6 +31510,7 @@ class App:
         for i, bb, _a in shown:
             f = books[i]
             hits.append((bb[0], bb[1], bb[2], bb[3], f"bk{i}", lambda i=i, f=f: self._hf_take(i, f)))
+            self.__dict__.setdefault("_home_hitf", {})[f"bk{i}"] = f
         pull = getattr(self, "_home_pull", None)
         if pull is not None:
             for i, bb, a in shown:
@@ -32628,7 +32692,9 @@ class App:
         m.add_command(label="Settings…                       Ctrl+,", command=self.settings_dialog)
         m.add_separator()
         m.add_command(label="Reminders…", command=lambda: self.reminders_dialog())
+        m.add_command(label="Expiry dates…", command=lambda: self.expiries_dialog())
         m.add_command(label="How BindLens works       F1", command=self.quick_guide)
+        m.add_command(label="Send feedback (email)…", command=lambda: self.send_feedback())
         m.add_command(label="Help", command=self.show_help)
         m.add_command(label=f"About {APP_NAME} {APP_VERSION}", command=self.about)
         w = self.logo_lbl
@@ -36607,7 +36673,119 @@ class App:
         if due and not show_all and not open_ and new_:
             shown.update((r.get("path"), r.get("date"), r.get("note")) for r in due)
             self.reminders_dialog(only_due=True)
+        try:
+            self.check_expiries()
+        except Exception as ex:
+            _log(f"expiries: {ex}")
         self.root.after(3600 * 1000, self.check_reminders)
+
+    # ---- 1.0: expiry dates you add yourself (a document, a policy, a passport...), with a warning some days before
+    def _exp_list(self):
+        return self.lib.meta.setdefault("expiries", [])
+
+    @staticmethod
+    def _exp_left(e):
+        import datetime
+        try:
+            return (datetime.date.fromisoformat(e["date"]) - datetime.date.today()).days
+        except Exception:
+            return 9999
+
+    def check_expiries(self):
+        due = [e for e in self._exp_list() if self._exp_left(e) <= int(e.get("before", 30))]
+        today = time.strftime("%Y-%m-%d")
+        if due and self.lib.settings.get("exp_shown") != today:
+            self.lib.settings["exp_shown"] = today
+            self.lib.save_meta()
+            self.expiries_dialog(only_due=True)
+
+    def expiries_dialog(self, only_due=False):
+        import datetime
+        T = self.T
+        w0 = getattr(self, "_exp_win", None)
+        if w0 is not None and w0.winfo_exists():
+            w0.destroy()
+        d = self._dialog("Expiry dates")
+        self._exp_win = d
+        tk.Label(d, text=_tr("Coming up: what expires soon") if only_due else _tr("Expiry dates"), font=self.F(13, "bold"),
+                 bg=T["panel"], fg=T["text"]).pack(anchor="w", padx=20, pady=(16, 2))
+        tk.Label(d, text=_tr("BindLens warns you some days before (30 by default)."), font=self.F(9), bg=T["panel"],
+                 fg=T["muted"]).pack(anchor="w", padx=20, pady=(0, 8))
+        body = tk.Frame(d, bg=T["panel"])
+        body.pack(fill="both", padx=20)
+
+        def fill():
+            for w_ in body.winfo_children():
+                w_.destroy()
+            items = sorted(self._exp_list(), key=lambda e: e.get("date", ""))
+            if only_due:
+                items = [e for e in items if self._exp_left(e) <= int(e.get("before", 30))]
+            if not items:
+                tk.Label(body, text=_tr("Nothing yet. Add what expires below."), font=self.F(9), bg=T["panel"],
+                         fg=T["muted"]).pack(anchor="w", pady=8)
+            for e in items[:40]:
+                left = self._exp_left(e)
+                warn = left <= int(e.get("before", 30))
+                row = tk.Frame(body, bg=T["chip"], padx=10, pady=6)
+                row.pack(fill="x", pady=3)
+                try:
+                    dd = datetime.date.fromisoformat(e["date"]).strftime("%d %b %Y")
+                except Exception:
+                    dd = e.get("date", "")
+                when = _tr("expired") if left < 0 else _tr("today") if left == 0 else _tr("in {0} days").format(left)
+                tk.Label(row, text=dd, width=12, font=self.F(9, "bold"), bg=T["chip"],
+                         fg="#B3261E" if warn else T["text"]).pack(side="left")
+                tk.Label(row, text=f'{e.get("text", "")}  ·  {when}', font=self.F(9), bg=T["chip"], fg=T["text"],
+                         anchor="w").pack(side="left", fill="x", expand=True, padx=6)
+
+                def drop(e=e):
+                    self._exp_list().remove(e)
+                    self.lib.save_meta()
+                    fill()
+                PillButton(row, self, "Delete", drop, kind="ghost", bg_key="chip").pack(side="right")
+        fill()
+        add = tk.Frame(d, bg=T["panel"])
+        add.pack(fill="x", padx=20, pady=(12, 0))
+        v_txt = tk.StringVar()
+        v_date = tk.StringVar(value=(datetime.date.today() + datetime.timedelta(days=365)).isoformat())
+        v_bef = tk.StringVar(value="30")
+        for lab_, var_, w_ in ((_tr("What expires?"), v_txt, 26), (_tr("Date (YYYY-MM-DD)"), v_date, 12),
+                               (_tr("Days before"), v_bef, 5)):
+            col_ = tk.Frame(add, bg=T["panel"])
+            col_.pack(side="left", padx=(0, 8))
+            tk.Label(col_, text=lab_, font=self.F(8), bg=T["panel"], fg=T["muted"]).pack(anchor="w")
+            ttk.Entry(col_, textvariable=var_, width=w_).pack(anchor="w")
+
+        def add_():
+            t_ = v_txt.get().strip()
+            try:
+                dt_ = datetime.date.fromisoformat(v_date.get().strip())
+            except Exception:
+                self.set_status("Write the date like this: 2027-06-24")
+                return
+            if not t_:
+                return
+            try:
+                bef = max(0, min(365, int(v_bef.get() or 30)))
+            except Exception:
+                bef = 30
+            self._exp_list().append({"text": t_[:80], "date": dt_.isoformat(), "before": bef})
+            self.lib.save_meta()
+            v_txt.set("")
+            fill()
+            self.set_status(_tr("I will remind you {0} days before.").format(bef))
+        PillButton(add, self, "Add", add_, kind="accent").pack(side="left", pady=(14, 0))
+        bf = ttk.Frame(d, style="Panel.TFrame", padding=(20, 14))
+        bf.pack(fill="x")
+        PillButton(bf, self, "Close", d.destroy, kind="ghost").pack(side="right")
+
+    def send_feedback(self):
+        """1.0: an email to support@bindlens.com, with the version and Windows - never your documents."""
+        import urllib.parse, platform
+        body = f"\n\n\n---\n{APP_NAME} {APP_VERSION} for Windows · {platform.platform()}"
+        open_in_os("mailto:support@bindlens.com?subject=" + urllib.parse.quote(f"{APP_NAME} for Windows - feedback")
+                   + "&body=" + urllib.parse.quote(body))
+        self.set_status("Your email app is open - write to support@bindlens.com.")
 
     def reminders_dialog(self, only_due=False):
         T = self.T
@@ -41654,7 +41832,8 @@ class App:
              [("combine", "Tables with the same columns together", True), ("file_page", "Document and page", False)],
              "excel copy tables rows columns"),
             ("find", "Find a word or a name", "Every page and row where it appears", "names",
-             [("wholeword", "Whole words only", False)], "search look for where"),
+             [("exact", "Only exactly as I write it (no names one letter apart)", False),
+              ("wholeword", "Whole words only", False)], "search look for where"),
             ("person", "Everything about one person", "Their phones, emails, addresses and dates - and every place "
                                                       "they appear", "names",
              [("mentions", "List every place they appear", True)], "person profile file everything about"),
@@ -41683,13 +41862,14 @@ class App:
              "all data extract everything"),
         ]),
         ("Find", "#6C5CE7", [
-            ("docfind", "A document by its name", "Type part of its name - e.g. Week 38", "docfind", [],
+            ("docfind", "A document by its name", "Type part of its name", "docfind", [],
              "open go to file document name week"),
         ]),
         ("Tables", "#0A84FF", [
             ("snapshot", "Rows as they look", "Each row with a name or value, exactly as it is - its column titles "
                                              "on top", "names",
-             [("header", "Column titles on top", True), ("title", "The table's title", True),
+             [("exact", "Only exactly as I write it (no names one letter apart)", False),
+              ("header", "Column titles on top", True), ("title", "The table's title", True),
               ("file_title", "The document's name", True), ("text_too", "Also as a table I can copy", False)],
              "row rows picture screenshot exact table"),
             ("rows", "Rows to a table", "The same rows as a table for Excel - column titles on top", "names",
@@ -47683,7 +47863,7 @@ class App:
                 for pi in pages:
                     if job["cancel"]:
                         return
-                    if td_ or LITE:                      # 1.0: a page that is a picture (scan, "Print to PDF")
+                    if td_ or LITE or P.get("_rows_mode"):   # 1.0: a page that is a picture (scan, "Print to PDF")
                         pgs = doc.load_page(pi)
                         if is_scanned_page(pgs):
                             job["progress"] = f"Reading {k + 1} of {len(files)}  ·  page {pi + 1} (a picture)  ·  Esc to stop"
@@ -47746,8 +47926,9 @@ class App:
         whole = P["adv"].get("wholeword", False) if whole is None else whole
         # 3.0: accents and apostrophes don't matter (Sean = Seán, O'Brien = O’Brien)
         exact = bool(P.get("adv", {}).get("exact"))
-        fuzzy = LITE and not exact                        # BookReader: one letter apart too - or exactly as written
-        whole = whole or exact or LITE                    # (BookReader: whole words - "Ann" is not "Annual")
+        rm_ = LITE or bool(P.get("_rows_mode"))
+        fuzzy = rm_ and not exact                         # one letter apart too - or exactly as written
+        whole = whole or exact or LITE or P.get("_rows_kind") == "snapshot"   # whole words - "Ann" is not "Annual"
         wb = (lambda x: r"(?<!\w)" + x + r"(?!\w)") if whole else (lambda x: x)
         pats, toks = {}, {}
         for t in terms:                                   # 1.0: "Ana  Ruiz" = "Ana\nRuiz"; a name on two lines too
@@ -47903,13 +48084,14 @@ class App:
 
     # People ------------------------------------------------------------------------------------------
     def _job_snapshot(self, P, job):
+        P["_rows_mode"], P["_rows_kind"] = True, "snapshot"   # 1.0: as BookReader - whole rows, names one letter apart
         match, pf = self._matcher(P)
         adv = P["adv"]
         P["titles"] = True
         found = OrderedDict((t, []) for t in P["terms"])
         join = adv.get("join", True)
         for name, folder, rel, page, rows, doc, pi in self._walk_pages(P, job, pf):
-            if LITE:                                     # BookReader: the whole row, from the lines that part the rows
+            if LITE or P.get("_rows_mode"):              # the whole row, from the lines that part the rows (1.0: BindLens too)
                 ow_ = P.get("_ocrw", {}).get((folder, rel, pi))
                 try:
                     pg_ = doc.load_page(pi)
@@ -48292,6 +48474,7 @@ class App:
                 "subtitle": self._subtitle(P["scope"]), "_name": "People - " + P["title"]}
 
     def _job_find(self, P, job):
+        P["_rows_mode"], P["_rows_kind"] = True, "find"       # 1.0: as BookReader - names one letter apart too
         match, pf = self._matcher(P)
         P["titles"] = True
         out = []
@@ -50051,129 +50234,8 @@ class App:
             "  the document, the whole book, odd / even), copies, the size on the paper (fit, 100% or any %),\n"
             "  orientation, colour or black & white, both sides, with or without your marks. Reports: Print too.\n\n"
             "LICENCE AND PRIVACY\n"
-            "  BindLens © 2026 Mohammed Chahboune Kadi - free software under the GNU AGPL v3, with its source code,\n"
-            "  without warranty. It collects and sends nothing. Help > Licence, privacy and legal.\n\n"
-            "NEW IN 4.5\n"
-            "  BindLens is a Windows program: BindLens Setup.exe (bindlens.com, or github.com/CKMohammed/BindLens >\n"
-            "  Releases). The same books, marks and settings. To update the program, run the new installer.\n\n"
-            "NEW IN 4.4.4\n"
-            "  The PIN screen can't get stuck any more (the moving colours slow down on slow computers, the PIN is\n"
-            "  checked in the background, BindLens opens at most 1.5 seconds after the right PIN). A file with a\n"
-            "  leather strap and a brass combination padlock; typewriter keys; the number pad works.\n"
-            "  Locked out? Close BindLens, delete pin.json in %APPDATA%\\BindLens - it opens without a PIN.\n"
-            "  Gallery: Esc after a picture brings you back to all the pictures.\n\n"
-            "NEW IN 4.4.3\n"
-            "  Gallery: click a picture to see it big with the effects (Esc back). The bottom bar of a gallery: the\n"
-            "  picture (see them big) and the palette (frames, effect, slideshow). Home shows every book's first\n"
-            "  page again. PIN + Enter = one try. Help > About says which title bar is in use and why.\n\n"
-            "NEW IN 4.4.2\n"
-            "  Windows: the PIN screen is under BindLens's own top band - the frame at the very top as in 4.3, with\n"
-            "  minimise / maximise / close. Picture effects stay between the cards beside the picture.\n\n"
-            "NEW IN 4.4\n"
-            "  The PIN, always first: once it is set, BindLens asks for it before anything shows (Home appears only\n"
-            "  when it is right). A paper file with a brass lock - each digit turns a wheel, the right PIN opens it;\n"
-            "  the app's colours move behind. The window keeps minimise / maximise / close (and can be moved).\n"
-            "  Pictures: the next one comes in with an effect - slide, push, drop, wipe, blinds, flip card, mosaic,\n"
-            "  or a different one each time ('Effect' at the top of the picture, or Personalise > Reading mode).\n"
-            "  Videos (mp4, mov, avi, wmv, mkv…): a card in the book; double-click (or the big play button while\n"
-            "  reading) plays it inside BindLens - Space pause, ← → 10 seconds, M sound, Esc close. If Windows\n"
-            "  can't play it here, it opens in your video player. Videos are never read into memory.\n"
-            "  Home: 'Personalise' in the corner - a slim panel: the books' layout and size, what is behind them.\n"
-            "  One logo, the original (the bound book and the gold lens): only its background colour can change\n"
-            "  (nine colours, or your own).\n\n"
-            "NEW IN 4.3\n"
-            "  Windows: the top bar is BindLens's own, so the frame starts at the very top (menus, the document,\n"
-            "  minimise / maximise / close). Drag the bar to move the window, its edges to resize it, double-click\n"
-            "  to maximise; drag to the top / a side of the screen to fill it / half of it. Personalise > The frame\n"
-            "  > 'BindLens's own title bar' switches it off (it also switches itself off after a failed start).\n"
-            "  Home: your books on a turning circle, cover flow, wave, shelf or grid; behind - a lava of the app's\n"
-            "  colours, your colours, your photo or one from the internet; the frame turns gold. Home's palette icon.\n"
-            "  Pictures: each one framed in the gallery (Polaroid, museum, gold, the frame's colours). Reading: one\n"
-            "  at a time, big, with a film strip (← → or the wheel, click a small one to go there).\n"
-            "  Reading: Print in the top bar - the same Print as always.\n\n"
-            "NEW IN 4.2\n"
-            "  The frame is one ring round the whole window: the colours turn the corners (no cuts), the same\n"
-            "  moulding (dark edge, light line, shadow) all round. The window always opens on the screen (4.2.2).\n"
-            "  The PIN takes the keyboard's digits wherever the focus is (4.2.2).\n"
-            "  Zoom: the page always stays in the middle; the cards beside it get narrower, then hide - they never\n"
-            "  cover the page. Under 35% more pages appear beside each other, a column at a time; click one to open\n"
-            "  it. F4 (the grid button) shows every page with a GO TO list: one line per document, its kind, pages,\n"
-            "  'copy' when it is a copy of another, folders that fold, a box to find a document.\n"
-            "  Reading mode: the top bar always shows the book, the document and the page, with Choose and Exit.\n"
-            "  Personalise > Reading mode: background (the app's colours, yours, dark, as usual), movement, pages\n"
-            "  (white, warm, night), contents and clock on or off, the thin lines, the slideshow.\n"
-            "  A folder with only pictures opens as a gallery; click a picture to see it big; Read plays them as a\n"
-            "  slideshow with the frame's colours round each picture (Pause in the top bar).\n"
-            "  Drag the clock anywhere (right-click > Put the clock back).\n"
-            "  Text in PDFs: every letter is kept (accents, ñ, €, quotes, dashes). Ctrl+E shows a small bar under the\n"
-            "  line: the original font, size and colour first - change them if you want, bold, italic.\n"
-            "  A page that can't be drawn is never black: it is tried again, else it says why (Open in its own\n"
-            "  program / Try again) and the reason goes in the log. Slow files say so in the status line.\n"
-            "  Reports carry no date unless Settings > Reports says so. 'People, forms & checks' for the files of\n"
-            "  staff, clients and students; File checks per person; texts made general.\n"
-            "  Help > What BindLens changed in my folders: every file BindLens added, moved, renamed or made.\n\n"
-            "NEW IN 4.1\n"
-            "  The frame: the menu row at the top (File, Edit, Pages, View, Help - with the book and document in the\n"
-            "  middle), the tips at the bottom and the quick bar on the right are one band of slowly moving colours.\n"
-            "  Personalise > Frame: colours, thickness, speed, still or off.\n"
-            "  Reading mode is quieter: your pages on soft moving colours; the mouse at the top shows Choose.\n"
-            "  Double-click the clock to change it. Zoom right out: every page on one screen - click one to go there.\n"
-            "  When you change document the page comes back to the middle of the screen.\n"
-            "  Reports: Essentials first - Contacts, Expiry dates, Invoices & money, Tables, Find, A person, Marks,\n"
-            "  Charts. Invoices: one row per invoice with its own total, VAT, due date - and what is overdue.\n"
-            "  PIN: 4 digits. Right-click a book > Lock this book with the PIN (hidden from searches).\n"
-            "  File > Copy with a password…: a copy that asks a password to open. Form answers read ticked boxes.\n"
-            "  Reports: the rows gone since the last time are listed at the end, in grey.\n"
-            "  Ctrl+E then Shift+Enter: the changed text stays a mark (right-click it: edit, make final, take off).\n"
-            "  Scans: iPhone photos (HEIC), pages photographed at an angle made square.\n"
-            "  Right-click a page: Read aloud from here. Stop always stops the voice.\n"
-            "  Settings, Personalise, How it works… can be moved and made smaller. Icon group: Higher education.\n\n"
-            "NEW IN 4.0\n"
-            "  The quick bar (slim icons on the right): Study, Read aloud, Edit the PDF's text, Scan and add,\n"
-            "  highlights here, calendar… Right-click it to choose what it shows; drag an icon to move it.\n"
-            "  A frame round the window: colours flowing slowly - glows while BindLens works, pulses when a\n"
-            "  report is ready. The frame icon in the quick bar: colours, speed, width, still or off.\n"
-            "  Ctrl+E: click a line of a PDF's own text and change it (same font, size and colour). Ctrl+Z undoes.\n"
-            "  Scan and add (File menu or quick bar): a scanner, the computer's camera or photos from your phone -\n"
-            "  each page cut out, straightened and cleaned, then put in the book (its text is read by itself).\n"
-            "  Ctrl+U reads the page aloud with the computer's own voices (word by word, speed, voice).\n"
-            "  Ctrl+B Study: highlights and notes on one summary sheet (PDF / Word) + cards to review that come\n"
-            "  back just before you would forget them (a note on a highlight = the question).\n"
-            "  Reports read tables by what the columns hold (the name, the email, the phone - whatever the titles\n"
-            "  say), link a parent's mobile to the parent, read names from email headers, and say how sure they\n"
-            "  are. Charts: the colour only on what matters, a sentence saying what each shows, a deadline timeline.\n"
-            "  File > Lock with a PIN (only on this computer). Help > Update from a zip (or drop the zip on BindLens).\n\n"
-            "NEW IN 3.3\n"
-            "  Word, PowerPoint and Excel files (also old .doc, .ppt, .xls) are shown inside BindLens as they look -\n"
-            "  slides as slides, pages as pages - like PDFs. BindLens asks Microsoft Office (or LibreOffice), hidden\n"
-            "  and in the background, for a picture of every page: the file you are on first, then the rest of the\n"
-            "  book, then your other books. Your files are never changed. Right-click a page that is not ready yet >\n"
-            "  Show it here as it looks (ask Office now).\n\n"
-            "NEW IN 3.2\n"
-            "  Ticks and crosses: Stamp button > Ticks, crosses and quick marks (✓ ✗ ☑ ☐ ● ? ! 1 2 3…), or right-click\n"
-            "  the page > Tick here / Cross here. Double-click a tick: it becomes a cross (a box: ☑ then ☒).\n"
-            "  Up / down bars with ▲ ▼ for the list of books and the column of book icons; the index's bar can be\n"
-            "  dragged, ▲ ▼ go faster when held, double-click ▲ / ▼ = the start / the end.\n"
-            "  The index of a long document you are in comes up softly in the folder's index (no chapters: by pages).\n"
-            "  Copies that leave BindLens (email, read-only copy, book as one PDF, saved pages) have the text under\n"
-            "  white boxes erased for good - your own file keeps its removable boxes.\n"
-            "  Clocks: station, rings, time in words, sizes. A calendar under the clock (or on the left): click a\n"
-            "  day to add a note (colour, sign, time, repeat), an announcement on top, Irish bank holidays, the dates\n"
-            "  BindLens found, and calendars you bring in (.ics file or link from Outlook / Google).\n"
-            "  Big PDFs save at once (only the change is written). Scanned pages are read by themselves (search,\n"
-            "  select, reports). Word, Excel and PowerPoint show exactly as they look when Microsoft Office or\n"
-            "  LibreOffice is on the computer (made in the background, your files untouched).\n\n"
-            "NEW IN 3.1\n"
-            "  Every change can be undone or taken off later - so BindLens no longer makes copies of your files.\n"
-            "  Deleted pages go to Pages > Deleted pages… (Put it back). White box and White brush hide the\n"
-            "  PDF's own text (removable); 'Erase for good' really removes it. Shapes: colours and effects.\n"
-            "  Personalise > Logo: (4.4.1: one logo - only its background colour).\n\n"
-            "NEW IN 3.0\n"
-            "  Home (Ctrl+H): continue reading, what needs you, your books, recent documents and reports.\n"
-            "  Ctrl+K finds documents, words AND actions (print, reports, expiring…). Ctrl+/ all shortcuts.\n"
-            "  F4 (or the grid on the page bar): every page as a picture - click one to go there.\n"
-            "  Reports: Hours from rotas, compliance (missing + expired per person), Add to calendar (.ics).\n"
-            "  Pages > Make this file smaller. New page templates: incident, medication, sleep, sign-in, fire drill.\n\n"
+            "  BindLens © 2026 M. Chahboune Kadi. It collects and sends nothing. Help > Licence, privacy and legal.\n"
+            "  Questions or ideas: support@bindlens.com (Help > Send feedback).\n\n"
             "OTHER\n"
             "  Ctrl+, settings · F9 library panel · F11 full screen · Ctrl+wheel zoom"))
 
@@ -50187,6 +50249,9 @@ class App:
         c = self.lib.settings.setdefault("qbar", {})
         c.setdefault("on", True)
         items = [k for k in c.get("items", QB_DEFAULT) if k in QB_ITEMS]
+        for k_ in ("scan", "print", "share"):                   # 1.0: always on the bar, as on the web
+            if k_ not in items:
+                items.insert(min(3, len(items)), k_)
         if "inst" not in items and not c.get("inst_seen"):      # 1.0: your institution, once at the end of the bar
             items.append("inst")
             c["inst_seen"] = True
@@ -50536,6 +50601,10 @@ class App:
             self.set_tool("select" if self.tool == "edittext" else "edittext")
         elif k == "scan":
             self.scan_dialog()
+        elif k == "print":
+            self.print_dialog()
+        elif k == "share":
+            self.email_file()
         elif k == "reminders":
             self.reminders_dialog()
         elif k == "inst":
@@ -51644,7 +51713,12 @@ class App:
             except Exception:
                 pass
             return
-        wt = st.create_text(W - 14, self.ST_H / 2, text=self.where_lbl.text, anchor="e", font=f, fill=sub)
+        # 1.0: the author, in the corner, almost the colour of the frame - you have to look to see it
+        nm_ = st.create_text(W - 6, self.ST_H / 2, text="M. Chahboune Kadi", anchor="e", font=(self.family, 6),
+                             fill=mix(sub, self.T["bg"], 0.74))
+        nb_ = st.bbox(nm_)
+        wt = st.create_text((nb_[0] - 12) if nb_ else W - 14, self.ST_H / 2, text=self.where_lbl.text, anchor="e",
+                            font=f, fill=sub)
         bb = st.bbox(wt)
         room = (bb[0] if bb and self.where_lbl.text else W) - 40
         st.create_text(14, self.ST_H / 2, text=self._fit_text(self.status_lbl.text, self._sfont(9), max(60, room)),
@@ -55751,6 +55825,19 @@ def _selftest(out):
     except Exception as ex:
         ok = False
         lines.append(f"VLC FAILED: {ex!r}")
+    try:                                            # 1.0: the reports find names one letter apart (or exactly), expiry dates
+        P_ = {"terms": ["Alex Smith"], "adv": {}, "match": "any", "_rows_mode": True, "_rows_kind": "find"}
+        _m, pf_ = App._matcher(None, P_)
+        assert pf_("Smith, Alex   9:00") and pf_("Alex Smyth  9:00"), "names one letter apart"
+        _m, pfx_ = App._matcher(None, dict(P_, adv={"exact": True}))
+        assert pfx_("Alex Smith 9:00") and not pfx_("Alex Smyth 9:00"), "exactly as written"
+        import datetime as _dt
+        assert App._exp_left({"date": (_dt.date.today() + _dt.timedelta(days=20)).isoformat()}) == 20, "expiry"
+        assert all(k in QB_ITEMS for k in ("scan", "print", "share")), "quick bar"
+        lines.append("reports (names one letter apart / exact), expiry dates, quick bar: OK")
+    except Exception as ex:
+        ok = False
+        lines.append(f"reports/expiry FAILED: {ex!r}")
     lines.append(f"app dir {APP_DIR}; frozen {FROZEN}; version {APP_VERSION}")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(("OK" if ok else "FAILED") + "\n" + "\n".join(lines) + "\n")
