@@ -1705,7 +1705,7 @@ ES_TEXT = {
     "Find anywhere": "Buscar en todo",
     "Document names": "Nombres de documentos",
     "Inside the documents": "Dentro de los documentos",
-    "Names don't have to be exact - e.g.  week 38,  wk38,  invoce march": "No hace falta que los nombres sean exactos; p. ej.  semana 38,  sem38,  factrua marzo",
+    "Names don't have to be exact - a word missing or a letter wrong still finds it": "No hace falta que los nombres sean exactos: aunque falte una palabra o haya una letra mal, lo encuentra",
     "Recent": "Recientes",
     "Recent documents - or type a name, a word, or what you want to do (print, reports, expiring…)": "Documentos recientes, o escribe un nombre, una palabra o lo que quieras hacer (imprimir, informes, caducan…)",
     "(still reading": "(aún leyendo",
@@ -1901,8 +1901,7 @@ ES_TEXT = {
     "Every web address": "Cada dirección web",
     "Everything at once": "Todo a la vez",
     "All of the above in one report": "Todo lo anterior en un solo informe",
-    "Type part of its name - e.g. Week 38": "Escribe parte de su nombre; p. ej. Semana 38",
-    "Each row with a name or value, exactly as it is - its column titles on top": "Cada fila con un nombre o un valor, tal como es, con sus títulos de columna encima",
+        "Each row with a name or value, exactly as it is - its column titles on top": "Cada fila con un nombre o un valor, tal como es, con sus títulos de columna encima",
     "Column titles on top": "Títulos de columna encima",
     "The table's title": "El título de la tabla",
     "The document's name": "El nombre del documento",
@@ -1949,7 +1948,7 @@ ES_TEXT = {
     "Choose what you want - then tick what to include": "Elige lo que quieres y después marca qué incluir",
     "Made lately  ·": "Hechos hace poco  ·",
     "Click to make it again": "Haz clic para volver a hacerlo",
-    "Search - e.g.  emails,  rows,  summary,  week 38": "Buscar; p. ej.  correos,  filas,  resumen,  semana 38",
+    "Search - e.g.  emails,  rows,  summary": "Buscar; p. ej.  correos,  filas,  resumen",
     "Or ask your documents in your own words…": "O pregunta a tus documentos con tus propias palabras…",
     "Nothing in the list with that.": "No hay nada en la lista con eso.",
     "Click what you want - you choose the details after.": "Haz clic en lo que quieras: los detalles los eliges después.",
@@ -1967,7 +1966,7 @@ ES_TEXT = {
     "Contract\nID\nCV\nReferences\nSigned form\nCertificate": "Contrato\nDNI\nCV\nReferencias\nFormulario firmado\nCertificado",
     "BindLens finds the people (file names, 'Name:' lines) and looks for each document in their files.": "BindLens encuentra a las personas (nombres de archivo, líneas «Nombre:») y busca cada documento en sus archivos.",
     "Name of the document": "Nombre del documento",
-    "It doesn't have to be exact:  week 38,  wk38,  invoce march  all work": "No hace falta que sea exacto:  semana 38,  sem38,  factrua marzo  funcionan",
+    "It doesn't have to be exact: a letter wrong or a word missing still works": "No hace falta que sea exacto: con una letra mal o una palabra de menos también funciona",
     "Nothing with that name": "Nada con ese nombre",
     "What to take": "Qué sacar",
     "The two documents": "Los dos documentos",
@@ -2517,7 +2516,7 @@ ES_TEXT = {
     "Scroll through the whole book. The map on the left (with its little shelf) takes you to any document - and to any chapter of a big PDF. Zoom right out: every page on one screen. Read (or F6): only your pages, contents and a clock.": "Recorre el libro entero. El mapa de la izquierda (con su pequeño estante) te lleva a cualquier documento, y a cualquier capítulo de un PDF grande. Aleja del todo: todas las páginas en una pantalla. Leer (o F6): solo tus páginas, el índice y un reloj.",
     "Select text: highlight, underline, note. Tools at the top: pen, text, sticky note, shapes (colours, effects), stamps and ticks ✓ ✗, a white box or brush to hide the PDF's own text. Saved inside the original PDF - you can always take any of it off again.": "Selecciona texto: resaltar, subrayar, nota. Herramientas de arriba: bolígrafo, texto, nota adhesiva, formas (colores, efectos), sellos y vistos ✓ ✗, un recuadro o un pincel blanco para ocultar el texto del propio PDF. Se guarda dentro del PDF original; siempre puedes volver a quitar cualquier cosa.",
     "Write pages": "Escribir páginas",
-    "The search box: a document by its name (week 38, wk38…) or a word. Ctrl+K searches everything.": "La casilla de búsqueda: un documento por su nombre (semana 38, sem38…) o una palabra. Ctrl+K busca en todo.",
+    "The search box: a document by its name (even not exact) or a word. Ctrl+K searches everything.": "La casilla de búsqueda: un documento por su nombre (aunque no sea exacto) o una palabra. Ctrl+K busca en todo.",
     "Essentials first: contacts, deadlines, invoices, tables to Excel, one person, your highlights, charts. Tick what to include, then save as PDF, Word or Excel.": "Lo esencial primero: contactos, plazos, facturas, tablas a Excel, una persona, tus resaltados, gráficos. Marca lo que quieres incluir y guárdalo en PDF, Word o Excel.",
     "The printer at the top (Ctrl+P): pages, copies, size (fit, 100%, any %), sides, colour - straight to your printer. File menu: email, read-only copy, the book as one PDF.": "La impresora de arriba (Ctrl+P): páginas, copias, tamaño (ajustar, 100 %, cualquier %), caras, color, directo a tu impresora. Menú Archivo: correo, copia de solo lectura, el libro como un solo PDF.",
     "Make it yours": "Hazlo tuyo",
@@ -41409,7 +41408,7 @@ class App:
             lb_.bind("<Button-1>", lambda e, k_=k_: set_mode(k_))
             mlbl[k_] = lb_
         paint_modes()
-        info = ttk.Label(d, text="Names don't have to be exact - e.g.  week 38,  wk38,  invoce march",
+        info = ttk.Label(d, text="Names don't have to be exact - a word missing or a letter wrong still finds it",
                          style="Muted.TLabel")
         info.pack(anchor="w", padx=16, pady=(6, 0))
         lb = RowList(d, self)                          # 3.0: real rows (kind, title, where, shortcut)
@@ -42096,7 +42095,7 @@ class App:
                           highlightthickness=1, highlightbackground=T["border"], highlightcolor=A,
                           insertbackground=T["text"])
             se.pack(fill="x", ipady=6)
-            ph = tk.Label(se, text="Search the list" if LITE else "Search - e.g.  emails,  rows,  summary,  week 38", font=self.F(10), bg=BG,
+            ph = tk.Label(se, text="Search the list" if LITE else "Search - e.g.  emails,  rows,  summary", font=self.F(10), bg=BG,
                           fg=T["muted"], cursor="xterm")
 
             def place_ph(*_a):
@@ -42379,7 +42378,7 @@ class App:
                               insertbackground=T["text"], highlightthickness=2, highlightbackground=T["border"],
                               highlightcolor=col)
                 e_.pack(fill="x", ipady=6)
-                tk.Label(opts, text="It doesn't have to be exact:  week 38,  wk38,  invoce march  all work",
+                tk.Label(opts, text="It doesn't have to be exact: a letter wrong or a word missing still works",
                          font=self.F(8), bg=BG, fg=T["muted"]).pack(anchor="w", pady=(3, 6))
                 lb = tk.Listbox(opts, height=7, activestyle="none", relief="flat", bd=0, font=self.F(10),
                                 bg=T["panel"], fg=T["text"], selectbackground=mix(T["panel"], col, 0.3),
@@ -50093,7 +50092,7 @@ class App:
                             "own text. Saved inside the original PDF - you can always take any of it off again."),
         ("Write pages", "#E08E00", "The page + button: a new page like in Word - text, tables, pictures, "
                                    "templates. File > New document…: a whole new PDF in the book's folder."),
-        ("Find", "#E8467C", "The search box: a document by its name (week 38, wk38…) or a word. Ctrl+K "
+        ("Find", "#E8467C", "The search box: a document by its name (even not exact) or a word. Ctrl+K "
                             "searches everything."),
         ("Reports", "#7B61FF", "Essentials first: contacts, deadlines, invoices, tables to Excel, one person, "
                                "your highlights, charts. Tick what to include, then save as PDF, Word or Excel."),
@@ -50202,7 +50201,7 @@ class App:
             "  (table styles, pictures beside the text, page breaks). Ctrl+P preview · Ctrl+S save.\n"
             "  Double-click a written page to edit it again.\n\n"
             "FIND AND REPORTS\n"
-            "  The search box finds a document by its name - not exact: 'week 38', 'wk38' - or a word inside.\n"
+            "  The search box finds a document by its name - not exact - or a word inside.\n"
             "  Ctrl+F this book · Ctrl+K everywhere (Everything / Document names / Inside the documents).\n"
             "  Ctrl+R (or the Reports button): a simple list - Extract data (emails, names, phones…), Tables\n"
             "  (rows and columns as they are), Find, Text analysis (word count, summary), Documents, Dates,\n"
