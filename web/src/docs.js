@@ -6,6 +6,7 @@ import { idb } from "./idb.js";
 import { store, saving, patchFile, toast, undoStack, redoStack, addFileToBook, books, bookId, logChange, settings } from "./state.js";
 import { baseName, debounce, isPaged, uniqueName } from "./util.js";
 import { _t } from "./i18n.js";
+import { need } from "./license.js";
 
 const open = new Map();     // file id -> Promise<{key, pages, isPDF, converted}>
 const lru = [];             // file ids, most recent last
@@ -246,6 +247,7 @@ export async function redo() {
 
 // pages of a document changed (turned, taken out, added)
 export async function pageOp(file, fn, ...args) {
+  if (!need("pages")) throw new Error(_t("This is part of BindLens Pro."));
   const d = await getDoc(file);
   const pages = await call(fn, d.key, ...args);
   d.pages = pages;

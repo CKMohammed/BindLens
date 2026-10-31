@@ -229,6 +229,7 @@ export function readable(hex, min = 4.5) {
 
 // the institution's colours (Settings > Colours), or null for the BindLens colours of the logo
 export function brandOf(st) {
+  if (globalThis.__blInstOk && !globalThis.__blInstOk()) return null;   // your institution: in the institution plans
   const b = st && st.brand;
   if (!b || !b.on || !b.c1) return null;
   const c1 = b.c1, c2 = b.c2 || mix(b.c1, "#FFFFFF", 0.45);

@@ -31,6 +31,7 @@ export function AccountButton() {
       s.cloud && { label: _t("Open my Drive in ") + s.cloud, icon: "drive", run: () => window.open(s.folderLink(), "_blank") },
       { label: _t("Settings"), icon: "settings", run: () => openPanel("settings") },
       { label: _t("Help"), icon: "help", run: () => openPanel("help") },
+      s.kind !== "demo" && { label: _t("My licence"), icon: "star", run: () => openPanel("license") },
       { label: _t("Send feedback"), icon: "feedback", run: () => openPanel("feedback") },
       "-",
       { label: s.kind === "demo" ? _t("Leave the example library") : _t("Sign out"), icon: "logout", run: signOut },

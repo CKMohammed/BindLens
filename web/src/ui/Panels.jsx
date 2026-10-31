@@ -1,4 +1,5 @@
 import { toast as _toast } from "../state.js";
+import { needPanel } from "../license.js";
 import { consult, CONSULT_PANELS, refused } from "../consult.js";
 // The panel that is open (Find, Reports, What needs you, Settings...).
 import { lazy, Suspense } from "preact/compat";
@@ -6,6 +7,7 @@ import { panel } from "../state.js";
 import { Find } from "./Find.jsx";
 import { Dialog } from "./dialogs.jsx";
 
+const License = lazy(() => import("./License.jsx").then(m => ({ default: m.License })));
 const Reports = lazy(() => import("./Reports.jsx").then(m => ({ default: m.Reports })));
 const Dates = lazy(() => import("./Dates.jsx").then(m => ({ default: m.Dates })));
 const Settings = lazy(() => import("./Settings.jsx").then(m => ({ default: m.Settings })));
@@ -37,7 +39,7 @@ const DocDetails = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Do
 const Consult = lazy(() => import("./Consult.jsx").then(m => ({ default: m.Consult })));
 const Inbox = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Inbox })));
 
-const MAP = { reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
+const MAP = { license: License, reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
   versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, firstrun: FirstRun, legal: Legal, bookstyle: BookStyle,
   addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose, docdata: DocDetails, inbox: Inbox, consult: Consult };
@@ -51,6 +53,7 @@ export function Panels() {
   if (!p) return null;
   if (consult.value && !CONSULT_PANELS.has(p.type)) { setTimeout(() => { panel.value = null; _toast(refused()); }, 0); return null; }
   if (p.type === "find") return <Find />;
+  if (!needPanel(p.type)) return <Suspense fallback={<Loading />}><License why={p.type} /></Suspense>;
   const C = MAP[p.type];
   if (!C) return null;
   return <Suspense fallback={<Loading />}><C {...p} /></Suspense>;
