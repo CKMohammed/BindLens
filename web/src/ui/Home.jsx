@@ -6,7 +6,7 @@ import { greeting, fmtDate, mix, initials, daysBetween, isoDate, uid } from "../
 import { Icon } from "./icons.jsx";
 import { openMenu, ask } from "./dialogs.jsx";
 import { newBook, uploadFiles, pickFiles, renameBook, deleteBook, setBookColor, moveBook, bookDragStart, bookWasDragged, openPanel, continueReading,
-  addFromDrive, addFolderFromDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook, addSharedBook, bringNewFiles } from "../actions.js";
+  addFromDrive, addFolderFromDrive, addFolderFromOneDrive, signOut, toggleBookLock, addFolder, addDocsAsBooks, newSubBook, releaseBook, addSharedBook, bringNewFiles } from "../actions.js";
 import { needsCount, needsNow, status } from "../reports/dates.js";
 import { openItem, addCountdown, addExpiry, daysLeft, expiriesDue } from "./needs.js";
 import { indexLibrary, indexed } from "../docs.js";
@@ -47,6 +47,7 @@ export function uploadItems() {
     { label: _t("Documents from this computer (into a folder you name)..."), icon: "upload", run: async () => { const fs = await pickFiles(); if (fs.length) uploadFiles(null, fs, { root: true }); } },
     { label: _t("A folder from this computer (it becomes a book)..."), icon: "book", run: () => addFolder() },
     store.value.canPick && { label: _t("From my Google Drive (the originals, no copies)..."), icon: "drive", run: () => addFromDrive() },
+    store.value.kind === "onedrive" && { label: _t("A folder from my OneDrive (the original, no copies)..."), icon: "drive", run: () => addFolderFromOneDrive() },
   ];
 }
 
@@ -54,6 +55,7 @@ export function addItems() {
   return [
     { label: _t("New book from a template..."), icon: "template", run: () => openPanel("templates") },
     { label: _t("New empty book..."), icon: "plus", run: () => newBook().then(b => b && openBook(b.id)) },
+    store.value.kind === "onedrive" && { label: _t("A folder from my OneDrive (the original, no copies)..."), icon: "drive", run: () => addFolderFromOneDrive() },
     { label: _t("Add a folder... (a book with all its files)"), icon: "book", run: () => addFolder() },
     store.value.canPick && { label: _t("A whole folder from my Google Drive..."), icon: "drive", run: () => addFolderFromDrive() },
     store.value.canPick && { label: _t("Files from my Google Drive..."), icon: "drive", run: () => addFromDrive() },

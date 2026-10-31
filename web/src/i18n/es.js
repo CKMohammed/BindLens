@@ -2322,5 +2322,14 @@ export default {
  "Activate": "Activar",
  "I have a gift code": "Tengo un código de regalo",
  "Use it": "Usarlo",
- "Payments by Lemon Squeezy, with VAT. Cancel any time. Reading your books is always free.": "Pagos con Lemon Squeezy, IVA incluido. Cancela cuando quieras. Leer tus libros es siempre gratis."
+ "Payments by Lemon Squeezy, with VAT. Cancel any time. Reading your books is always free.": "Pagos con Lemon Squeezy, IVA incluido. Cancela cuando quieras. Leer tus libros es siempre gratis.",
+ "A folder from my OneDrive (the original, no copies)...": "Una carpeta de mi OneDrive (el original, sin copias)...",
+ "A folder from my OneDrive": "Una carpeta de mi OneDrive",
+ "Make \"{0}\" a book": "Convertir «{0}» en libro",
+ "OneDrive did not answer: ": "OneDrive no respondió: ",
+ "No folders here. Use the button below to make this folder a book.": "Aquí no hay carpetas. Usa el botón de abajo para convertir esta carpeta en libro.",
+ "Make it a book": "Convertir en libro",
+ "\"{0}\" is a book now - the folder stays where it is in your OneDrive.": "«{0}» ya es un libro: la carpeta sigue donde está en tu OneDrive.",
+ "Could not open that folder of your OneDrive.": "No se pudo abrir esa carpeta de tu OneDrive.",
+ "OneDrive did not answer:": "OneDrive no respondió:"
 };

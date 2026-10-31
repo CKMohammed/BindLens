@@ -1446,3 +1446,5 @@ body.bkdrag,body.bkdrag *{cursor:grabbing!important;user-select:none}
 .lic-price{font-size:22px;font-weight:700;letter-spacing:-.02em}.lic-price small{font-size:12px;font-weight:400;opacity:.7;margin-left:2px}
 .lic-row{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .lic-have{gap:8px;padding:10px 12px;border-radius:12px;background:var(--accent-soft,rgba(124,92,255,.08));margin-bottom:10px}
+
+.od-row{gap:8px;align-items:center;margin:2px 0}

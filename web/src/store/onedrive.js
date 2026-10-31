@@ -8,7 +8,8 @@ import { _t } from "../i18n.js";
 // the "Application (client) ID" of the BindLens app in Microsoft Entra (web/.env: VITE_MS_CLIENT_ID=...); empty = no OneDrive button
 export const MS_CLIENT_ID = import.meta.env.VITE_MS_CLIENT_ID || "";
 const AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
-const SCOPE = "Files.ReadWrite.AppFolder User.Read offline_access";
+// 1.0: your whole OneDrive (a folder you choose becomes a book, where it is - nothing copied) and the app's own folder
+const SCOPE = "Files.ReadWrite Files.ReadWrite.AppFolder User.Read offline_access";
 const G = "https://graph.microsoft.com/v1.0";
 const SETTINGS_NAME = "BindLens library.json";
 const SELECT = "id,name,size,lastModifiedDateTime,parentReference,folder,file,cTag,eTag,webUrl";
@@ -130,6 +131,12 @@ export class OneDriveStore {
     const settings = top.filter(x => x.file && x.name === SETTINGS_NAME).sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""))[0];
     if (settings) this.settingsId = settings.id;
     const books = top.filter(x => x.folder);
+    // your own OneDrive folders chosen as books (they stay where they are)
+    const linked = new Set(this.linked || []);
+    for (const id of linked) {
+      if (books.some(b => b.id === id)) continue;
+      try { const it = await this.json(`${G}/me/drive/items/${id}?$select=${SELECT}`); if (it.folder) books.push(it); } catch (e) { /* gone or no access */ }
+    }
     const files = [], subs = [];
     const walk = async (folder, book, path, depth) => {
       for (const it of await this.children(folder.id)) {
@@ -143,7 +150,7 @@ export class OneDriveStore {
     };
     for (const b of books) await walk(b, b, "", 0);
     const loose = top.filter(x => x.file && x.name !== SETTINGS_NAME).map(x => this.norm(x));
-    return { books: books.map(b => ({ id: b.id, name: b.name, modified: b.lastModifiedDateTime })), files, loose, subs };
+    return { books: books.map(b => ({ id: b.id, name: b.name, modified: b.lastModifiedDateTime, linked: linked.has(b.id) })), files, loose, subs };
   }
 
   async createFolder(name, parent) {
@@ -249,5 +256,13 @@ export class OneDriveStore {
   webLink(file) { return file.web || this.rootUrl || "https://onedrive.live.com/"; }
   folderLink() { return this.rootUrl || "https://onedrive.live.com/"; }
   async pick() { return []; }
+  // the folders inside a folder of your OneDrive ("root" = the top), for choosing one as a book
+  async folders(id = "root") {
+    const url = id === "root" ? `${G}/me/drive/root/children?$top=999&$select=${SELECT}` : `${G}/me/drive/items/${id}/children?$top=999&$select=${SELECT}`;
+    const out = [];
+    let u = url;
+    while (u) { const j = await this.json(u); out.push(...j.value); u = j["@odata.nextLink"] || null; }
+    return out.filter(x => x.folder).map(x => ({ id: x.id, name: x.name, count: x.folder.childCount || 0 })).sort((a, b) => a.name.localeCompare(b.name));
+  }
   async meta(id) { return this.norm(await this.json(`${G}/me/drive/items/${id}?$select=${SELECT}`)); }
 }

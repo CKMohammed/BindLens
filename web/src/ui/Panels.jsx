@@ -7,6 +7,7 @@ import { panel } from "../state.js";
 import { Find } from "./Find.jsx";
 import { Dialog } from "./dialogs.jsx";
 
+const OneDrivePick = lazy(() => import("./OneDrivePick.jsx").then(m => ({ default: m.OneDrivePick })));
 const License = lazy(() => import("./License.jsx").then(m => ({ default: m.License })));
 const Reports = lazy(() => import("./Reports.jsx").then(m => ({ default: m.Reports })));
 const Dates = lazy(() => import("./Dates.jsx").then(m => ({ default: m.Dates })));
@@ -39,7 +40,7 @@ const DocDetails = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Do
 const Consult = lazy(() => import("./Consult.jsx").then(m => ({ default: m.Consult })));
 const Inbox = lazy(() => import("./DocData.jsx").then(m => ({ default: m.Inbox })));
 
-const MAP = { license: License, reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
+const MAP = { odpick: OneDrivePick, license: License, reports: Reports, dates: Dates, settings: Settings, help: Help, pin: Pin, write: Write, scan: Scan,
   gallery: Gallery, print: Print, signature: Signature, pages: Pages, study: Study, bookpin: BookPin,
   versions: Versions, deleted: Deleted, protect: Protect, welcome: Welcome, firstrun: FirstRun, legal: Legal, bookstyle: BookStyle,
   addpages: AddPages, templates: Templates, tasks: Tasks, share: Share, keys: Keys, feedback: Feedback, quickbar: QuickBarChoose, docdata: DocDetails, inbox: Inbox, consult: Consult };

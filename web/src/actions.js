@@ -121,6 +121,18 @@ export async function addFromDrive(book) {
 // picker and you choose its files (select them all).
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const SKIP_MIME = new Set(["application/vnd.google-apps.shortcut", "application/vnd.google-apps.form", "application/vnd.google-apps.site", "application/vnd.google-apps.map"]);
+// 1.0: a folder of your OneDrive becomes a book - the original, where it is (nothing copied)
+export async function addFolderFromOneDrive() {
+  panel.value = { type: "odpick" };
+}
+export async function linkOneDriveFolder(fo) {
+  linkBook({ id: fo.id, name: fo.name }, true);
+  await reloadLibrary();
+  const b = books.value.find(x => x.id === fo.id);
+  if (b) { toast(_t("\"{0}\" is a book now - the folder stays where it is in your OneDrive.", fo.name), "ok"); openBook(b.id); }
+  else toast(_t("Could not open that folder of your OneDrive."), "bad");
+}
+
 export async function addFolderFromDrive() {
   if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add a folder from your computer (Add a folder).") : _t("Sign in with Google to add folders from your Drive.")); return; }
   try {
