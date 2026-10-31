@@ -2331,5 +2331,7 @@ export default {
  "Make it a book": "Convertir en libro",
  "\"{0}\" is a book now - the folder stays where it is in your OneDrive.": "«{0}» ya es un libro: la carpeta sigue donde está en tu OneDrive.",
  "Could not open that folder of your OneDrive.": "No se pudo abrir esa carpeta de tu OneDrive.",
- "OneDrive did not answer:": "OneDrive no respondió:"
+ "OneDrive did not answer:": "OneDrive no respondió:",
+ "Reading your library... {0}%": "Leyendo tu biblioteca... {0} %",
+ "{0} files found": "{0} archivos encontrados"
 };

@@ -138,8 +138,14 @@ export class OneDriveStore {
       try { const it = await this.json(`${G}/me/drive/items/${id}?$select=${SELECT}`); if (it.folder) books.push(it); } catch (e) { /* gone or no access */ }
     }
     const files = [], subs = [];
+    // how far: every item seen of all the items the folders say they hold (the count grows as folders open)
+    let total = books.reduce((a, b) => a + ((b.folder && b.folder.childCount) || 0), 0) || 1, seen = 0, pct = 0;
+    const tick = (name) => { pct = Math.max(pct, Math.min(99, Math.round(seen / total * 100))); this.onProgress && this.onProgress({ pct, files: files.length, name }); };
     const walk = async (folder, book, path, depth) => {
       for (const it of await this.children(folder.id)) {
+        seen++;
+        if (it.folder) total += it.folder.childCount || 0;
+        tick(folder.name);
         if (it.folder) {
           if (depth > 10) continue;
           const p = (path ? path + "/" : "") + it.name;

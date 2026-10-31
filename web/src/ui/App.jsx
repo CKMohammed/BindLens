@@ -3,7 +3,7 @@ import { useEffect } from "preact/hooks";
 import { batch, effect } from "@preact/signals";
 import "../theme.js";
 import { store, phase, errorText, settings, view, panel, books, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen, bookId, pageNo, openBook } from "../state.js";
+  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen, bookId, pageNo, openBook, libLoad } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -240,6 +240,9 @@ export function App() {
         {!ready ? <Start /> : shut ? null : view.value === "book" ? <BookView /> : <Home />}
       </div>
       {open && !consult.value && <FrameBar />}
+      {libLoad.value && <div class="libload" role="status"><b>{_t("Reading your library... {0}%", libLoad.value.pct)}</b>
+        <div class="libload-bar"><i style={{ width: Math.max(4, libLoad.value.pct) + "%" }} /></div>
+        <small>{_t("{0} files found", libLoad.value.files)}{libLoad.value.name ? " · " + libLoad.value.name : ""}</small></div>}
       {open && !consult.value && <button class="fabscan" title={_t("Scan paper")} aria-label={_t("Scan paper")} onClick={() => openPanel("scan", {})}><Icon n="scan" size={24} /></button>}
       {open && panel.value && <Panels />}
       {open && <Pip />}

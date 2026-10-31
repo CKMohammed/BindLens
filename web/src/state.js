@@ -154,11 +154,17 @@ export function setDocData(ids, change) {
   setSetting("docs", all);
 }
 
+// 1.0: reading a big library (a heavy OneDrive folder): how far it is, shown at the top
+export const libLoad = signal(null);    // {pct, files, name}
+
 export async function reloadLibrary() {
   const s = store.value;
+  let last = 0;
+  s.onProgress = (p) => { const t = Date.now(); if (t - last > 120) { last = t; libLoad.value = p; } };
   s.linked = (settings.value.linkedBooks || []).map(x => x.id);    // books colleagues shared with you
   s.own = (settings.value.linkedBooks || []).filter(x => x.own).map(x => x.id);   // 1.0: your own folders, where they are
-  const list = await s.listAll();
+  let list;
+  try { list = await s.listAll(); } finally { libLoad.value = null; s.onProgress = null; }
   batch(() => {
     books.value = buildLibrary(list);
     looseFiles.value = list.loose || [];
