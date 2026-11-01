@@ -2353,5 +2353,7 @@ export default {
  "More rows": "Más filas",
  "Save ({0})": "Guardar ({0})",
  "Only the cells you change go back to Google; formulas start with =.": "Solo se guardan en Google las celdas que cambias; las fórmulas empiezan por =.",
- "Edit the cells here": "Editar las celdas aquí"
+ "Edit the cells here": "Editar las celdas aquí",
+ "Not saved yet": "Aún no guardado",
+ "It cannot be edited here now:": "Ahora no se puede editar aquí:"
 };

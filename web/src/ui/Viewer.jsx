@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "preact/compat";
 // The book: every document of the folder, one after another, as pages you scroll through - and the marks on them.
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal, effect } from "@preact/signals";
@@ -1167,10 +1168,9 @@ export function Viewer({ book }) {
             {(files.length > 1 || f.kind === "gdoc") && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
               <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
               {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} {_t("page")}{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
-              {f.kind === "gdoc" && /spreadsheet/.test(f.mime || "") && store.value?.sheetRead && <button class="btn small" style={{ marginLeft: 8 }} onClick={() => { panel.value = { type: "sheetedit", file: f }; }}><Icon n="table" size={15} />{_t("Edit the cells here")}</button>}
               {f.kind === "gdoc" && store.value?.editLink && <button class="btn soft small" style={{ marginLeft: 8 }} onClick={() => import("./AddPages.jsx").then(m => m.openBeside(store.value.editLink(/spreadsheet/.test(f.mime || "") ? "sheet" : /presentation/.test(f.mime || "") ? "slides" : "doc", f.id)))}><Icon n="edit" size={15} />{_t("Edit it in Google")}</button>}
             </div>}
-            <DocBlock book={book} file={f} k={k} maxW={maxW} grid={grid} />
+            <SheetOrDoc book={book} file={f} k={k} maxW={maxW} grid={grid} />
           </div>
         ))}
       </div>
@@ -1181,6 +1181,16 @@ export function Viewer({ book }) {
     <MarkMap scroller={scroller} files={files} k={k} />
     </>
   );
+}
+
+// 1.0: a Google Sheet is edited right in the page (its cells); if that cannot be done, it is shown as it looks
+const SheetGrid = lazy(() => import("./SheetEdit.jsx").then(m => ({ default: m.SheetGrid })));
+function SheetOrDoc(props) {
+  const f = props.file;
+  const [fail, setFail] = useState("");
+  const sheet = f.kind === "gdoc" && /spreadsheet/.test(f.mime || "") && store.value?.sheetRead && !consult.value;
+  if (!sheet || fail) return <>{fail && <p class="tiny muted sheetfail">{_t("It cannot be edited here now:")} {fail}</p>}<DocBlock {...props} /></>;
+  return <Suspense fallback={<div class="spinner" />}><SheetGrid key={f.id + ":" + (f.modified || "")} file={f} onFail={setFail} /></Suspense>;
 }
 
 // the marks of the book as small ticks on the right edge, at the height where each one is (a click goes there)

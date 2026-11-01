@@ -1477,3 +1477,9 @@ body.bkdrag,body.bkdrag *{cursor:grabbing!important;user-select:none}
 .sheetgrid td input{width:100%;box-sizing:border-box;border:0;background:transparent;color:inherit;font:inherit;padding:6px 8px;outline:none}
 .sheetgrid td input:focus{box-shadow:inset 0 0 0 2px var(--accent,#C2337A);background:var(--panel,#fff)}
 .sheetgrid td.ch{background:color-mix(in srgb,#FFD43B 28%,transparent)}
+.sheetwrap.inline{width:min(1200px,100%);margin:0 auto 28px;box-sizing:border-box}
+.sheetwrap.inline .sheetgrid{max-height:min(74vh,900px);box-shadow:0 14px 34px -22px rgba(0,0,0,.45)}
+.sheetbar{display:flex;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:wrap}
+.sheetbar .sheettabs{margin:0}
+.sheetstate.saved{color:#1E8E3E}.sheetstate.error{color:var(--bad,#B3261E)}
+.sheetfail{max-width:720px;margin:0 auto 8px;text-align:center}
