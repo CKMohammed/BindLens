@@ -49,6 +49,17 @@ export class DriveStore {
   }
 
   async signIn(silent = false) {
+    // 1.0: signed in on bindlens.com (in the tablet): the answer Google gave there is used here, no second window
+    let h = null;
+    try { h = JSON.parse(sessionStorage.getItem("bl_handoff") || "null"); sessionStorage.removeItem("bl_handoff"); } catch (e) {}
+    if (h && h.k === "drive" && h.t && h.e > Date.now() && String(h.s || "").includes(FILE_SCOPE)) {
+      this.token = h.t; this.expires = h.e; this.appData = String(h.s).includes(APPDATA_SCOPE);
+      loadGoogle().catch(() => {});
+    } else await this.signInGoogle(silent);
+    await this.loadUser();
+  }
+
+  async signInGoogle(silent) {
     await loadGoogle();
     const hint = localStorage.getItem("bl_email") || undefined;
     await new Promise((resolve, reject) => {
@@ -73,6 +84,9 @@ export class DriveStore {
       });
       this.tokenClient.requestAccessToken({ prompt: silent ? "" : undefined });
     });
+  }
+
+  async loadUser() {
     if (!this.user) {
       const about = await this.json(`${API}/about?fields=user(displayName,emailAddress,photoLink)`);
       this.user = { name: shortName(about.user.displayName), email: about.user.emailAddress, photo: about.user.photoLink };

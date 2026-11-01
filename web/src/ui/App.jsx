@@ -138,7 +138,16 @@ const G = () => (
 function Start() {
   const back = (() => { try { return localStorage.getItem("bl_signed_in") === "1" ? localStorage.getItem("bl_email") : null; } catch (e) { return null; } })();
   const backMs = (() => { try { return !!MS_CLIENT_ID && localStorage.getItem("bl_cloud") === "onedrive" && !!back; } catch (e) { return false; } })();
-  useEffect(() => { loadGoogle().catch(() => {}); engineStarted().catch(() => {}); }, []);
+  useEffect(() => {
+    loadGoogle().catch(() => {}); engineStarted().catch(() => {});
+    // 1.0: signed in on bindlens.com, in the tablet: straight into the library
+    const go = (() => { try { return new URLSearchParams(location.search).get("go") || ""; } catch (e) { return ""; } })();
+    if (!go) return;
+    try { const u = new URL(location.href); u.searchParams.delete("go"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+    let ok = false;
+    try { ok = go === "drive" ? !!sessionStorage.getItem("bl_handoff") : go === "onedrive" ? !!JSON.parse(localStorage.getItem("bl_ms") || "null")?.refresh : false; } catch (e) {}
+    if (ok && phase.value === "start") startWith(go === "drive" ? new DriveStore() : new OneDriveStore());
+  }, []);
   const busy = phase.value === "loading";
   const from = (() => { try { return new URLSearchParams(location.search).get("start") || ""; } catch (e) { return ""; } })();   // from bindlens.com
   return (
