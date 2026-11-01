@@ -2345,5 +2345,13 @@ export default {
  "Add 1 file": "Añadir 1 archivo",
  "Add {0} files": "Añadir {0} archivos",
  "Nothing to add here.": "Aquí no hay nada que añadir.",
- "Files from my OneDrive...": "Archivos de mi OneDrive..."
+ "Files from my OneDrive...": "Archivos de mi OneDrive...",
+ "Close without saving your changes?": "¿Cerrar sin guardar tus cambios?",
+ "Editing Google Sheets in BindLens is not switched on yet. For now, edit it in Google: BindLens shows the changes when you come back.": "Editar hojas de Google en BindLens aún no está activado. De momento, edítala en Google: BindLens mostrará los cambios cuando vuelvas.",
+ "Google did not answer:": "Google no respondió:",
+ "Saved in Google Sheets.": "Guardado en Google Sheets.",
+ "More rows": "Más filas",
+ "Save ({0})": "Guardar ({0})",
+ "Only the cells you change go back to Google; formulas start with =.": "Solo se guardan en Google las celdas que cambias; las fórmulas empiezan por =.",
+ "Edit the cells here": "Editar las celdas aquí"
 };

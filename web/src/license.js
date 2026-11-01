@@ -18,7 +18,7 @@ export const PLANS = [
 export const GIFT_PUBLIC_KEY = "";
 const API = "https://api.lemonsqueezy.com/v1/licenses/";
 // what a licence is needed for, once the 7 days are over (reading, finding and seeing your marks stay free)
-const PAID_PANELS = new Set(["reports", "scan", "signature", "write", "addpages"]);
+const PAID_PANELS = new Set(["reports", "scan", "signature", "write", "addpages", "sheetedit"]);
 const FREE_TOOLS = new Set(["select", "hand", "pan", "read"]);
 
 const day = 86400000;

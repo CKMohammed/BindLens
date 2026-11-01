@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "preact/hooks";
 import { signal, effect } from "@preact/signals";
 import { books, bookId, fileId, pageNo, tool, toolOpts, zoom, fitWidth, toast, rememberPlace, settings, store,
-  readMode, visibleFiles, subView, fitPage, bookMeta, commentsOpen, aloudMark } from "../state.js";
+  readMode, visibleFiles, subView, fitPage, bookMeta, commentsOpen, aloudMark, panel } from "../state.js";
 import { getDoc, onDocChange, call, addMark, editMark, deleteMark, copyMark, marksOn, pdfCopyOf, afterEdit, fileFor, isOpen } from "../docs.js";
 import { hexToRgb, isPaged, kindOf, debounce, fmtSize, mix } from "../util.js";
 import { Icon, fileIcon } from "./icons.jsx";
@@ -1167,6 +1167,7 @@ export function Viewer({ book }) {
             {(files.length > 1 || f.kind === "gdoc") && <div class="dochead" style={{ maxWidth: Math.min(avail, (docState.value[f.id]?.pages?.[0]?.w || 595) * k * PT) + "px" }}>
               <Icon n={fileIcon(f.kind)} size={16} /><span class="grow ellipsis">{f.sub ? <span class="muted">{f.sub.replace(/\//g, " / ")} / </span> : null}{f.name}</span>
               {docState.value[f.id]?.pages && <span class="tiny">{docState.value[f.id].pages.length} {_t("page")}{docState.value[f.id].pages.length === 1 ? "" : "s"}</span>}
+              {f.kind === "gdoc" && /spreadsheet/.test(f.mime || "") && store.value?.sheetRead && <button class="btn small" style={{ marginLeft: 8 }} onClick={() => { panel.value = { type: "sheetedit", file: f }; }}><Icon n="table" size={15} />{_t("Edit the cells here")}</button>}
               {f.kind === "gdoc" && store.value?.editLink && <button class="btn soft small" style={{ marginLeft: 8 }} onClick={() => import("./AddPages.jsx").then(m => m.openBeside(store.value.editLink(/spreadsheet/.test(f.mime || "") ? "sheet" : /presentation/.test(f.mime || "") ? "slides" : "doc", f.id)))}><Icon n="edit" size={15} />{_t("Edit it in Google")}</button>}
             </div>}
             <DocBlock book={book} file={f} k={k} maxW={maxW} grid={grid} />

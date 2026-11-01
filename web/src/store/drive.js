@@ -593,6 +593,25 @@ export class DriveStore {
     return r.arrayBuffer();
   }
 
+  // 1.0: a Google Sheet edited right in BindLens (Google Sheets API): its tabs and cells; only the cells you change go back
+  async sheetRead(id) {
+    const SH = "https://sheets.googleapis.com/v4/spreadsheets/" + id;
+    const meta = await this.json(SH + "?fields=sheets.properties(sheetId,title,gridProperties(rowCount,columnCount))");
+    const tabs = (meta.sheets || []).map(x => x.properties);
+    const q = tabs.map(t => "ranges=" + encodeURIComponent("'" + t.title.replace(/'/g, "''") + "'")).join("&");
+    const [f, v] = tabs.length ? await Promise.all([
+      this.json(`${SH}/values:batchGet?${q}&valueRenderOption=FORMULA&dateTimeRenderOption=FORMATTED_STRING`),
+      this.json(`${SH}/values:batchGet?${q}&valueRenderOption=FORMATTED_VALUE`)]) : [{}, {}];
+    return tabs.map((t, i) => ({ id: t.sheetId, title: t.title, rows: t.gridProperties?.rowCount || 1000, cols: t.gridProperties?.columnCount || 26,
+      formula: (f.valueRanges?.[i]?.values) || [], shown: (v.valueRanges?.[i]?.values) || [] }));
+  }
+  async sheetWrite(id, data, more = []) {
+    const SH = "https://sheets.googleapis.com/v4/spreadsheets/" + id;
+    if (more.length) await this.json(SH + ":batchUpdate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requests: more }) });
+    return this.json(SH + "/values:batchUpdate", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }) });
+  }
+
   editLink(kind, id) {
     return { doc: `https://docs.google.com/document/d/${id}/edit`, sheet: `https://docs.google.com/spreadsheets/d/${id}/edit`,
       slides: `https://docs.google.com/presentation/d/${id}/edit` }[kind];

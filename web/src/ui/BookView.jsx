@@ -581,7 +581,7 @@ function RRail() {
 }
 
 // a Google Doc of the book changed in its window: when you come back, BindLens shows it as it is now
-async function refreshGoogle(f, loud = false) {
+export async function refreshGoogle(f, loud = false) {
   const s = store.value;
   if (!s.meta) return;
   try {
