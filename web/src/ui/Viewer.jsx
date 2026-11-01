@@ -1189,7 +1189,8 @@ function SheetOrDoc(props) {
   const f = props.file;
   const [fail, setFail] = useState("");
   const sheet = f.kind === "gdoc" && /spreadsheet/.test(f.mime || "") && store.value?.sheetRead && !consult.value;
-  if (!sheet || fail) return <>{fail && <p class="tiny muted sheetfail">{_t("It cannot be edited here now:")} {fail}</p>}<DocBlock {...props} /></>;
+  // nothing technical for the reader: the sheet is shown as it looks, and "Edit it in Google" stays above it
+  if (!sheet || fail) return <DocBlock {...props} />;
   return <Suspense fallback={<div class="spinner" />}><SheetGrid key={f.id + ":" + (f.modified || "")} file={f} onFail={setFail} /></Suspense>;
 }
 
