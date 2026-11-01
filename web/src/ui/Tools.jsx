@@ -94,6 +94,7 @@ export function toolMenus(book, side) {
     { label: _t("Pages to this document..."), icon: "addpage", run: () => openPanel("addpages", { book: book.id }) },
     { label: _t("Files..."), icon: "upload", run: async () => uploadFiles(book, await pickFiles()) },
     store.value.canPick && { label: _t("Files from my Google Drive..."), icon: "drive", run: () => addFromDrive(book) },
+    store.value.kind === "onedrive" && { label: _t("Files from my OneDrive..."), icon: "drive", run: () => addFromDrive(book) },
     { label: _t("A folder as a sub-book..."), icon: "book", run: () => addFolder(book) },
     store.value.canPick && { label: _t("A whole folder from my Drive (a new book)..."), icon: "drive", run: () => addFolderFromDrive() },
     "-",

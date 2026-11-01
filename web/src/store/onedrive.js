@@ -133,28 +133,39 @@ export class OneDriveStore {
     const books = top.filter(x => x.folder);
     // your own OneDrive folders chosen as books (they stay where they are)
     const linked = new Set(this.linked || []);
-    for (const id of linked) {
-      if (books.some(b => b.id === id)) continue;
+    await Promise.all([...linked].filter(id => !books.some(b => b.id === id)).map(async (id) => {
       try { const it = await this.json(`${G}/me/drive/items/${id}?$select=${SELECT}`); if (it.folder) books.push(it); } catch (e) { /* gone or no access */ }
-    }
+    }));
     const files = [], subs = [];
     // how far: every item seen of all the items the folders say they hold (the count grows as folders open)
     let total = books.reduce((a, b) => a + ((b.folder && b.folder.childCount) || 0), 0) || 1, seen = 0, pct = 0;
     const tick = (name) => { pct = Math.max(pct, Math.min(99, Math.round(seen / total * 100))); this.onProgress && this.onProgress({ pct, files: files.length, name }); };
+    // 1.0: several folders are read at the same time (6 at once) - a big library opens much faster
+    let active = 0; const waiting = [];
+    const slot = () => active < 6 ? (active++, Promise.resolve()) : new Promise(r => waiting.push(r));
+    const free = () => { const n = waiting.shift(); if (n) n(); else active--; };
+    const kids = async (id) => { await slot(); try { return await this.children(id); } finally { free(); } };
     const walk = async (folder, book, path, depth) => {
-      for (const it of await this.children(folder.id)) {
+      const inner = [];
+      for (const it of await kids(folder.id)) {
         seen++;
-        if (it.folder) total += it.folder.childCount || 0;
-        tick(folder.name);
         if (it.folder) {
+          total += it.folder.childCount || 0;
           if (depth > 10) continue;
           const p = (path ? path + "/" : "") + it.name;
           subs.push({ id: it.id, name: it.name, book: book.id, path: p });
-          await walk(it, book, p, depth + 1);
+          inner.push(walk(it, book, p, depth + 1));
         } else files.push({ ...this.norm(it), book: book.id, sub: path, parent: folder.id });
       }
+      tick(folder.name);
+      await Promise.all(inner);
     };
-    for (const b of books) await walk(b, b, "", 0);
+    await Promise.all(books.map(b => walk(b, b, "", 0)));
+    // 1.0: single files of your OneDrive shown in a book, where they are (nothing is copied)
+    const ids = new Set(books.map(b => b.id));
+    await Promise.all((this.linkedFiles || []).filter(x => ids.has(x.book)).map(async (x) => {
+      try { const it = await this.json(`${G}/me/drive/items/${x.id}?$select=${SELECT}`); if (it.file && !files.some(f => f.id === it.id)) files.push({ ...this.norm(it), book: x.book, sub: "", parent: x.book, linkedFile: true }); } catch (e) { /* gone */ }
+    }));
     const loose = top.filter(x => x.file && x.name !== SETTINGS_NAME).map(x => this.norm(x));
     return { books: books.map(b => ({ id: b.id, name: b.name, modified: b.lastModifiedDateTime, linked: linked.has(b.id) })), files, loose, subs };
   }
@@ -263,12 +274,15 @@ export class OneDriveStore {
   folderLink() { return this.rootUrl || "https://onedrive.live.com/"; }
   async pick() { return []; }
   // the folders inside a folder of your OneDrive ("root" = the top), for choosing one as a book
-  async folders(id = "root") {
+  // a folder of your OneDrive: its folders, and its files (PDFs, pictures, Excel...) - for "From my OneDrive"
+  async folders(id = "root", withFiles = false) {
     const url = id === "root" ? `${G}/me/drive/root/children?$top=999&$select=${SELECT}` : `${G}/me/drive/items/${id}/children?$top=999&$select=${SELECT}`;
     const out = [];
     let u = url;
     while (u) { const j = await this.json(u); out.push(...j.value); u = j["@odata.nextLink"] || null; }
-    return out.filter(x => x.folder).map(x => ({ id: x.id, name: x.name, count: x.folder.childCount || 0 })).sort((a, b) => a.name.localeCompare(b.name));
+    const fo = out.filter(x => x.folder).map(x => ({ id: x.id, name: x.name, count: x.folder.childCount || 0 })).sort((a, b) => a.name.localeCompare(b.name));
+    if (!withFiles) return fo;
+    return fo.concat(out.filter(x => x.file).map(x => ({ id: x.id, name: x.name, file: true, size: x.size || 0 })).sort((a, b) => a.name.localeCompare(b.name)));
   }
   async meta(id) { return this.norm(await this.json(`${G}/me/drive/items/${id}?$select=${SELECT}`)); }
 }

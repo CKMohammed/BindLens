@@ -74,7 +74,8 @@ export function linkBook(fo, own = true) {
 }
 
 export async function addFromDrive(book) {
-  if (!store.value.canPick) { toast(store.value.kind === "onedrive" ? _t("With OneDrive, add the files from your computer (Add files).") : _t("Sign in with Google to add files from your Drive.")); return; }
+  if (store.value.kind === "onedrive") { panel.value = { type: "odpick", book: book && book.id }; return; }
+  if (!store.value.canPick) { toast(_t("Sign in with Google to add files from your Drive.")); return; }
   try {
     const picked = await store.value.pick(true, { both: true });
     if (!picked.length) return;
@@ -124,6 +125,35 @@ const SKIP_MIME = new Set(["application/vnd.google-apps.shortcut", "application/
 // 1.0: a folder of your OneDrive becomes a book - the original, where it is (nothing copied)
 export async function addFolderFromOneDrive() {
   panel.value = { type: "odpick" };
+}
+// 1.0: single files of your OneDrive (a PDF, an Excel...) into a book - they stay where they are, nothing is copied
+export async function linkOneDriveFiles(files, bookIdv) {
+  if (!files.length) return;
+  let book = bookIdv && books.value.find(b => b.id === bookIdv), each = false;
+  if (!book) {
+    const cur = currentBook.value;
+    const where = await choose(_t("Where do they go?"), files.length === 1 ? files[0].name : _t("{0} files", files.length), [
+      cur && { key: cur.id, label: _t("Into \"{0}\"", cur.name), icon: "book" },
+      { key: "__each", label: files.length === 1 ? _t("As its own book") : _t("Each one as its own book"), icon: "book" },
+      files.length > 1 && { key: "__new", label: _t("A new book with them"), icon: "plus" },
+      ...books.value.filter(b => !cur || b.id !== cur.id).slice(0, 8).map(b => ({ key: b.id, label: _t("Into \"{0}\"", b.name), icon: "book" })),
+    ].filter(Boolean));
+    if (!where) return;
+    if (where === "__each") each = true;
+    else if (where === "__new") book = await newBook();
+    else book = books.value.find(b => b.id === where);
+    if (!each && !book) return;
+  }
+  const add = [];
+  for (const f of files) {
+    if (each) { book = await newBook(f.name.replace(/\.[^.]+$/, ""), { quiet: true }); if (!book) continue; }
+    add.push({ id: f.id, book: book.id, name: f.name });
+    logChange(_t("Added from your OneDrive (the original, not a copy)"), f.name, book.name);
+  }
+  const have = settings.value.linkedFiles || [];
+  setSetting("linkedFiles", [...have.filter(x => !add.some(a => a.id === x.id && a.book === x.book)), ...add]);
+  await reloadLibrary();
+  if (add.length) toast(_t("{0} file{1} added to \"{2}\".", add.length, add.length > 1 ? "s" : "", each ? "BindLens" : book.name), "ok");
 }
 export async function linkOneDriveFolder(fo) {
   linkBook({ id: fo.id, name: fo.name }, true);
@@ -268,6 +298,14 @@ export async function renameFile(book, file) {
 }
 
 export async function deleteFile(book, file) {
+  if (file.linkedFile) {          // a single OneDrive file shown in the book: it only leaves the book
+    const ok1 = await confirm(_t("Take \"{0}\" out of this book?", file.name), _t("It stays where it is in your OneDrive."), { ok: _t("Take it out") });
+    if (!ok1) return;
+    setSetting("linkedFiles", (settings.value.linkedFiles || []).filter(x => !(x.id === file.id && x.book === book.id)));
+    logChange(_t("Taken out of the book"), file.name, book.name);
+    removeFile(file.id);
+    return;
+  }
   const ok = await confirm(_t("Move \"{0}\" to the bin?", file.name), _t("It goes to your Google Drive bin, where you can get it back for 30 days."),
     { ok: _t("Move to the bin"), danger: true });
   if (!ok) return;
@@ -285,6 +323,12 @@ export async function deleteFile(book, file) {
 
 export async function moveFileTo(book, file, toBook) {
   await saveAll();
+  if (file.linkedFile) {          // a single OneDrive file: only the book that shows it changes, the file stays where it is
+    setSetting("linkedFiles", (settings.value.linkedFiles || []).map(x => x.id === file.id && x.book === book.id ? { ...x, book: toBook.id } : x));
+    removeFile(file.id);
+    addFileToBook(toBook.id, { ...file, book: toBook.id, parent: toBook.id });
+    return;
+  }
   const f = file.shortcut ? (await store.value.move(file.shortcut, file.parent || book.id, toBook.id), { ...file })
     : await store.value.move(file.id, file.parent || book.id, toBook.id);
   f.parent = toBook.id;
@@ -366,6 +410,7 @@ export async function deleteSub(book, sub) {
 export async function moveFileToSub(book, file, sub) {
   const to = sub ? sub.id : book.id;
   if ((file.parent || book.id) === to) return;
+  if (file.linkedFile) { toast(_t("This file stays where it is in your OneDrive.")); return; }
   await saveAll();
   await store.value.move(file.shortcut || file.id, file.parent || book.id, to);
   books.value = books.value.map(b => b.id === book.id ? { ...b, files: b.files.map(f => f.id === file.id ? { ...f, parent: to, sub: sub ? sub.path : "" } : f) } : b);

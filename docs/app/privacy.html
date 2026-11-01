@@ -29,12 +29,13 @@ h2{font:700 22px "Bricolage Grotesque",sans-serif;margin:30px 0 8px}
 <main>
 <header><img src="/app/icon.png" alt=""><a href="/app/">BindLens Web</a></header>
 <h1>Privacy</h1>
-<p class="muted">BindLens Web is a free program that runs in your web browser. It has no servers and no accounts of its own.</p>
+<p class="muted">BindLens Web runs in your web browser. It has no servers and no accounts of its own. The Windows apps (BindLens and AZBook Reader) are covered at the end of this page.</p>
 <div class="card">
 <h2 style="margin-top:0">What BindLens Web can see</h2>
 <ul>
 <li>You sign in with your Google account. BindLens asks Google for one permission: <b>drive.file</b>. With it, BindLens can see and change only the files and folders it made (the "BindLens" folder in your Google Drive and what is in it) or the files you give it yourself with "Add from my Drive". It cannot see the rest of your Drive, your email or your contacts.</li>
 <li>It reads your name and email address from your Google account to show you who is signed in.</li>
+<li>If you sign in with Microsoft (OneDrive) instead, BindLens asks Microsoft for permission to read and change your OneDrive files, because you can choose any folder or file of yours as a book, where it is. It only opens the folders and files you choose and its own folder (Apps/BindLens). It reads your name and email address to show you who is signed in.</li>
 </ul>
 <h2>Where your things are kept</h2>
 <ul>
@@ -49,7 +50,7 @@ h2{font:700 22px "Bricolage Grotesque",sans-serif;margin:30px 0 8px}
 </ul>
 <h2>Other services it uses</h2>
 <ul>
-<li><b>Google</b> (sign-in and Google Drive), under Google's own privacy policy.</li>
+<li><b>Google</b> (sign-in and Google Drive) or <b>Microsoft</b> (sign-in and OneDrive), under their own privacy policies.</li>
 <li><b>GitHub Pages</b> serves the program's files (like any website, it can see your IP address when the page loads).</li>
 <li>Reading the words of a scanned page downloads the reading engine (Tesseract) from jsDelivr, a public network of files, the first time.</li>
 <li>"Add to Google Calendar" opens Google Calendar with the date filled in; nothing is added until you save it there.</li>
@@ -60,10 +61,19 @@ h2{font:700 22px "Bricolage Grotesque",sans-serif;margin:30px 0 8px}
 <li>You can take BindLens's access away at any time in your Google Account: Security, Third-party apps and services.</li>
 <li>You can delete the BindLens folder in your Drive at any time.</li>
 </ul>
+<h2 id="windows">The Windows apps: BindLens and AZBook Reader</h2>
+<ul>
+<li>They run on your computer, with no account and no sign-in. Your files stay in the folders you choose on your computer, and your marks are saved inside your own PDFs.</li>
+<li>Nothing of yours is sent to the author or to anybody else. There is no advertising, no selling of data and no tracking.</li>
+<li>Reading the words of a scanned page is done on your computer.</li>
+<li>They only go online when you ask for something that needs it: "Share" opens your own email program, and choosing a background picture from the internet asks Wikimedia Commons or Picsum for pictures.</li>
+<li>Installed from the Microsoft Store, they are updated by the Store, under Microsoft's privacy statement. Installed from bindlens.com, AZBook Reader may ask GitHub whether there is a newer version (only the version number is read).</li>
+<li>Uninstalling removes the program; your folders and PDFs stay where they are.</li>
+</ul>
 <h2>Questions</h2>
-<p>Write on the project page: <a href="https://github.com/CKMohammed/BindLens/issues">github.com/CKMohammed/BindLens/issues</a>.</p>
+<p>Write to <a href="mailto:support@bindlens.com">support@bindlens.com</a>.</p>
 </div>
-<p class="muted" style="margin-top:30px">Last updated 16 October 2026 · <a href="/app/privacy.html">Privacy</a> · <a href="/app/terms.html">Terms of use</a> · <a href="https://github.com/CKMohammed/BindLens">Source code</a> · <a href="/app/privacy.es.html" lang="es">Español</a></p>
+<p class="muted" style="margin-top:30px">Last updated 1 November 2026 · <a href="/app/privacy.html">Privacy</a> · <a href="/app/terms.html">Terms of use</a> · <a href="/app/privacy.es.html" lang="es">Español</a></p>
 </main>
 </body>
 </html>

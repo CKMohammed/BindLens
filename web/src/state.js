@@ -49,7 +49,9 @@ const saveSettingsSoon = debounce(async () => {
   try { await s.saveSettings(settings.value); } catch (e) { console.warn("settings", e); }
 }, 1500);
 
+let setGen = 0;                             // how many changes this session (a fresh copy must not undo one)
 export function setSetting(key, value) {
+  setGen++;
   settings.value = { ...settings.value, [key]: value };
   saveSettingsSoon();
 }
@@ -157,18 +159,48 @@ export function setDocData(ids, change) {
 // 1.0: reading a big library (a heavy OneDrive folder): how far it is, shown at the top
 export const libLoad = signal(null);    // {pct, files, name}
 
-export async function reloadLibrary() {
+// 1.0: the library opens at once from what this browser kept the last time, then it is read again quietly
+const bootKey = (s) => "boot:" + (s.kind || "") + ":" + ((s.user && s.user.email) || "");
+export async function showKeptLibrary(s) {
+  if (!s || !s.cloud || s.offline) return false;
+  let k = null;
+  try { k = await idb.get("kv", bootKey(s)); } catch (e) {}
+  if (!k || !k.list || !k.list.books) return false;
+  batch(() => {
+    settings.value = k.settings || {};
+    books.value = buildLibrary(k.list);
+    looseFiles.value = k.list.loose || [];
+  });
+  return true;
+}
+export async function freshenLibrary(s) {
+  const g = setGen;
+  try {
+    const fresh = (await s.loadSettings()) || {};
+    if (setGen === g) {
+      const hadPin = !!settings.value.pin;
+      settings.value = fresh;
+      if (fresh.pin && !hadPin) locked.value = true;
+    }
+    await reloadLibrary({ quiet: true });
+  } catch (e) { console.warn("freshen", e); }
+}
+
+export async function reloadLibrary(opt = {}) {
   const s = store.value;
   let last = 0;
-  s.onProgress = (p) => { const t = Date.now(); if (t - last > 120) { last = t; libLoad.value = p; } };
+  s.onProgress = (p) => { const t = Date.now(); if (t - last > 120) { last = t; libLoad.value = { ...p, quiet: !!opt.quiet }; } };
   s.linked = (settings.value.linkedBooks || []).map(x => x.id);    // books colleagues shared with you
   s.own = (settings.value.linkedBooks || []).filter(x => x.own).map(x => x.id);   // 1.0: your own folders, where they are
+  s.linkedFiles = settings.value.linkedFiles || [];                // 1.0: single OneDrive files shown in a book, where they are
+  if (opt.quiet) libLoad.value = { pct: 0, files: 0, quiet: true };
   let list;
   try { list = await s.listAll(); } finally { libLoad.value = null; s.onProgress = null; }
   batch(() => {
     books.value = buildLibrary(list);
     looseFiles.value = list.loose || [];
   });
+  if (s.cloud && !s.offline) { try { idb.set("kv", bootKey(s), { at: Date.now(), settings: settings.value, list }); } catch (e) {} }
 }
 
 export function patchFile(f) {

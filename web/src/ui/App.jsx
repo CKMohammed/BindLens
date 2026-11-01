@@ -1,9 +1,10 @@
 import { consult, readOnlyStore, consultPlace, rememberPlace, scratch } from "../consult.js";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { installPrompt, installApp } from "../install.js";
 import { batch, effect } from "@preact/signals";
 import "../theme.js";
 import { store, phase, errorText, settings, view, panel, books, toasts, locked, needsTap, reloadLibrary, toast, tool, fileId,
-  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen, bookId, pageNo, openBook, libLoad } from "../state.js";
+  currentBook, readMode, offline, narrow, saving, framePulse, leftOpen, bookId, pageNo, openBook, libLoad, showKeptLibrary, freshenLibrary } from "../state.js";
 import { DriveStore, loadGoogle } from "../store/drive.js";
 import { DemoStore } from "../store/demo.js";
 import { OneDriveStore, MS_CLIENT_ID } from "../store/onedrive.js";
@@ -69,14 +70,19 @@ async function startWith(s, { tour = true } = {}) {
     }
     if (s.queue) s.onQueue = (n) => { offline.value = { on: s.offline || navigator.onLine === false, waiting: n }; };
     store.value = consult.value ? readOnlyStore(s) : s;
-    settings.value = (await s.loadSettings()) || {};
-    await reloadLibrary();
+    // 1.0: what this browser kept opens at once; the fresh library comes in quietly a moment later
+    const kept = !consult.value && await showKeptLibrary(s);
+    if (!kept) {
+      settings.value = (await s.loadSettings()) || {};
+      await reloadLibrary();
+    }
     if (consult.value) backToReading();
     batch(() => {
       if (settings.value.pin) locked.value = true;
       view.value = "home";
       phase.value = "ready";
     });
+    if (kept) setTimeout(() => freshenLibrary(s), 400);
     import("../notify.js").then(n => n.startNotifications()).catch(() => {});
     if (s.cloud && s.waiting && s.waiting().length && !s.offline) backOnline(s);
     if (tour) {
@@ -154,6 +160,37 @@ function Start() {
           <div class="langpick" role="group" aria-label="Language / Idioma">{LANGS.map(([k, l]) => <button key={k} class={lang === k ? "on" : ""} onClick={() => setLang(k)}>{l}</button>)}</div>
         </>}
       </div>
+    </div>
+  );
+}
+
+// 1.0: reading the library - a little shelf that fills book by book; a thin line at the top when it is a quiet refresh
+function LibLoad({ p }) {
+  if (p.quiet) return <div class="libthin" role="status" aria-label={_t("Reading your library... {0}%", p.pct)}><i style={{ width: Math.max(6, p.pct) + "%" }} /></div>;
+  const n = 9, lit = Math.floor(p.pct / 100 * n);
+  return (
+    <div class="libload" role="status">
+      <div class="libshelf" aria-hidden="true">{Array.from({ length: n }, (_, i) => <i key={i} class={i < lit ? "on" : i === lit ? "now" : ""}
+        style={{ "--h": (58 + (i * 37) % 42) + "%", "--cc": "var(--c" + ((i % 5) + 1) + ",#C2337A)" }} />)}</div>
+      <b>{_t("Reading your library... {0}%", p.pct)}</b>
+      <small>{_t("{0} files found", p.files)}{p.name ? " · " + p.name : ""}</small>
+    </div>
+  );
+}
+
+// 1.0: on a phone, "Install the app" (Android: the browser's own install; iPhone/iPad: how to add it to the home screen)
+function InstallPill() {
+  const [gone, setGone] = useState(() => { try { return !!localStorage.getItem("bl-install-no"); } catch (e) { return false; } });
+  const [ios, setIos] = useState(false);
+  const standalone = typeof matchMedia !== "undefined" && (matchMedia("(display-mode: standalone)").matches || navigator.standalone);
+  const apple = /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  if (gone || standalone || !narrow.value || (!installPrompt.value && !apple)) return null;
+  const no = () => { setGone(true); try { localStorage.setItem("bl-install-no", "1"); } catch (e) {} };
+  return (
+    <div class="instpill" role="region" aria-label={_t("Install the app")}>
+      {ios ? <span class="small">{_t("In Safari: tap Share, then \"Add to Home Screen\".")}</span>
+        : <button class="btn small" onClick={async () => { if (installPrompt.value) { await installApp(); no(); } else setIos(true); }}><Icon n="download" size={15} />{_t("Install the app")}</button>}
+      <button class="btn plain small" aria-label={_t("Close")} onClick={no}><Icon n="close" size={14} /></button>
     </div>
   );
 }
@@ -240,9 +277,8 @@ export function App() {
         {!ready ? <Start /> : shut ? null : view.value === "book" ? <BookView /> : <Home />}
       </div>
       {open && !consult.value && <FrameBar />}
-      {libLoad.value && <div class="libload" role="status"><b>{_t("Reading your library... {0}%", libLoad.value.pct)}</b>
-        <div class="libload-bar"><i style={{ width: Math.max(4, libLoad.value.pct) + "%" }} /></div>
-        <small>{_t("{0} files found", libLoad.value.files)}{libLoad.value.name ? " · " + libLoad.value.name : ""}</small></div>}
+      {libLoad.value && <LibLoad p={libLoad.value} />}
+      {!consult.value && (!ready || view.value === "home") && <InstallPill />}
       {open && !consult.value && <button class="fabscan" title={_t("Scan paper")} aria-label={_t("Scan paper")} onClick={() => openPanel("scan", {})}><Icon n="scan" size={24} /></button>}
       {open && panel.value && <Panels />}
       {open && <Pip />}

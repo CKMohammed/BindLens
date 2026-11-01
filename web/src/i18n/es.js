@@ -2333,5 +2333,17 @@ export default {
  "Could not open that folder of your OneDrive.": "No se pudo abrir esa carpeta de tu OneDrive.",
  "OneDrive did not answer:": "OneDrive no respondió:",
  "Reading your library... {0}%": "Leyendo tu biblioteca... {0} %",
- "{0} files found": "{0} archivos encontrados"
+ "{0} files found": "{0} archivos encontrados",
+ "Added from your OneDrive (the original, not a copy)": "Añadido desde tu OneDrive (el original, no una copia)",
+ "It stays where it is in your OneDrive.": "Se queda donde está en tu OneDrive.",
+ "Taken out of the book": "Quitado del libro",
+ "This file stays where it is in your OneDrive.": "Este archivo se queda donde está en tu OneDrive.",
+ "Install the app": "Instalar la app",
+ "In Safari: tap Share, then \"Add to Home Screen\".": "En Safari: toca Compartir y luego «Añadir a pantalla de inicio».",
+ "From my OneDrive: files or a folder (the originals, no copies)...": "De mi OneDrive: archivos o una carpeta (los originales, sin copias)...",
+ "From my OneDrive": "De mi OneDrive",
+ "Add 1 file": "Añadir 1 archivo",
+ "Add {0} files": "Añadir {0} archivos",
+ "Nothing to add here.": "Aquí no hay nada que añadir.",
+ "Files from my OneDrive...": "Archivos de mi OneDrive..."
 };
